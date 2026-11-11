@@ -192,6 +192,9 @@ reference, and `ref var name` is a mutable one. A type may be written before the
 - In generic code, the type argument of the instance decides between the two: in an instance whose
   matched type is copyable, the binding refers into a copy
   ([Checking generic code](11-generics.md#generics.checking)).
+- If an `is` pattern binds a reference into a temporary, the temporary lives until the pattern's
+  names go out of scope: at the end of an `if`, or at the end of an iteration of a `while`. The
+  temporary is released right after the names.
 - `ref` needs a mutable place. A variant's fields are not changed in place, so a variant field is
   bound with `in` only; `ref` binds a field of a struct pattern
   ([Variants](09-enums.md#enums.variants)).

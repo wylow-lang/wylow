@@ -23,4 +23,62 @@ void main() {
     std::print(square(Shape.Dot));                  // output: false
     std::print(volume(Shape.Box(1.0, 2.0, 3.0)));   // output: 6.0
     std::print(volume(Shape.Dot));                  // output: 0.0
+    temporaries();
+    // output: 8.0
+    // output: 10.0
+    // output: 1
+    // output: token 1
+    // output: after if
+    // output: 0
+    // output: token 0
+    // output: 1
+    // output: token 1
+    // output: token 2
+}
+
+// A temporary that an `is` binds by reference lives until the names go out of scope: to the end of
+// the `if`, or of each iteration of a `while`.
+
+unique struct Token {
+    pub int id;
+
+    ~Token() {
+        std::print($"token {id}");
+    }
+}
+
+unique enum Slot {
+    Full(Token token),
+    Empty,
+}
+
+Shape box(double depth) {
+    return Shape.Box(1.0, 2.0, depth);
+}
+
+Slot full(int id) {
+    return Slot.Full(Token(id));
+}
+
+double copied(in Shape shape) {
+    if ((switch (shape) { default -> shape; }) is Box(in var w, in var h, in var d)) {
+        return w * h * d;
+    }
+    return 0.0;
+}
+
+void temporaries() {
+    if (box(4.0) is Box(in var w, in double h, in var d)) {
+        std::print(w * h * d);
+    }
+    std::print(copied(box(5.0)));
+    if (full(1) is Full(in var token)) {
+        std::print(token.id);
+    }
+    std::print("after if");
+    mut int i = 0;
+    while (full(i) is Full(in var token) && i < 2) {
+        std::print(token.id);
+        i += 1;
+    }
 }

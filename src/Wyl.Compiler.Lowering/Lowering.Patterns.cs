@@ -20,17 +20,15 @@ public sealed partial class IrLowering
     void DeclarePatternLocals(BoundExpression? expression, bool? references = null)
     {
         // A moving binding's matched value is held in a local of the statement's own, so that what the
-        // pattern leaves is released after the names (spec patterns.bindings.moves).
-        if (references is null or false)
+        // pattern leaves is released after the names (spec patterns.bindings.moves). A temporary that a
+        // reference binding refers into is held with the reference names, in each iteration of a loop.
+        foreach (var test in HeldTests(expression).Where(t => references is null || !Moves(t) == references))
         {
-            foreach (var test in MovingTests(expression))
-            {
-                if (helds.ContainsKey(test))
-                    continue;
-                var held = Temp(test.Operand.Type);
-                Add(new IrDeclare(held) { Origin = at });
-                helds[test] = held;
-            }
+            if (helds.ContainsKey(test))
+                continue;
+            var held = Temp(test.Operand.Type);
+            Add(new IrDeclare(held) { Origin = at });
+            helds[test] = held;
         }
         foreach (var local in BoundTree.PatternLocals(expression).Where(l => references is null || (l.RefKind != RefKind.None) == references))
         {
@@ -41,15 +39,24 @@ public sealed partial class IrLowering
         }
     }
 
-    /// <summary>The tests whose match moves the value they match, outside any lambda, which is lowered on its own.</summary>
-    IEnumerable<BoundIs> MovingTests(BoundExpression? expression) => expression switch
+    /// <summary>The tests that hold the value they match in a local, outside any lambda, which is lowered on its own.</summary>
+    IEnumerable<BoundIs> HeldTests(BoundExpression? expression) => expression switch
     {
         null or BoundLambda => [],
-        BoundIs test when Patterns.Bindings(test.Pattern).Any(local => Moves(local.Type)) => [test],
-        _ => BoundTree.Children(expression).SelectMany(MovingTests),
+        BoundIs test when Holds(test) => [test],
+        _ => BoundTree.Children(expression).SelectMany(HeldTests),
     };
 
-    /// <summary>The local each moving <c>is</c> holds the value it moves into.</summary>
+    /// <summary>
+    /// Whether a test holds the value it matches until its names go out of scope: a moving binding
+    /// moves the value, and a reference binding into a temporary needs the temporary to outlive the condition.
+    /// </summary>
+    bool Holds(BoundIs test) => test.Pattern is not BoundReferencePattern && (Moves(test)
+        || IsTemporary(test.Operand) && Patterns.Bindings(test.Pattern).Any(local => local.RefKind != RefKind.None));
+
+    bool Moves(BoundIs test) => Patterns.Bindings(test.Pattern).Any(local => Moves(local.Type));
+
+    /// <summary>The local each holding <c>is</c> moves the value it matches into.</summary>
     readonly Dictionary<BoundIs, IrLocal> helds = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Where each <c>is ref</c> name is declared, which its holder is declared just before.</summary>
@@ -128,9 +135,12 @@ public sealed partial class IrLowering
     IrPlace Matched(BoundExpression value) => value switch
     {
         BoundThis { Type.IsReference: true } => new IrPlace(self!),
-        _ when IsPlace(value) => Place(value, Use.Read),
+        _ when !IsTemporary(value) => Place(value, Use.Read),
         _ => new IrPlace(Let(Rvalue(value, Use.Read))),
     };
+
+    /// <summary>Whether matching a value first evaluates it into a temporary.</summary>
+    static bool IsTemporary(BoundExpression value) => value is not BoundThis { Type.IsReference: true } && !IsPlace(value);
 
     /// <summary>
     /// The tests matching a pattern makes, in order, and what it binds. A test reads a projection
@@ -258,9 +268,8 @@ public sealed partial class IrLowering
         Tests(test.Pattern, () => root, tests, bindings);
         if (bindings.Count == 0)
             return new IrUse(Conjunction(tests, 0, null));
-        bool moves = bindings.Any(b => b.Moves);
         IrLocal? held = null;
-        if (moves && !helds.TryGetValue(test, out held))
+        if (Holds(test) && !helds.TryGetValue(test, out held))
             Add(new IrDeclare(held = Temp(matched.Type)) { Origin = at });
         return new IrUse(Conjunction(tests, 0, () =>
         {

@@ -111,9 +111,10 @@ created it completes, not at its last use. Within a statement:
   that operand completes.
 - Each evaluation of an `if` or `while` condition, or of a `for` loop's condition or update, is a
   statement of its own, so its temporaries are released before the body or the next step runs. A
-  `switch`'s matched value, what an `is ref` binding holds, and what a moving binding leaves of a
-  temporary last longer ([Holds](#memory.holds),
-  [Moving bindings](15-patterns.md#patterns.bindings.moves)).
+  `switch`'s matched value, what an `is ref` binding holds, what a moving binding leaves of a
+  temporary, and a temporary that an `is` pattern binds by reference last longer
+  ([Holds](#memory.holds), [Moving bindings](15-patterns.md#patterns.bindings.moves),
+  [Reference bindings](15-patterns.md#patterns.references)).
 - In a `return`, the statement's temporaries are released after the value is computed and before
   the function's locals.
 - Each argument of `super(...)` is a statement of its own, so its temporaries are released before
