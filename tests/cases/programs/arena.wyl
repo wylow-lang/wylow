@@ -1,7 +1,7 @@
 // A small turn-based arena: entities move on a grid, fight, and drop loot.
 // Written to exercise the language as a whole rather than one feature at a time.
 
-import std::List;
+import std::collections::List;
 
 struct Vec2 {
     int x, y;

@@ -2,7 +2,7 @@
 // it is destroyed exactly where it would have been released. `stack:` counts the objects of a line
 // that are; every other object made in the program is on the heap.
 
-import std::{List, Weak, memory};
+import std::{Weak, memory}; import std::collections::List;
 
 class Noisy {
     String name;

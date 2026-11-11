@@ -1,7 +1,7 @@
 // A function an import brings in is called through its module, so the call says where the function
 // comes from (decision 0073). A bare call of one is a warning, and the program still runs.
 
-import std::{List, replace, swap};
+import std::{replace, swap}; import std::collections::List;
 import std::threading::*;
 
 struct Point {

@@ -91,7 +91,5 @@ tests of their own, including invalid UTF-8 and an empty string.
 
 ## Open for the user
 
-- Whether `List`, `Array`, and future collections such as `Map` and `Queue` move into a module such
-  as `std::collections`. The convention for `std`'s modules is in `docs/design/working.md`.
 - The roadmap (issue #6) still needs the updates of the extension-methods and iteration sessions.
   The user applies them.

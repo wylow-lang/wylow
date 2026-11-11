@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 /// Returns the number of elements of `items` that pass `test`.
 pub int count<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {

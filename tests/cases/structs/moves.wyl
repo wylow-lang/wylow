@@ -1,7 +1,7 @@
 // Using a value after it is moved, moving it out of what is not a whole local, and moving it while
 // an earlier operand refers to it are flow errors.
 
-import std::List;
+import std::collections::List;
 
 unique struct Counter {
     pub int value;

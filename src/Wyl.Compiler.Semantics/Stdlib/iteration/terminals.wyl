@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 /// Returns the number of elements that remain in `source`.
 ///

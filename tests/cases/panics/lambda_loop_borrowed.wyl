@@ -1,6 +1,6 @@
 // A lambda can't grow a list while a loop is iterating it.
 
-import std::List;
+import std::collections::List;
 
 void call(fn() -> void f) {
     f();

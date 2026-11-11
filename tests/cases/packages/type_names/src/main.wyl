@@ -1,7 +1,7 @@
 // A message names a type by its name, unless another type of the program has it; then by its
 // package and module path (docs/diagnostics/README.md).
 
-import std::List as StdList;
+import std::collections::List as StdList;
 
 struct Chunk { int x; }
 class List { }
@@ -9,6 +9,6 @@ struct Unique { }
 
 void main() {
     world::Chunk c = Chunk(x: 1);           // error[WYL0079]: expected 'type_names::world::Chunk', found 'type_names::Chunk'
-    StdList<int> numbers = new List();      // error[WYL0079]: expected 'std::List<int>', found 'type_names::List'
+    StdList<int> numbers = new List();      // error[WYL0079]: expected 'std::collections::List<int>', found 'type_names::List'
     int n = Unique();                       // error[WYL0079]: expected 'int', found 'Unique'
 }

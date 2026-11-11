@@ -1,6 +1,6 @@
 // A virtual, abstract, or interface method may return a reference. Each implementation returns a
 // place in its own receiver or reached through it, and the caller holds what the place is in.
-import std::List;
+import std::collections::List;
 
 class Counter {
     pub mut int count;

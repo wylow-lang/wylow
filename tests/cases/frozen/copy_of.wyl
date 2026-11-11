@@ -2,7 +2,7 @@
 // original keeps its elements.
 
 import std::threading::Frozen;
-import std::List;
+import std::collections::List;
 
 void main() {
     var squares = new Array<int>(4, 0);

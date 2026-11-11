@@ -1,6 +1,6 @@
 // Escaping functions: stored in fields, returned, and held by containers and nullable values.
 
-import std::List;
+import std::collections::List;
 
 class Button {
     String name;

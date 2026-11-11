@@ -1,6 +1,6 @@
 // The name an 'is ref' pattern gives an element borrows the list while it is in scope.
 
-import std::List;
+import std::collections::List;
 
 void main() {
     var numbers = new List<int>();

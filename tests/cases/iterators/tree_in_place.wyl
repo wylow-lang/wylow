@@ -1,6 +1,6 @@
 // A tree's iterator returns a reference into each node, which the iterator reaches through the
 // stack of nodes it has yet to visit, so a 'ref' loop changes the values in place.
-import std::List;
+import std::collections::List;
 import std::iteration::RefIterator;
 
 class Node {

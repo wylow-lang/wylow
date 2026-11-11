@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 // Every way §6.7 writes a function type, in each place a type can be.
 

@@ -1,4 +1,4 @@
-import std::{List, memory};
+import std::memory; import std::collections::List;
 
 pub class Base {
     pub virtual void shown() { }

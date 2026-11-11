@@ -4,7 +4,7 @@
 
 import std::threading;
 import std::threading::Mutex;
-import std::List;
+import std::collections::List;
 
 unique struct Buffer {
     pub int length;

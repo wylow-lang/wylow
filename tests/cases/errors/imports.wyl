@@ -1,8 +1,8 @@
 // A file imports what it uses, except the types the language is built on (spec programs.imports,
 // programs.builtin-names), and a name has one meaning in a file.
 
-import std::List;
-import std::List;                   // error[WYL0040]: 'List' is already imported
+import std::collections::List;
+import std::collections::List;                   // error[WYL0040]: 'List' is already imported
 import std::Nothing;                // error[WYL0043]: cannot find 'Nothing' in the root module of 'std'
 import nowhere::Thing;              // error[WYL0038]: cannot find top-level module or package 'nowhere'
 import std::nowhere::Thing;         // error[WYL0039]: cannot find module 'nowhere' in the root module of 'std'

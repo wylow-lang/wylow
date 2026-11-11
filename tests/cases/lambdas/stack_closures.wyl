@@ -2,7 +2,7 @@
 // reference to it can outlive its scope, as an object made by `new` is; `stack:` counts closures
 // too. What it captures then only has to outlive the closure, so that can be on the stack as well.
 
-import std::{List, memory};
+import std::memory; import std::collections::List;
 
 class Noisy {
     String name;

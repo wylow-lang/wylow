@@ -1,6 +1,6 @@
 // The adapters of std::iteration on an 'Iterator' are lazy, and the terminal operations consume what
 // remains of an iterator (spec library.iterator).
-import std::List;
+import std::collections::List;
 import std::iteration;
 import std::iteration::*;
 

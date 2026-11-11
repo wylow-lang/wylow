@@ -3,7 +3,7 @@
 
 import std::threading;
 import std::threading::{Isolated, Mutex};
-import std::{List, Unit};
+import std::Unit; import std::collections::List;
 
 class Log {
     mut List<int> values;

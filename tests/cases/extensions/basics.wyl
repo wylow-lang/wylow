@@ -1,6 +1,6 @@
 // An extension method is called like a method of its receiver's type, and may also be called as a
 // function (spec functions.extensions).
-import std::List;
+import std::collections::List;
 
 struct Point {
     int x;

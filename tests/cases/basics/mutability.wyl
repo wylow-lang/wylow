@@ -1,6 +1,6 @@
 // Variables, parameters, and class fields are immutable unless declared 'mut'.
 
-import std::List;
+import std::collections::List;
 
 struct Vec {
     float x;

@@ -1,7 +1,7 @@
 // A frozen list's indexer checks the index, as a list's does.
 
 import std::threading::Frozen;
-import std::List;
+import std::collections::List;
 
 void main() {
     var values = new List<int>();

@@ -1,7 +1,7 @@
 // A function or static method used as a value is the lambda that calls it, so the function type it
 // is converted to picks the overload, and it can be passed, stored, chosen, and inferred from.
 
-import std::List;
+import std::collections::List;
 
 class Task {
     int depth;

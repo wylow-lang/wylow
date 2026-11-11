@@ -1,7 +1,7 @@
 // A loop element refers to the element in place unless something the loop runs may store over an
 // element of its type; then it holds its own reference, so the object it refers to stays the same.
 
-import std::List;
+import std::collections::List;
 
 class Account {
     String name;

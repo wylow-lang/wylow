@@ -2,7 +2,7 @@
 // release does.
 
 import std::threading::Frozen;
-import std::List;
+import std::collections::List;
 
 shared class Item {
     pub int id;

@@ -1,7 +1,7 @@
 // An 'Iterator' returns a fresh value from each call of 'current', so the adapters and terminal
 // operations pass unique elements through by moving them. A list's iterator gives references, so it
 // reaches unique elements in place (spec library.iterator).
-import std::List;
+import std::collections::List;
 import std::iteration::*;
 
 unique struct Ticket {

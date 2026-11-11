@@ -1,7 +1,7 @@
 // A function type's parameter declared 'escaping' is escaping in the lambdas of that type, so they
 // can store what they are passed.
 
-import std::{List, memory};
+import std::memory; import std::collections::List;
 
 class Bus {
     List<fn() -> void> handlers = new List<fn() -> void>();

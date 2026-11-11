@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 struct Score implements Comparable<Score> {
     int points;

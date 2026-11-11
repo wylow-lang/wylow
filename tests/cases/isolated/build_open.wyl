@@ -2,7 +2,7 @@
 // sendable value.
 
 import std::threading::Isolated;
-import std::List;
+import std::collections::List;
 
 class Entry {
     pub String name;

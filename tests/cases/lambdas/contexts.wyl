@@ -1,6 +1,6 @@
 // Lambdas meeting patterns, nullables, loops, evaluation order, refs, and spans.
 
-import std::List;
+import std::collections::List;
 
 class Task {
     int total;

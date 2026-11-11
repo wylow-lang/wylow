@@ -1,6 +1,6 @@
 // The terminal operations of std::iteration on spans take a non-escaping function, which reads each
 // element in place (spec library.iterator).
-import std::List;
+import std::collections::List;
 import std::iteration::*;
 
 unique struct Key {

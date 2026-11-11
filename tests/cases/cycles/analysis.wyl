@@ -1,7 +1,7 @@
 // Only objects of classes that may be cyclic are buffered when a release leaves their count above
 // zero, and only on the heap. Each `onHeap` and `drop` below makes one such release.
 
-import std::{List, Weak, memory};
+import std::{Weak, memory}; import std::collections::List;
 
 class Leaf {
     int value;

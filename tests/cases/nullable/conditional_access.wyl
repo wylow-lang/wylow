@@ -1,7 +1,7 @@
 // `?.` and `!` in functions of their own, without objects on the stack. Tokens print their name
 // when freed.
 
-import std::List;
+import std::collections::List;
 
 struct Vec {
     int x;

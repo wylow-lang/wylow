@@ -1,7 +1,7 @@
 // Recursive functions that only pass their function parameters on are templates, as others are;
 // one that passes itself a new lambda on some cycle would instantiate without end, so it isn't.
 
-import std::List;
+import std::collections::List;
 
 class Node {
     int value;

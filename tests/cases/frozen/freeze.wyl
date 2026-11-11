@@ -3,7 +3,7 @@
 // again.
 
 import std::threading::Frozen;
-import std::List;
+import std::collections::List;
 
 void main() {
     var names = new List<String>();

@@ -1,6 +1,6 @@
 // What escaping lambdas capture: copies of locals and parameters, and `this`, which they keep alive.
 
-import std::List;
+import std::collections::List;
 
 class Counter {
     mut int count = 0;

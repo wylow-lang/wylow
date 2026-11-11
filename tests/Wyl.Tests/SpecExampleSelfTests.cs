@@ -111,7 +111,7 @@ static partial class SpecExampleSelfTests
         var text = string.Join('\n', lines.Select(Elide));
         var used = string.Join('\n', lines);
         // On the first line, so a line of the program is a line of the block.
-        var head = ImportPattern().IsMatch(text) ? "" : "import std::{List, memory, panic}; ";
+        var head = ImportPattern().IsMatch(text) ? "" : "import std::{memory, panic}; import std::collections::List; ";
         var source = head + (statements ? "void main() { " : "") + text + (statements ? "\n}" : "");
         if (!statements && !MainPattern().IsMatch(text))
             source += "\nvoid main() { }";

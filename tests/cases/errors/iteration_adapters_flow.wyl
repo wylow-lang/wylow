@@ -1,6 +1,6 @@
 // An adapter moves a unique source into itself, so the source cannot be used after the call (spec
 // memory.moves).
-import std::List;
+import std::collections::List;
 import std::iteration::*;
 
 void main() {

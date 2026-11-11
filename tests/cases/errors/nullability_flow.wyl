@@ -1,6 +1,6 @@
 // A nullable local is used as its non-null type only where a null check narrows it (spec flow.narrowing).
 
-import std::List;
+import std::collections::List;
 
 class Node {
     int value;

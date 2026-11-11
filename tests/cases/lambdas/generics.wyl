@@ -1,6 +1,6 @@
 // Lambdas in generic classes, generic interfaces, bounds, static methods, and through '?.'.
 
-import std::List;
+import std::collections::List;
 
 interface Visitor<T> {
     void visit(fn(T) -> void f);

@@ -1,7 +1,7 @@
 // A test that succeeded keeps the list borrowed until the statement ends, in the else branch too
 // when the rest of the condition is false.
 
-import std::List;
+import std::collections::List;
 
 void main() {
     var numbers = new List<int>();

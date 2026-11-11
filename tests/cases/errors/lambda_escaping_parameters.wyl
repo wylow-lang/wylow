@@ -1,7 +1,7 @@
 // A function type's own parameters are non-escaping unless declared 'escaping', which is part of
 // the type: a lambda of the type may store such a parameter, and must be passed an escaping value.
 
-import std::List;
+import std::collections::List;
 
 class Bus {
     List<fn() -> void> handlers = new List<fn() -> void>();

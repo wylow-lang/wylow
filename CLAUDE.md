@@ -43,7 +43,7 @@ performance warning), `// panic:` or `// panic-here:` (also checks the line),
 `--cc tsan` runs. Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
 binds). A test imports the types it uses and calls functions through their module (decision 0072):
-`import std::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A
+`import std::collections::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A
 bare call of an imported function draws warning `WYL0480`; a test about imports themselves turns it off
 with `@SuppressWarnings("unqualified-call")` on the import or the declaration (decision 0073). A directory with a
 `package.wylcfg` (`tests/cases/packages/`) is one test of all its files.

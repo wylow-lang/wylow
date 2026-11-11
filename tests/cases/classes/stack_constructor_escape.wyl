@@ -1,7 +1,7 @@
 // A base or chained constructor runs on the object being made, so where it lets 'this' go, the
 // object goes: an object whose base constructor or this(...) stores it is never on the stack.
 
-import std::List;
+import std::collections::List;
 
 class Base {
     String name;

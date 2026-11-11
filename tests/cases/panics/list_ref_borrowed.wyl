@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 int grow(List<int> list) {
     list.add(0);                // panic-here: cannot change the length or capacity of a list while it is borrowed

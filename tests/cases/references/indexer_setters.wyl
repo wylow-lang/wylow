@@ -1,6 +1,6 @@
 // An element with no storage to refer to is assigned through 'operator []=' (spec functions.indexers.setters).
 
-import std::List;
+import std::collections::List;
 
 struct Nibbles {
     byte[4] bytes;

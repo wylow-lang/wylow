@@ -1,7 +1,7 @@
 // No declaration or import outside std takes a name every file sees, so each always means the
 // language's own declaration (spec programs.builtin-names).
 
-import std::List as Result;                 // error[WYL0437]: cannot import a declaration as 'Result'
+import std::collections::List as Result;                 // error[WYL0437]: cannot import a declaration as 'Result'
 
 struct String { }                           // error[WYL0057]: 'String' cannot be declared
 class Holder<Span> { }                      // error[WYL0057]: 'Span' cannot be declared

@@ -225,7 +225,7 @@ of one name found in two of these are never overloads of each other.
 **Example:**
 
 ```java unchecked
-import std::{List, Weak};
+import std::Weak; import std::collections::List;
 import orders::Order;
 import orders::format;                 // the module: format::text(o)
 import orders::format::text as show;
@@ -371,7 +371,7 @@ These names always mean these declarations:
   function, a method, a field, an enum variant or its field, a type parameter, a parameter, a local
   variable, or a pattern's binding.
 - It is a compile-time error if an import outside `std` brings in anything under one of these names
-  but the declaration of that name: `import std::Result;` is valid, and `import std::List as Result;`
+  but the declaration of that name: `import std::Result;` is valid, and `import std::collections::List as Result;`
   is not.
 
 <a id="programs.entry"></a>

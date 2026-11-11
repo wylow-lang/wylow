@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 struct Version implements Comparable<Version> {
     int major;

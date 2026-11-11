@@ -1,6 +1,6 @@
 // A call argument expects its parameter's type, so variants can leave out their enum.
 
-import std::List;
+import std::collections::List;
 
 enum Direction {
     North, East, South, West;

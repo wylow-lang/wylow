@@ -1,6 +1,6 @@
 // Type arguments inferred from what lambdas return.
 
-import std::List;
+import std::collections::List;
 
 U apply<T, U>(T value, fn(T) -> U f) {
     return f(value);

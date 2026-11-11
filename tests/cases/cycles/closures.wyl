@@ -1,6 +1,6 @@
 // A closure keeps what it captures alive, so it can be part of a cycle, which the collector frees.
 
-import std::{List, memory};
+import std::memory; import std::collections::List;
 
 class Account {
     int id;

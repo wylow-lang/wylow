@@ -19,14 +19,14 @@ these of its declarations, and on nothing else in it:
 | `Comparable<T>` | Ordering of the built-in types ([`Comparable`](#library.comparable)) |
 | `Result<T, E>` | `try` ([`Result`](18-errors.md#errors.result)) |
 | `Weak<T>` | Weak references ([Weak references](17-memory.md#memory.weak)) |
-| `Isolated<T>`, `List.isolate` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
+| `Isolated<T>`, `collections::List.isolate` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector ([`std::memory`](#library.memory)) |
 | `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
 | `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
 | `Mutex<T>` | Mutexes and the lock rule ([`Mutex<T>`](#library.mutex)) |
 | `Atomic<T>`, `AtomicBool` | Atomics ([`Atomic<T>` and `AtomicBool`](#library.atomic)) |
-| `Frozen<T>`, `List.freeze` | Frozen lists ([`Frozen<T>`](#library.frozen)) |
+| `Frozen<T>`, `collections::List.freeze` | Frozen lists ([`Frozen<T>`](#library.frozen)) |
 | `replace`, `swap`, `take` | Taking a value out of a place ([`replace`, `swap`, and `take`](#library.replace)) |
 
 A program may declare its own type with the name of any other declaration of `std`.
@@ -306,7 +306,7 @@ pub unique struct Isolated<T> {
     pub mut R open<R extends sendable>(shared fn(ref T) -> R body);
     pub T take(this Isolated<T> box);
 }
-// in List<T>
+// in std::collections::List<T>
 pub Isolated<List<T>> isolate() where T extends sendable;
 ```
 
@@ -397,7 +397,7 @@ pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpanna
     pub in? T get(int index);
     pub ReadOnlySpan<T> asReadOnlySpan();
 }
-// in List<T>
+// in std::collections::List<T>
 pub Frozen<T> freeze() where T extends sendable & copyable;
 ```
 

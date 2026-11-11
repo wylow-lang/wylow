@@ -1,6 +1,6 @@
 // The adapters and terminal operations on an 'InIterator' read the elements in place, so they work
 // on elements that cannot be copied (spec library.iterator).
-import std::List;
+import std::collections::List;
 import std::iteration::*;
 
 unique struct Key {

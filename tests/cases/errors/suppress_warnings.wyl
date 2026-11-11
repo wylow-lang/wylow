@@ -1,7 +1,7 @@
 // '@SuppressWarnings' lists string literals, each the name of a warning, and goes on a declaration,
 // a local variable, or an import (spec annotations.suppress-warnings).
 
-@SuppressWarnings import std::List;             // error[WYL0482]: '@SuppressWarnings' takes one or more string literals
+@SuppressWarnings import std::collections::List;             // error[WYL0482]: '@SuppressWarnings' takes one or more string literals
 @SuppressWarnings("unqualified-call", 1) import std::Weak;     // error[WYL0482]: '@SuppressWarnings' takes one or more string literals
 @SuppressWarnings("no-such-warning") import std::memory;      // warning[WYL0481]: cannot find warning 'no-such-warning'
 @CallerLocation import std::panic;              // error[WYL0432]: '@CallerLocation' can only be used on functions, methods, and constructors

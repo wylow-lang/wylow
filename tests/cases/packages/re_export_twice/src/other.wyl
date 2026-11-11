@@ -1,1 +1,1 @@
-pub import std::List;                   // error[WYL0041]: 'List' is already re-exported by this module
+pub import std::collections::List;                   // error[WYL0041]: 'List' is already re-exported by this module

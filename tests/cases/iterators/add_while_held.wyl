@@ -1,5 +1,5 @@
 // An iterator held in a variable borrows its list until the variable's scope ends.
-import std::List;
+import std::collections::List;
 
 void main() {
     var values = new List<int>();

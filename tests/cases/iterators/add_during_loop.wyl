@@ -1,5 +1,5 @@
 // An iterator borrows its list, so adding to the list while the loop runs panics.
-import std::List;
+import std::collections::List;
 
 void main() {
     var values = new List<int>();

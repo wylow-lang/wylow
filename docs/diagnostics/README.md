@@ -59,7 +59,7 @@ previous sentence. The writing pass, and the rule behind it, are in `CLAUDE.md`.
   (`'?.'`, `'m.peek(0)'`, `'List<Node>'`). Quote nothing else.
 - **Name types by their name alone**, as code that imported them would: `Node`, `List<Node>`.
   Only when another type of the program has the same name is each named by its package and module
-  path (`app::model::Node`, `std::List`); a lone file's package has no name, so it gives the module
+  path (`app::model::Node`, `std::collections::List`); a lone file's package has no name, so it gives the module
   path alone. File-private types of one name in one module add their file:
   `app::model::Node (tree.wyl)`. This applies to runtime diagnostics and panic messages too.
 - **Name functions** by name, or by signature where overloads make the name ambiguous:

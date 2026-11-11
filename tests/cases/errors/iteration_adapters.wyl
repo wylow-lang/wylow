@@ -1,5 +1,5 @@
 // The errors of the adapters and terminal operations of std::iteration (spec library.iterator).
-import std::List;
+import std::collections::List;
 import std::iteration::*;
 
 unique struct Key {

@@ -1,7 +1,7 @@
 // A frozen list's elements are sendable and copyable, and nothing changes them.
 
 import std::threading::{Frozen, Isolated};
-import std::List;
+import std::collections::List;
 
 class Node {
 }

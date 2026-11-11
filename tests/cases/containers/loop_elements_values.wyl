@@ -3,7 +3,7 @@
 // is never another's (spec unsafe.aliasing), so a write of an unrelated type doesn't
 // count.
 
-import std::List;
+import std::collections::List;
 
 struct Vec {
     int x;

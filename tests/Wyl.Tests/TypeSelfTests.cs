@@ -94,7 +94,7 @@ static class TypeSelfTests
     static TestResult SendableFacts()
     {
         const string text = """
-            import std::{List};
+            import std::collections::List;
 
             struct Pair { int first; String second; }
             struct Holds { Node node; }

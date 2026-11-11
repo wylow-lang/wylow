@@ -1,7 +1,7 @@
 // A loop releases its iterator when it ends by 'break' or 'return', which ends the iterator's
 // borrow of the list.
 import std::iteration::Iterator;
-import std::List;
+import std::collections::List;
 
 unique struct Countdown implements Iterator<int> {
     int left;

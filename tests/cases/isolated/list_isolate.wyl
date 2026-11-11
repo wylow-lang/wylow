@@ -4,7 +4,7 @@
 
 import std::threading;
 import std::threading::{Channel, Isolated};
-import std::List;
+import std::collections::List;
 
 void main() {
     var names = new List<String>();

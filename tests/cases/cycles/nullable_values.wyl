@@ -1,7 +1,7 @@
 // A cycle through a nullable struct is found only when the value is there, and a class holding
 // only nullable numbers is never buffered.
 
-import std::{List, memory};
+import std::memory; import std::collections::List;
 
 class Room {
     int number;

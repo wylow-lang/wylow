@@ -1,7 +1,7 @@
 // A temporary struct can't be written to (spec structs.methods.mut), but it can be read, and a
 // write that reaches an object through it, or through a temporary reference, is kept.
 
-import std::List;
+import std::collections::List;
 
 struct Counter {
     int count;

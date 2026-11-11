@@ -1,7 +1,7 @@
 // Parameters and locals hold non-escaping functions unless declared 'escaping'; fields, returns,
 // type arguments, array elements, and nullable variables are escaping.
 
-import std::List;
+import std::collections::List;
 
 class Button {
     fn(int) -> void onClick;                          // error[WYL0143]: field 'onClick' of type 'fn(int) -> void' has no initial value

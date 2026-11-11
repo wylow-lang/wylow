@@ -1,7 +1,7 @@
 // Cycles are freed only by memory::collectCycles, all of a cycle's destructors run before any of its
 // fields are released, and weak references to its objects read null once it is found.
 
-import std::{List, Weak, memory};
+import std::{Weak, memory}; import std::collections::List;
 
 class Node {
     int id;

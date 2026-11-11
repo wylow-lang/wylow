@@ -2,7 +2,7 @@
 
 import std::threading;
 import std::threading::Frozen;
-import std::List;
+import std::collections::List;
 
 class Tables {
     static Frozen<int> SQUARES = makeSquares();

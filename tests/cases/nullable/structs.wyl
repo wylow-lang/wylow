@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 struct Vec {
     int x;

@@ -2,7 +2,7 @@
 // place it came from is replaced meanwhile. Each closure reads a capture after its place is
 // replaced, which AddressSanitizer reports if the closure was freed.
 
-import std::List;
+import std::collections::List;
 
 class Holder {
     mut fn() -> void action = () -> std::print(0);

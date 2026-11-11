@@ -1,6 +1,6 @@
 // A list holds unique elements: a reference reads one, and removing moves it out.
 
-import std::List;
+import std::collections::List;
 
 unique struct Buffer {
     pub int length;

@@ -2,7 +2,7 @@
 // captures only sendable values. A list is isolated only if its elements are sendable.
 
 import std::threading::Isolated;
-import std::List;
+import std::collections::List;
 
 class Node {
     pub int count;

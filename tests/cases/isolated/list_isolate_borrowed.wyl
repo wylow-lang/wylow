@@ -1,6 +1,6 @@
 // A loop over a list borrows it, so isolating the list inside the loop panics, as clearing it does.
 
-import std::List;
+import std::collections::List;
 
 void main() {
     var values = new List<int>();

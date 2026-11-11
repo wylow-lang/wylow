@@ -1,4 +1,4 @@
-import std::List;
+import std::collections::List;
 
 struct Vec3 implements Printable {
     float x;

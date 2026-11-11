@@ -116,3 +116,4 @@ history and a reason can be found without searching the spec.
 | [0086](0086-native-manifest-block.md) | The manifest's `native` block, and a package's `native/` directory |
 | [0087](0087-extern-calls-are-not-interpreted.md) | The interpreter runs only the extern functions it implements |
 | [0088](0088-memory-compare-and-the-string-floor.md) | `memory::compare` and `memory::equal`, and the native floor of `String` |
+| [0089](0089-collections-module.md) | The module `std::collections` holds `List<T>` and the other collections; `Array<T>` stays in the root |

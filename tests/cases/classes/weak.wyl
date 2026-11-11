@@ -1,4 +1,4 @@
-import std::{List, Weak};
+import std::Weak; import std::collections::List;
 
 class Parent {
     String name;

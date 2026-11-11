@@ -1,6 +1,6 @@
 // 'sendable' names the types whose values may reach another thread.
 
-import std::{Array, List};
+import std::Array; import std::collections::List;
 
 class Node { }
 

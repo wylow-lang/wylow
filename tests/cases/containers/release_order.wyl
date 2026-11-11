@@ -1,7 +1,7 @@
 // Every container releases its elements last to first, as locals and fields are released in the
 // reverse of the order they were created.
 
-import std::List;
+import std::collections::List;
 
 class Tag {
     String name;
