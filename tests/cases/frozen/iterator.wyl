@@ -1,0 +1,45 @@
+// Frozen.iterator() gives read-only references to the elements, first to last, and holds the
+// frozen list, so the iterator outlives every other reference to it.
+
+import std::threading::{Frozen, FrozenIterator};
+import std::iteration::*;
+
+struct Point {
+    int x;
+    int y;
+}
+
+FrozenIterator<Point> points() {
+    Point[3] all = [Point(1, 2), Point(3, 4), Point(5, 6)];
+    return Frozen<Point>.copyOf(all).iterator();
+}
+
+void main() {
+    for (in Point p : points()) {
+        std::print(p.x + p.y);
+        // output: 3
+        // output: 7
+        // output: 11
+    }
+
+    Point[3] all = [Point(1, 2), Point(3, 4), Point(5, 6)];
+    var frozen = Frozen<Point>.copyOf(all);
+    for (Point p : frozen.iterator().filter(p -> p.x > 1)) {
+        std::print(p.y);
+        // output: 4
+        // output: 6
+    }
+    std::print(frozen.iterator().map(p -> p.x * 10).toList().count()); // output: 3
+
+    mut var none = Frozen<int>.copyOf(new Array<int>(0, 0)).iterator();
+    std::print(none.moveNext());        // output: false
+    std::print(none.moveNext());        // output: false
+
+    mut var it = frozen.iterator();
+    std::print(it.moveNext());          // output: true
+    std::print(it.current().x);         // output: 1
+    it.moveNext();
+    it.moveNext();
+    std::print(it.moveNext());          // output: false
+    std::print(it.current().x);         // panic: cannot read the current element of an iterator before 'moveNext' or after the last element
+}

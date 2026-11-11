@@ -496,6 +496,7 @@ pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpanna
     pub in T operator [](int index);
     pub in? T get(int index);
     pub ReadOnlySpan<T> asReadOnlySpan();
+    pub FrozenIterator<T> iterator();
 }
 // in std::collections::List<T>
 pub Frozen<T> freeze() where T extends sendable & copyable;
@@ -509,4 +510,6 @@ pub Frozen<T> freeze() where T extends sendable & copyable;
   `get` returns null instead.
 - A frozen list converts to a `ReadOnlySpan<T>`, so a for-each loop iterates its elements
   ([`Spannable` and `ReadOnlySpannable`](#library.spannable)).
+- `iterator` returns a `FrozenIterator<T>`, an `InIterator<T>` over the elements from first to last
+  ([`std::iteration`](#library.iterator)). The iterator holds the frozen list.
 - Releasing the last reference to a frozen list releases its elements last to first.

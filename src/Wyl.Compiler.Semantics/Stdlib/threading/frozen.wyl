@@ -1,4 +1,5 @@
 import std::{memory, panic};
+import std::iteration::InIterator;
 
 /// The elements of a frozen list: a buffer that no code changes once a `Frozen` holds it.
 package struct FrozenStorage<T> {
@@ -75,6 +76,11 @@ pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpanna
         }
     }
 
+    /// Returns an iterator over read-only references to the elements, first to last.
+    pub FrozenIterator<T> iterator() {
+        return FrozenIterator<T>(this);
+    }
+
     /// Passes each element to `visitor`, for the cycle collector.
     pub void visitElements(ref memory::ElementVisitor<T> visitor) {
         unsafe {
@@ -93,5 +99,38 @@ pub shared class Frozen<T extends sendable & copyable> implements ReadOnlySpanna
             }
             memory::free(storage.data);
         }
+    }
+}
+
+/// An iterator over read-only references to the elements of a `Frozen`, first to last, which
+/// `Frozen.iterator()` returns. The iterator holds the frozen list.
+pub struct FrozenIterator<T extends sendable & copyable> implements InIterator<T> {
+    Frozen<T> frozen;
+    int position;
+
+    package FrozenIterator(Frozen<T> frozen) {
+        this.frozen = frozen;
+        position = -1;
+    }
+
+    /// Returns `true` after advancing to the next element, or `false` once the iterator has passed
+    /// the last element.
+    pub mut bool moveNext() {
+        if (position < frozen.length()) {
+            position++;
+        }
+        return position < frozen.length();
+    }
+
+    /// Returns a read-only reference to the element that the last call of `moveNext` advanced to.
+    ///
+    /// # Panics
+    ///
+    /// If `moveNext` has not been called yet, or its last call returned `false`.
+    pub mut in T current() {
+        if (position < 0 || position >= frozen.length()) {
+            panic::panic("cannot read the current element of an iterator before 'moveNext' or after the last element");
+        }
+        return ref frozen[position];
     }
 }
