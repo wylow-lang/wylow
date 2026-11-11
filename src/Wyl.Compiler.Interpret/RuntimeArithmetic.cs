@@ -33,6 +33,22 @@ internal static class RuntimeArithmetic
         return new IntValue(Values.Wrap(type, unchecked(a * b)));
     }
 
+    /// <summary><c>wrappingAdd</c>, <c>wrappingSub</c>, and <c>wrappingMul</c>: the result modulo 2^n.</summary>
+    public static IntValue Wrapping(WylType type, char op, Int128 a, Int128 b) =>
+        new(Values.Wrap(type, op switch { '+' => a + b, '-' => a - b, _ => unchecked(a * b) }));
+
+    /// <summary><c>checkedAdd</c>, <c>checkedSub</c>, and <c>checkedMul</c>: the result, or null if it overflows.</summary>
+    public static IntValue? Checked(WylType type, char op, Int128 a, Int128 b)
+    {
+        bool overflows = op switch
+        {
+            '+' => !InRange(type, a + b),
+            '-' => !InRange(type, a - b),
+            _ => MulOverflows(type, a, b),
+        };
+        return overflows ? null : Wrapping(type, op, a, b);
+    }
+
     public static IntValue Negate(WylType type, Int128 a, bool release, string? location)
     {
         var (_, signed) = Values.Bits(type);

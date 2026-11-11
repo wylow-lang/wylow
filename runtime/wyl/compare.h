@@ -1,5 +1,6 @@
 #pragma once
 
+#include "arithmetic.h"
 #include "strings.h"
 
 namespace wyl {
@@ -45,6 +46,56 @@ struct Builtin {
 
     String toString() const {
         return FormatString(Value);
+    }
+
+    T wrappingAdd(const T& other) const
+        requires std::is_integral_v<T>
+    {
+        return static_cast<T>(static_cast<Wide<T>>(Value) + static_cast<Wide<T>>(other));
+    }
+
+    T wrappingSub(const T& other) const
+        requires std::is_integral_v<T>
+    {
+        return static_cast<T>(static_cast<Wide<T>>(Value) - static_cast<Wide<T>>(other));
+    }
+
+    T wrappingMul(const T& other) const
+        requires std::is_integral_v<T>
+    {
+        return static_cast<T>(static_cast<Wide<T>>(Value) * static_cast<Wide<T>>(other));
+    }
+
+    Optional<T> checkedAdd(const T& other) const
+        requires std::is_integral_v<T>
+    {
+        T sum = wrappingAdd(other);
+        bool overflows;
+        if constexpr (std::is_signed_v<T>) {
+            overflows = ((Value ^ sum) & (other ^ sum)) < 0;
+        } else {
+            overflows = sum < Value;
+        }
+        return overflows ? Optional<T>() : Optional<T>(sum);
+    }
+
+    Optional<T> checkedSub(const T& other) const
+        requires std::is_integral_v<T>
+    {
+        T difference = wrappingSub(other);
+        bool overflows;
+        if constexpr (std::is_signed_v<T>) {
+            overflows = ((Value ^ other) & (Value ^ difference)) < 0;
+        } else {
+            overflows = Value < other;
+        }
+        return overflows ? Optional<T>() : Optional<T>(difference);
+    }
+
+    Optional<T> checkedMul(const T& other) const
+        requires std::is_integral_v<T>
+    {
+        return MulOverflows(Value, other) ? Optional<T>() : Optional<T>(wrappingMul(other));
     }
 
     int32_t m_compareTo(const T& other) const {

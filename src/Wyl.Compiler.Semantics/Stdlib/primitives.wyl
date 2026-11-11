@@ -30,6 +30,31 @@ pub extern struct sbyte implements Comparable<sbyte>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `sbyte`.
+    @Pure
+    pub extern sbyte wrappingAdd(sbyte other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `sbyte`.
+    @Pure
+    pub extern sbyte wrappingSub(sbyte other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `sbyte`.
+    @Pure
+    pub extern sbyte wrappingMul(sbyte other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `sbyte`.
+    @Pure
+    pub extern sbyte? checkedAdd(sbyte other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `sbyte`.
+    @Pure
+    pub extern sbyte? checkedSub(sbyte other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `sbyte`.
+    @Pure
+    pub extern sbyte? checkedMul(sbyte other);
 }
 
 /// The members of `byte`.
@@ -41,6 +66,31 @@ pub extern struct byte implements Comparable<byte>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `byte`.
+    @Pure
+    pub extern byte wrappingAdd(byte other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `byte`.
+    @Pure
+    pub extern byte wrappingSub(byte other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `byte`.
+    @Pure
+    pub extern byte wrappingMul(byte other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `byte`.
+    @Pure
+    pub extern byte? checkedAdd(byte other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `byte`.
+    @Pure
+    pub extern byte? checkedSub(byte other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `byte`.
+    @Pure
+    pub extern byte? checkedMul(byte other);
 }
 
 /// The members of `short`.
@@ -52,6 +102,31 @@ pub extern struct short implements Comparable<short>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `short`.
+    @Pure
+    pub extern short wrappingAdd(short other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `short`.
+    @Pure
+    pub extern short wrappingSub(short other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `short`.
+    @Pure
+    pub extern short wrappingMul(short other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `short`.
+    @Pure
+    pub extern short? checkedAdd(short other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `short`.
+    @Pure
+    pub extern short? checkedSub(short other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `short`.
+    @Pure
+    pub extern short? checkedMul(short other);
 }
 
 /// The members of `ushort`.
@@ -63,10 +138,36 @@ pub extern struct ushort implements Comparable<ushort>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `ushort`.
+    @Pure
+    pub extern ushort wrappingAdd(ushort other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `ushort`.
+    @Pure
+    pub extern ushort wrappingSub(ushort other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `ushort`.
+    @Pure
+    pub extern ushort wrappingMul(ushort other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `ushort`.
+    @Pure
+    pub extern ushort? checkedAdd(ushort other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `ushort`.
+    @Pure
+    pub extern ushort? checkedSub(ushort other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `ushort`.
+    @Pure
+    pub extern ushort? checkedMul(ushort other);
 }
 
 /// The members of `int`.
 pub extern struct int implements Comparable<int>, Printable {
+
     /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
     @Pure
     pub extern int compareTo(in int other);
@@ -74,6 +175,31 @@ pub extern struct int implements Comparable<int>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `int`.
+    @Pure
+    pub extern int wrappingAdd(int other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `int`.
+    @Pure
+    pub extern int wrappingSub(int other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `int`.
+    @Pure
+    pub extern int wrappingMul(int other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `int`.
+    @Pure
+    pub extern int? checkedAdd(int other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `int`.
+    @Pure
+    pub extern int? checkedSub(int other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `int`.
+    @Pure
+    pub extern int? checkedMul(int other);
 }
 
 /// The members of `uint`.
@@ -85,6 +211,31 @@ pub extern struct uint implements Comparable<uint>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `uint`.
+    @Pure
+    pub extern uint wrappingAdd(uint other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `uint`.
+    @Pure
+    pub extern uint wrappingSub(uint other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `uint`.
+    @Pure
+    pub extern uint wrappingMul(uint other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `uint`.
+    @Pure
+    pub extern uint? checkedAdd(uint other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `uint`.
+    @Pure
+    pub extern uint? checkedSub(uint other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `uint`.
+    @Pure
+    pub extern uint? checkedMul(uint other);
 }
 
 /// The members of `long`.
@@ -96,6 +247,31 @@ pub extern struct long implements Comparable<long>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `long`.
+    @Pure
+    pub extern long wrappingAdd(long other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `long`.
+    @Pure
+    pub extern long wrappingSub(long other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `long`.
+    @Pure
+    pub extern long wrappingMul(long other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `long`.
+    @Pure
+    pub extern long? checkedAdd(long other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `long`.
+    @Pure
+    pub extern long? checkedSub(long other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `long`.
+    @Pure
+    pub extern long? checkedMul(long other);
 }
 
 /// The members of `ulong`.
@@ -107,6 +283,31 @@ pub extern struct ulong implements Comparable<ulong>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `ulong`.
+    @Pure
+    pub extern ulong wrappingAdd(ulong other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `ulong`.
+    @Pure
+    pub extern ulong wrappingSub(ulong other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `ulong`.
+    @Pure
+    pub extern ulong wrappingMul(ulong other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `ulong`.
+    @Pure
+    pub extern ulong? checkedAdd(ulong other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `ulong`.
+    @Pure
+    pub extern ulong? checkedSub(ulong other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `ulong`.
+    @Pure
+    pub extern ulong? checkedMul(ulong other);
 }
 
 /// The members of `nint`.
@@ -118,6 +319,31 @@ pub extern struct nint implements Comparable<nint>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `nint`.
+    @Pure
+    pub extern nint wrappingAdd(nint other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `nint`.
+    @Pure
+    pub extern nint wrappingSub(nint other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `nint`.
+    @Pure
+    pub extern nint wrappingMul(nint other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `nint`.
+    @Pure
+    pub extern nint? checkedAdd(nint other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `nint`.
+    @Pure
+    pub extern nint? checkedSub(nint other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `nint`.
+    @Pure
+    pub extern nint? checkedMul(nint other);
 }
 
 /// The members of `nuint`.
@@ -129,6 +355,31 @@ pub extern struct nuint implements Comparable<nuint>, Printable {
     /// Returns the value as text, as interpolation writes it.
     @Pure
     pub extern String toString();
+
+    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `nuint`.
+    @Pure
+    pub extern nuint wrappingAdd(nuint other);
+
+    /// Returns this value minus `other`, modulo 2^n for the width `n` of `nuint`.
+    @Pure
+    pub extern nuint wrappingSub(nuint other);
+
+    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `nuint`.
+    @Pure
+    pub extern nuint wrappingMul(nuint other);
+
+    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `nuint`.
+    @Pure
+    pub extern nuint? checkedAdd(nuint other);
+
+    /// Returns this value minus `other`, or `null` if the difference is not a value of `nuint`.
+    @Pure
+    pub extern nuint? checkedSub(nuint other);
+
+    /// Returns the product of this value and `other`, or `null` if the product is not a value of
+    /// `nuint`.
+    @Pure
+    pub extern nuint? checkedMul(nuint other);
 }
 
 /// The members of `float`.

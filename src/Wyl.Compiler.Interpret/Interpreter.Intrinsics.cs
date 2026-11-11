@@ -89,6 +89,18 @@ public sealed partial class Interpreter
                 table[$"{type.Name}::compareTo"] = (i, call, location, caller) =>
                     new IntValue(RuntimeArithmetic.CompareTotal(type, i.ReceiverOf(call, caller)!, i.ArgumentsOf(call, caller)[0]));
             }
+            if (type.IsInteger && type != WylType.Char)
+            {
+                foreach (var (name, op) in (ReadOnlySpan<(string, char)>)[("Add", '+'), ("Sub", '-'), ("Mul", '*')])
+                {
+                    table[$"{type.Name}::wrapping{name}"] = (i, call, location, caller) =>
+                        RuntimeArithmetic.Wrapping(type, op, Integer(i.ReceiverOf(call, caller)!), Integer(i.ArgumentsOf(call, caller)[0]));
+                    table[$"{type.Name}::checked{name}"] = (i, call, location, caller) =>
+                        new OptionalValue(RuntimeArithmetic.Checked(type, op, Integer(i.ReceiverOf(call, caller)!), Integer(i.ArgumentsOf(call, caller)[0])) is { } result
+                            ? new Cell(type, result)
+                            : null);
+                }
+            }
         }
         return table;
     }
