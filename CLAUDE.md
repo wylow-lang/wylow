@@ -22,7 +22,7 @@ compiler is C# (.NET 10) and compiles Wylow to C++20.
 
 ```
 dotnet build
-dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret         # whole suite, interpreter only (~3 min)
+dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --interpret         # whole suite, interpreter only (~40 s)
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll structs             # clang, tests whose path contains "structs"
 dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll matrix --update-snapshots
 dotnet src/Wyl.Cli/bin/Debug/net10.0/wyl.dll run|build|check|emit|ir|interpret <file.wyl | dir> [--release] [--cc clang|msvc|gcc|asan|tsan] [--no-nest] [--no-opt]

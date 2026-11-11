@@ -103,25 +103,44 @@ var files = TestCases.All(casesDirectory)
     .ToList();
 
 var stopwatch = Stopwatch.StartNew();
+
+// Each section's results are named with its prefix, so a filter runs a section only if the filter is
+// part of the prefix ("catalog") or starts with it ("ir/borrows"); the matrices filter their own names.
+List<(string? Prefix, Func<IEnumerable<TestResult>> Run)> sections =
+[
+    ("ir/", IrSelfTests.Run), ("analysis/", AnalysisSelfTests.Run), ("types/", TypeSelfTests.Run),
+    ("dispatch/", DispatchSelfTests.Run), ("interpreter/", InterpreterSelfTests.Run), ("source-text/", SourceTextSelfTests.Run),
+    ("static-ensures/", StaticEnsureSelfTests.Run), ("sanitizer/", SanitizerSelfTests.Run),
+    ("catalog/", () => CatalogSelfTests.Run(root)), ("spec/", () => SpecExampleSelfTests.Run(root)), ("docs/", () => DocSelfTests.Run(root)),
+    ("fuzz/", () => FuzzSelfTests.Run(casesDirectory).Select(r => new TestResult("fuzz/" + r.Name, r.Failure))),
+];
+// The build cache needs a C++ toolchain; the matrices run through the mode's own oracle, which the
+// interpret mode supplies without one.
+if (!interpret)
+{
+    sections.Add(("build-cache/", () => BuildCacheSelfTests.Run(outputDirectory)));
+    sections.Add((RuntimeSelfTests.PoolsName, () => [RuntimeSelfTests.Pools(root, outputDirectory, toolchain)]));
+}
+sections.Add((null, () => MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism, interpret)));
+
+// The sections run beside the test cases and each other, each on a thread of its own, since most
+// wait on parallel work of their own; their results keep the order above.
+var running = sections
+    .Where(section => filter is null || section.Prefix is null
+        || section.Prefix.Contains(filter, StringComparison.OrdinalIgnoreCase)
+        || filter.StartsWith(section.Prefix, StringComparison.OrdinalIgnoreCase))
+    .Select(section => Task.Factory.StartNew(
+        () => section.Run().Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList(),
+        TaskCreationOptions.LongRunning))
+    .ToList();
 var results = files
     .AsParallel()
     .AsOrdered()
     .WithDegreeOfParallelism(parallelism)
     .Select(file => interpret ? TestCase.RunInterpreted(file, casesDirectory) : TestCase.Run(file, casesDirectory, outputDirectory, toolchain, options))
     .ToList();
-results.AddRange(IrSelfTests.Run().Concat(AnalysisSelfTests.Run()).Concat(TypeSelfTests.Run()).Concat(DispatchSelfTests.Run()).Concat(InterpreterSelfTests.Run()).Concat(SourceTextSelfTests.Run()).Concat(StaticEnsureSelfTests.Run()).Concat(SanitizerSelfTests.Run()).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-results.AddRange(CatalogSelfTests.Run(root).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-results.AddRange(SpecExampleSelfTests.Run(root).Concat(DocSelfTests.Run(root)).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-results.AddRange(FuzzSelfTests.Run(casesDirectory)
-    .Select(r => new TestResult("fuzz/" + r.Name, r.Failure))
-    .Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-// The build cache needs a C++ toolchain; the matrices run through the mode's own oracle, which the
-// interpret mode supplies without one.
-if (!interpret)
-    results.AddRange(BuildCacheSelfTests.Run(outputDirectory).Where(r => filter is null || r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)));
-if (!interpret && (filter is null || RuntimeSelfTests.PoolsName.Contains(filter, StringComparison.OrdinalIgnoreCase)))
-    results.Add(RuntimeSelfTests.Pools(root, outputDirectory, toolchain));
-results.AddRange(MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism, interpret));
+foreach (var section in running)
+    results.AddRange(section.Result);
 // Every program passing proves nothing if the sanitizers have silently stopped working.
 if (toolchain == Toolchain.ClangSanitized)
     results.Add(SanitizersLive(outputDirectory));

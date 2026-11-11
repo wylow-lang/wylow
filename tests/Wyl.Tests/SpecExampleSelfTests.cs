@@ -44,26 +44,31 @@ static partial class SpecExampleSelfTests
         yield return new("spec/examples", problems.Count > 0 ? string.Join('\n', problems) : null);
     }
 
-    static IEnumerable<string> Check(string root)
-    {
-        foreach (var path in Directory.GetFiles(Path.Combine(root, Chapters), "*.md").Order(StringComparer.Ordinal))
-        {
-            var text = File.ReadAllText(path).ReplaceLineEndings("\n");
-            foreach (Match block in BlockPattern().Matches(text))
+    static IEnumerable<string> Check(string root) =>
+        Directory.GetFiles(Path.Combine(root, Chapters), "*.md").Order(StringComparer.Ordinal)
+            .SelectMany(path =>
             {
-                var mode = block.Groups[1].Value;
-                if (mode == "unchecked")
-                    continue;
-                var where = $"{Chapters}/{Path.GetFileName(path)}:{text.AsSpan(0, block.Index).Count('\n') + 1}";
-                if (mode is not ("" or "statements"))
-                {
-                    yield return $"{where}: unknown info string 'java {mode}'";
-                    continue;
-                }
-                foreach (var problem in CheckBlock(block.Groups[2].Value, mode == "statements"))
-                    yield return $"{where}: {problem}";
-            }
+                var text = File.ReadAllText(path).ReplaceLineEndings("\n");
+                return BlockPattern().Matches(text).Select(block => (Path: path, Text: text, Block: block));
+            })
+            .AsParallel()
+            .AsOrdered()
+            .SelectMany(found => CheckFound(found.Path, found.Text, found.Block).ToList())
+            .ToList();
+
+    static IEnumerable<string> CheckFound(string path, string text, Match block)
+    {
+        var mode = block.Groups[1].Value;
+        if (mode == "unchecked")
+            yield break;
+        var where = $"{Chapters}/{Path.GetFileName(path)}:{text.AsSpan(0, block.Index).Count('\n') + 1}";
+        if (mode is not ("" or "statements"))
+        {
+            yield return $"{where}: unknown info string 'java {mode}'";
+            yield break;
         }
+        foreach (var problem in CheckBlock(block.Groups[2].Value, mode == "statements"))
+            yield return $"{where}: {problem}";
     }
 
     /// <summary>
@@ -116,7 +121,7 @@ static partial class SpecExampleSelfTests
                 source += "\n" + declaration;
         }
 
-        return Compilation.Lower(new SourceText("example.wyl", source)).Diagnostics
+        return Compilation.Lower(new SourceText("example.wyl", source), DiagnosticsOnly.Options).Diagnostics
             .Select(d => (d.Location.LineColumn.Line, d.Code, d.Message))
             .Where(e => e.Line <= lines.Length)
             .ToList();

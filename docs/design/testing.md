@@ -71,6 +71,16 @@ bash tools/coverage.sh [runner args]   # coverage merged over all modes, in test
 dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, generation, mutation, findings, code size
 ```
 
+- **Filters and sections.** A filter runs the test cases whose path contains it. The runner's
+  other tests come in sections, and the names of a section's results share a prefix such as `ir/`,
+  `catalog/`, `spec/`, or `fuzz/`. The runner runs a section only if the filter is part of its
+  prefix, as `catalog` is, or starts with the prefix, as `ir/borrows` does. A filter such as
+  `structs` therefore runs only test cases. The matrices are a section that matches the filter
+  against each matrix's name itself. The sections run at the same time as the test cases. The
+  spec's and the catalog's examples are compiled without the optimizations, since only their
+  diagnostics are checked and an optimization never reports one. The test runner, the fuzzer,
+  and the generator use the server garbage collector, and every project is optimized in the Debug
+  configuration too, because the harnesses compile programs on many threads at once.
 - **Modes.** `--no-nest` and `--no-opt` must pass too: declining to nest a temporary or to run an
   optimization is always correct. `--no-opt` skips the `// stack:` and `// in-place:` markers,
   which count optimizations. Generated C++ lands in `tests/.out/` (`--all-modes`: one directory

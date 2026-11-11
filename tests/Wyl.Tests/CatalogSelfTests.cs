@@ -90,38 +90,45 @@ static partial class CatalogSelfTests
         var known = Catalog.All.Select(d => d.Code).ToHashSet();
         foreach (var code in unwritten.Where(c => !known.Contains(c)).Order(StringComparer.Ordinal))
             yield return $"{Unwritten} lists {code}, which the catalog does not have";
-        foreach (var descriptor in Catalog.All.OrderBy(d => d.Number))
+        var problems = Catalog.All.OrderBy(d => d.Number)
+            .AsParallel()
+            .AsOrdered()
+            .SelectMany(descriptor => PageProblems(root, descriptor, unwritten).ToList());
+        foreach (var problem in problems)
+            yield return problem;
+    }
+
+    static IEnumerable<string> PageProblems(string root, DiagnosticDescriptor descriptor, HashSet<string> unwritten)
+    {
+        var page = Path.Combine(root, Pages, descriptor.Code + ".md");
+        if (!File.Exists(page))
         {
-            var page = Path.Combine(root, Pages, descriptor.Code + ".md");
-            if (!File.Exists(page))
-            {
-                if (!unwritten.Contains(descriptor.Code))
-                    yield return $"{descriptor.Code} ({descriptor.Name}) has no page {Pages}/{descriptor.Code}.md and is not in {Unwritten}";
-                continue;
-            }
-            if (unwritten.Contains(descriptor.Code))
-                yield return $"{descriptor.Code} has a page, so it must leave {Unwritten}";
-            var text = File.ReadAllText(page);
-            var files = PackageFilePattern().Matches(text);
-            PackageSources sources;
-            if (files.Count > 0)
-            {
-                sources = WritePackage(descriptor.Code, files);
-            }
-            else if (ExamplePattern().Match(text) is { Success: true } example)
-            {
-                sources = PackageSources.Of(new SourceText(page, example.Groups[1].Value));
-            }
-            else
-            {
-                yield return $"{descriptor.Code}: the page has no ```wyl example";
-                continue;
-            }
-            var result = Compilation.Lower(sources);
-            var codes = result.Diagnostics.Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
-            if (!codes.SequenceEqual([descriptor.Code]))
-                yield return $"{descriptor.Code}: its example produces {(codes.Count == 0 ? "no diagnostic" : string.Join(", ", codes))}";
+            if (!unwritten.Contains(descriptor.Code))
+                yield return $"{descriptor.Code} ({descriptor.Name}) has no page {Pages}/{descriptor.Code}.md and is not in {Unwritten}";
+            yield break;
         }
+        if (unwritten.Contains(descriptor.Code))
+            yield return $"{descriptor.Code} has a page, so it must leave {Unwritten}";
+        var text = File.ReadAllText(page);
+        var files = PackageFilePattern().Matches(text);
+        PackageSources sources;
+        if (files.Count > 0)
+        {
+            sources = WritePackage(descriptor.Code, files);
+        }
+        else if (ExamplePattern().Match(text) is { Success: true } example)
+        {
+            sources = PackageSources.Of(new SourceText(page, example.Groups[1].Value));
+        }
+        else
+        {
+            yield return $"{descriptor.Code}: the page has no ```wyl example";
+            yield break;
+        }
+        var result = Compilation.Lower(sources, DiagnosticsOnly.Options);
+        var codes = result.Diagnostics.Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
+        if (!codes.SequenceEqual([descriptor.Code]))
+            yield return $"{descriptor.Code}: its example produces {(codes.Count == 0 ? "no diagnostic" : string.Join(", ", codes))}";
     }
 
     /// <summary>
