@@ -31,11 +31,15 @@ void main() {
     }
     std::print("scope ended");
     weak();
+    held();
     // output: boxed
     // output: scope ended
     // output: true
     // output: true
     // output: 1
+    // output: 7
+    // output: scope ends
+    // output: token 7
 }
 // output: ~a
 
@@ -78,4 +82,30 @@ void weak() {
     var list = new List<Other>();
     list.add(other);
     std::print(list.count());
+}
+
+// An object whose field holds a unique struct with a destructor runs that destructor when the
+// object is destroyed, so a local holding the object keeps it alive until its scope ends.
+
+unique struct Token {
+    pub int id;
+
+    ~Token() {
+        std::print($"token {id}");
+    }
+}
+
+class Holder {
+    mut Token token;
+
+    Holder(Token token) {
+        this.token = token;
+    }
+}
+
+void held() {
+    var token = Token(7);
+    var holder = new Holder(token);
+    std::print([holder][0].token.id);
+    std::print("scope ends");
 }

@@ -74,6 +74,17 @@ static class AnalysisSelfTests
             ~Dying() { target.n = 1; }
         }
 
+        // Releasing a Closer destroys it, and destroying it runs its Latch field's destructor.
+        unique struct Latch {
+            int id;
+            ~Latch() { }
+        }
+
+        class Closer {
+            mut Latch latch;
+            Closer(Latch latch) { this.latch = latch; }
+        }
+
         class Shelf { mut Pairing? held; Shelf() { } }
         struct Pairing { Keeper a; }
 
@@ -254,6 +265,8 @@ static class AnalysisSelfTests
             Require(f.Runs(f.Run(f.Method("Parent", "take"))).SetEquals(["Parent.take"]), "a direct call runs exactly its method"));
         yield return ("sound/callees/release_runs_the_destructor", () =>
             Require(f.Runs(new IrRunRelease(f.Type("Dying"))).Any(r => r.EndsWith("Dying")), "releasing a Dying must run its destructor"));
+        yield return ("sound/callees/release_runs_a_destroyed_objects_field_destructors", () =>
+            Require(f.Runs(new IrRunRelease(f.Type("Closer"))).Any(r => r.EndsWith("Latch")), "releasing a Closer must run its Latch field's destructor"));
     }
 
     static IEnumerable<(string, Func<string?>)> LambdaAndCycleCases(Facts f)

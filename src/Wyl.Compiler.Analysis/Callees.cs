@@ -108,7 +108,8 @@ public sealed class Callees
 
     /// <summary>
     /// The destructors, base classes' included, of the objects releasing a value of the type may
-    /// destroy (<see cref="CyclicClasses.Destroyable"/>), and their classes' <c>Borrowable</c> methods.
+    /// destroy (<see cref="CyclicClasses.Destroyable"/>), and their classes' <c>Borrowable</c> methods,
+    /// and the destructors of the unique structs that the value or those objects' fields hold inline.
     /// </summary>
     IEnumerable<Callee> Releasing(WylType? type)
     {
@@ -116,15 +117,17 @@ public sealed class Callees
             return Released.Select(f => new Callee(f, TypeMap.Empty));
         var found = new List<Callee>();
         // A unique struct with a destructor runs it when a value of its type, or one holding it
-        // inline, is released.
-        if (type is not null)
+        // inline, is released: the released value itself, or a field of an object it destroys.
+        void Inline(WylType held)
         {
-            foreach (var inline in type.InlineTypes())
+            foreach (var inline in held.InlineTypes())
             {
                 if (inline.Symbol is { Kind: TypeKind.Struct, Destructor: { } destructor })
                     found.AddRange(functions.Of(destructor).Select(f => new Callee(f, TypeMap.For(inline))));
             }
         }
+        if (type is not null)
+            Inline(type);
         foreach (var destroyedClass in destroyed)
         {
             for (var c = destroyedClass; c is not null; c = c.BaseType)
@@ -133,6 +136,8 @@ public sealed class Callees
                 if (c.Symbol!.Destructor is { } destructor)
                     found.AddRange(functions.Of(destructor).Select(f => new Callee(f, map)));
                 found.AddRange(borrows.Where(f => f.Symbol.ContainingType == c.Symbol).Select(f => new Callee(f, map)));
+                foreach (var field in c.Symbol.Fields.Where(f => !f.IsStatic))
+                    Inline(map.Apply(field.Type));
             }
         }
         return found;
