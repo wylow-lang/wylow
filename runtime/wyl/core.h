@@ -115,7 +115,6 @@ public:
     }
 
     int32_t byteLength() const { return m_Length; }
-    bool isEmpty() const { return m_Length == 0; }
 
     // A template so that the span is a complete type by the time a program instantiates it. The
     // span is read-only, so a literal's static bytes are never written.
@@ -141,7 +140,6 @@ public:
                std::memcmp(m_Data + (m_Length - suffix.m_Length), suffix.m_Data, static_cast<size_t>(suffix.m_Length)) == 0;
     }
 
-    bool contains(const String& text) const;
     Optional<int32_t> indexOf(const String& text) const;
     String slice(int32_t start, int32_t count, const char* location) const;
 

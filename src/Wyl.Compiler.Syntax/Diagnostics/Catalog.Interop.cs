@@ -57,10 +57,6 @@ public static partial class Catalog
     public static Diagnostic ExternStructConstructor(Location at) =>
         Make(at, "extern struct cannot declare constructors");
 
-    [Error(430, "interop.extern.extern-structs")]
-    public static Diagnostic NonExternMethodInExternStruct(Location at) =>
-        Make(at, "methods of an extern struct must be extern");
-
     [Error(425, "interop.extern")]
     public static Diagnostic InstanceExternMethod(Location at) =>
         Make(at, "extern methods must be static outside an extern struct");

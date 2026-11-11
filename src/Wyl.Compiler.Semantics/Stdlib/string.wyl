@@ -9,8 +9,9 @@ pub extern struct String implements Comparable<String>, Printable {
     pub extern int byteLength();
 
     /// Returns whether the string has no bytes.
-    @Pure
-    pub extern bool isEmpty();
+    pub bool isEmpty() {
+        return byteLength() == 0;
+    }
 
     /// Returns the UTF-8 bytes, without a copy. The string is held while the span is used.
     @Pure
@@ -29,8 +30,9 @@ pub extern struct String implements Comparable<String>, Printable {
     pub extern bool endsWith(String suffix);
 
     /// Returns whether the bytes of `text` occur in the string.
-    @Pure
-    pub extern bool contains(String text);
+    pub bool contains(String text) {
+        return indexOf(text) != null;
+    }
 
     /// Returns the byte offset where `text` first occurs, or null if it doesn't.
     @Pure

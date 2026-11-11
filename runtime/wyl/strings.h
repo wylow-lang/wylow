@@ -269,7 +269,6 @@ inline Optional<int32_t> String::indexOf(const String& text) const {
     return nullptr;
 }
 
-inline bool String::contains(const String& text) const { return indexOf(text).HasValue(); }
 
 inline String String::slice(int32_t start, int32_t count, const char* location) const {
     if (start < 0 || count < 0 || static_cast<int64_t>(start) + count > m_Length) {

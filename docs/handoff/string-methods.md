@@ -23,22 +23,8 @@ work does not change the syntax.
 
 ## 2. Methods with bodies in extern structs
 
-- The binder refuses a method with a body in an extern struct with `WYL0430`
-  (`Binder.Declarations.cs`, `NonExternMethodInExternStruct`). Retire the code. Decision 0003 keeps
-  a retired code in the catalog, marked retired, and its page says that the compiler no longer
-  emits it.
-- **The emitter form is decided.** A method with a body of a type whose C++ definition the compiler
-  does not write becomes a free C++ function that takes the receiver as its first parameter, for
-  example `wyl_m_String_startsWith(const wyl::String& self, ...)`. The body's `this`, and its calls of
-  other members without a receiver, refer to that parameter. The by-value receiver lowering already
-  passes a receiver as the first argument (`FunctionSymbol.ReceiverParameter`,
-  `MethodReference.ReceiverCount`). Interop slice 1 uses the same form for a method with a body on a
-  struct or union of an extern block (decision 0085), so build the form for "a type the compiler does
-  not define", not for `String` by name. Describe the form in `docs/design/architecture.md`, and
-  check it against the row "A by-value receiver is not a parameter of the signature".
-- The interpreter sends every instance method of an extern type to its intrinsics
-  (`Interpreter.Intrinsics.cs`, the check of `ContainingType.IsExtern`). A method with a body must
-  run its body instead.
+Done: `FunctionSymbol.IsExternStructBody` and `wyl::MethodsOf<T>` (`docs/design/architecture.md`),
+with `isEmpty` and `contains` moved into `string.wyl` as the first methods with bodies.
 
 ## 3. The floor of `String`
 
@@ -53,10 +39,10 @@ The floor that stays in C++ is `byteLength`, `cstr`, `toString`, and `copyOf`:
 Write these in `string.wyl` on top of the floor and `std::memory`, and delete each one from
 `runtime/wyl/core.h` and from the interpreter's intrinsics in the same change:
 
-- `isEmpty`, `bytes` (`ReadOnlySpan<byte>(cstr(), byteLength())` in an `unsafe` block), `charCount`,
+- `bytes` (`ReadOnlySpan<byte>(cstr(), byteLength())` in an `unsafe` block), `charCount`,
   `charAt`, and `nextChar`.
 - `startsWith` and `endsWith`: a length check, then `memory::equal` on a slice of `bytes()`.
-- `indexOf` and `contains`: a loop over `memory::equal`.
+- `indexOf`: a loop over `memory::equal`.
 - `compareTo`: `memory::compare(bytes(), other.bytes())`.
 - `slice`: the bounds and character-boundary checks with today's panic messages, then `copyOf`. It
   keeps `@CallerLocation`.

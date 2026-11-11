@@ -585,6 +585,11 @@ inline B* As(const Borrow<T>& value) {
 template <class T>
 struct Builtin;
 
+// The methods with bodies of the extern struct that declares T's members: the compiler declares
+// a specialization of its static members for each such struct.
+template <class T>
+struct MethodsOf;
+
 template <class T>
 inline constexpr bool IS_BUILTIN = std::is_arithmetic_v<T> || std::is_same_v<T, String>;
 

@@ -179,6 +179,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingType is not null && !IsStatic && !IsConstructor && !IsDestructor;
 
+    /// <summary>
+    /// A method with a body of an extern struct. The compiler does not write the struct's C++ class,
+    /// so the method becomes a C++ function that takes the receiver as its first parameter.
+    /// </summary>
+    public bool IsExternStructBody => IsInstanceMethod && ContainingType is { IsExtern: true } && !IsBuiltin;
+
     /// <summary>Whether a call dispatches on the receiver's runtime type. Interface methods always do.</summary>
     public bool IsDispatched => IsVirtual || IsOverride || IsAbstract || ContainingType?.Kind == TypeKind.Interface;
 

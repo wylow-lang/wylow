@@ -147,7 +147,7 @@ public sealed partial class Binder
             if (!hasThis)
                 return ErrorExpression(Catalog.InstanceMemberUnavailable(e.Location, "field", e.Name, noThisContext));
             CheckVisible(e.Location, field.Field.Reach, $"field '{field.Field.Owner.Name}.{e.Name}'");
-            return new BoundFieldAccess(e.Location, new BoundThis(e.Location, currentType.Type), field.Field, TypeMap.For(field.Owner).Apply(field.Field.Type));
+            return new BoundFieldAccess(e.Location, new BoundThis(e.Location, stdlib.ThisType(currentType)), field.Field, TypeMap.For(field.Owner).Apply(field.Field.Type));
         }
 
         if (currentType is not null && LookupStaticField(currentType.Type, e.Name) is { } statics)
@@ -173,7 +173,7 @@ public sealed partial class Binder
         {
             return ErrorExpression(currentType is null ? Catalog.ThisOutsideType(e.Location) : Catalog.ThisUnavailable(e.Location, noThisContext));
         }
-        return new BoundThis(e.Location, currentType!.Type);
+        return new BoundThis(e.Location, stdlib.ThisType(currentType!));
     }
 
     /// <summary>

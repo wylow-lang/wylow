@@ -84,6 +84,8 @@ public sealed partial class CppEmitter
                 EmitObjectDefinition(s);
         }
 
+        DeclareExternStructMethods(program);
+
         foreach (var s in program.Types.Where(s => s.Kind == TypeKind.Struct && s.Type.HasDefaultCode))
         {
             Line();

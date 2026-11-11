@@ -41,7 +41,7 @@ public sealed partial class IrLowering
         function = new IrFunction(symbol, name ?? (owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}"));
         block = function.Body;
         if (owner is not null && !symbol.IsStatic && symbol.ReceiverParameter is null)
-            function.This = self = new IrLocal("this", owner.Type, IrLocalKind.Value, IrLocalRole.This);
+            function.This = self = new IrLocal("this", program.Stdlib.ThisType(owner), IrLocalKind.Value, IrLocalRole.This);
         // A by-value receiver is an ordinary first parameter, which the call passes as an argument.
         if (symbol.ReceiverParameter is { } receiver)
             function.Parameters.Add(locals[receiver] = new IrLocal(receiver.Name, receiver.Type, KindOf(receiver), IrLocalRole.Parameter) { Symbol = receiver, RefKind = receiver.RefKind });

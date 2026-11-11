@@ -384,8 +384,6 @@ public sealed partial class Binder
                 Error(Catalog.CallerLocationOnDispatched(decl.NameLocation));
             if (method.IsBuiltin && !method.IsStatic && !s.IsExtern)
                 Error(Catalog.InstanceExternMethod(decl.NameLocation));
-            else if (s.IsExtern && !method.IsBuiltin)
-                Error(Catalog.NonExternMethodInExternStruct(decl.NameLocation));
             // C++ templates cannot be virtual.
             if (method.IsGeneric && isInterface)
                 Error(Catalog.GenericInterfaceMethod(decl.NameLocation));

@@ -83,6 +83,12 @@ public sealed class StdlibSymbols
     /// <summary>The <c>extern struct</c> that declares each hosted built-in type's members.</summary>
     readonly Dictionary<WylType, TypeSymbol> hosts = [];
 
+    /// <summary>The built-in type whose members each such <c>extern struct</c> declares.</summary>
+    readonly Dictionary<TypeSymbol, WylType> hosted = [];
+
+    /// <summary>The type of <c>this</c> in a method of the type: the built-in type it declares the members of, or itself.</summary>
+    public WylType ThisType(TypeSymbol s) => hosted.TryGetValue(s, out var type) ? type : s.Type;
+
     /// <summary>
     /// The types the language itself is built on, because its syntax needs them (spec
     /// programs.builtin-names): every file sees them without importing them, and no other module may declare
@@ -117,6 +123,7 @@ public sealed class StdlibSymbols
         if (symbol.IsExtern && HostedTypes.TryGetValue(symbol.Name, out var hosted))
         {
             hosts[hosted] = symbol;
+            this.hosted[symbol] = hosted;
             return;
         }
         switch (symbol.Name)

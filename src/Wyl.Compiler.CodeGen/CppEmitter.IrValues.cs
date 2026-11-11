@@ -60,7 +60,7 @@ public sealed partial class CppEmitter
             else if (local.IsThis && projections is [IrField first, ..])
                 (text, start) = ($"this->{FieldName(first.Field)}", 1);
             else
-                text = local.IsThis ? "(*this)" : BaseText(local);
+                text = !local.IsThis ? BaseText(local) : emitting is { Symbol.IsExternStructBody: true } ? SelfName : "(*this)";
         }
         else
         {
@@ -262,7 +262,9 @@ public sealed partial class CppEmitter
         };
         var receiverType = receiverPlace.Type;
         var receiverText = receiver is IrRead value ? OperandText(value) : PlaceText(receiverPlace);
-        bool isThis = receiverPlace is { IsDeref: false, Projections.Count: 0, Local.IsThis: true };
+        if (function.IsExternStructBody)
+            return $"{ExternStructMethods(function.ContainingType!)}::{memberName}({string.Join(", ", texts.Prepend(receiverText))})";
+        bool isThis = receiverPlace is { IsDeref: false, Projections.Count: 0, Local.IsThis: true } && emitting is not { Symbol.IsExternStructBody: true };
         var target = isThis ? ThisReceiverText(method, call.IsSuperCall) : ReceiverText(receiverType, method, receiverText);
         // An extern struct's instance methods are members of its C++ class, and a primitive's are
         // members of the wyl::Builtin that wraps it.

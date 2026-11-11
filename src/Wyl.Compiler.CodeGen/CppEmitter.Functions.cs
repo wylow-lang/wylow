@@ -18,11 +18,41 @@ public sealed partial class CppEmitter
     string Parameters(FunctionSymbol function) =>
         WithHiddenParameters(function, DeclaredParameters(function));
 
-    /// <summary>A function's parameters, with a by-value receiver first, as its call passes it.</summary>
-    IEnumerable<string> DeclaredParameters(FunctionSymbol function) =>
-        function.ReceiverParameter is { } receiver
-            ? [ParameterDeclaration(function, receiver, receiver.Type), .. function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type))]
-            : function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type));
+    /// <summary>A function's parameters, with a by-value receiver or an extern struct's <c>self</c> first, as its call passes it.</summary>
+    IEnumerable<string> DeclaredParameters(FunctionSymbol function)
+    {
+        var parameters = function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type));
+        if (function.ReceiverParameter is { } receiver)
+            return [ParameterDeclaration(function, receiver, receiver.Type), .. parameters];
+        if (function.IsExternStructBody)
+            return [$"{ParameterType(stdlib.ThisType(function.ContainingType!), function.IsReadOnly ? RefKind.In : RefKind.Ref)} {SelfName}", .. parameters];
+        return parameters;
+    }
+
+    /// <summary>The parameter that <c>this</c> is in a method with a body of an extern struct.</summary>
+    const string SelfName = "self";
+
+    /// <summary>The C++ class whose static members are the methods with bodies of an extern struct, which <c>wyl::Builtin</c> calls through a bound.</summary>
+    string ExternStructMethods(TypeSymbol s) => $"wyl::MethodsOf<{CppType(stdlib.ThisType(s))}>";
+
+    /// <summary>
+    /// Declares each extern struct's reached methods with bodies in its <c>wyl::MethodsOf</c>
+    /// specialization, after every type is complete and before any function uses one.
+    /// </summary>
+    void DeclareExternStructMethods(BoundProgram program)
+    {
+        var reachedBodies = program.Functions.Select(f => f.Symbol).Where(f => f.IsExternStructBody && functions.Contains(f));
+        foreach (var owner in reachedBodies.GroupBy(f => f.ContainingType!))
+        {
+            Line();
+            Line("template <>");
+            Line($"struct {ExternStructMethods(owner.Key)}");
+            Line("{");
+            foreach (var method in owner)
+                Line($"    static {ReturnType(method)} {MethodName(method)}({Parameters(method)});");
+            Line("};");
+        }
+    }
 
     string Parameters(MethodReference method) =>
         WithHiddenParameters(method.Symbol, method.Symbol.Parameters.Select((p, i) => ParameterDeclaration(method.Symbol, p, method.ParameterType(i))));
@@ -84,6 +114,8 @@ public sealed partial class CppEmitter
         }
         if (function.IsDestructor)
             return s.HasSeparateDestructor ? $"void {owner}::wyl_destructor()" : $"{owner}::~{OwnName(s)}()";
+        if (function.IsExternStructBody)
+            return $"{ReturnType(function)} {ExternStructMethods(s)}::{MethodName(function)}({Parameters(function)})";
         var signature = $"{ReturnType(function)} {owner}::{MethodName(function)}({Parameters(function)})";
         return function.IsReadOnly && !function.HasByValueReceiver ? signature + " const" : signature;
     }

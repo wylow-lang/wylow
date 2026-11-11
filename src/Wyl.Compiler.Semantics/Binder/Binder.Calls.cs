@@ -122,7 +122,7 @@ public sealed partial class Binder
                 return MakeCall(e.Location, method, null, arguments);
             if (!hasThis)
                 return ErrorExpression(Catalog.InstanceMemberUnavailable(name.Location, "method", name.Name, noThisContext));
-            return MakeCall(e.Location, method, new BoundThis(name.Location, s.Type), arguments);
+            return MakeCall(e.Location, method, new BoundThis(name.Location, stdlib.ThisType(s)), arguments);
         }
 
         if (ResolveName(name.Name, name.Location) is { HasValue: true } entry)

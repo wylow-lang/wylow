@@ -36,6 +36,8 @@ public sealed partial class CppEmitter
         usedLocalNames.UnionWith(function.Symbol.Parameters.Select(LocalName));
         if (function.Symbol.ReceiverParameter is { } receiver)
             usedLocalNames.Add(LocalName(receiver));
+        if (function.Symbol.IsExternStructBody)
+            usedLocalNames.Add(SelfName);
         currentType = function.Symbol.ContainingType;
         irNames.Clear();
         continueLabels.Clear();
