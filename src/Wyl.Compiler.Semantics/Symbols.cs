@@ -440,6 +440,18 @@ public sealed class TypeSymbol
     public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
 
     /// <summary>
+    /// Whether a value of the type records that something refers into it (spec <c>memory.holds</c>):
+    /// a struct with a destructor, and an enum that has a variant with data. The emitter gives such a
+    /// type its <c>SetInUse</c>, and the interpreter marks only such values.
+    /// </summary>
+    public bool RecordsInUse => Kind switch
+    {
+        TypeKind.Struct => Destructor is not null,
+        TypeKind.Enum => Variants.Any(v => v.Fields.Count > 0),
+        _ => false,
+    };
+
+    /// <summary>
     /// The name the C++ runtime declares the type by, which the emitter then gives it: an extern
     /// struct's class, and a standard library type the runtime's code names (<c>ReadOnlySpan</c>, which
     /// <c>String.bytes</c> returns), so the runtime never depends on how the emitter names things.

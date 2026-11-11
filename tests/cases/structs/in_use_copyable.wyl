@@ -1,0 +1,23 @@
+// A copyable struct records no in-use state (spec memory.holds), so replacing one that a reference
+// refers into releases nothing that panics, even through generic code that cannot tell the type.
+struct Edge {
+    int weight;
+}
+
+class Holder {
+    pub mut Edge edge;
+}
+
+void replaceEdge<T>(ref T value, Holder holder) {
+    holder.edge = Edge(5);
+}
+
+void outer<T>(ref T value, Holder holder) {
+    replaceEdge(ref value, holder);
+}
+
+void main() {
+    var holder = new Holder();
+    outer(ref holder.edge, holder);
+    std::print(holder.edge.weight);         // output: 5
+}

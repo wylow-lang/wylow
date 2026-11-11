@@ -204,10 +204,10 @@ public sealed partial class Interpreter
     {
         switch (value)
         {
-            case StructValue structure:
+            case StructValue structure when structure.Type.Symbol!.RecordsInUse:
                 structure.InUse = on;
                 break;
-            case EnumValue enumeration:
+            case EnumValue enumeration when enumeration.Type.Symbol!.RecordsInUse:
                 enumeration.InUse = on;
                 break;
             case OptionalValue nullable:
