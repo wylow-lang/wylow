@@ -1,0 +1,14 @@
+// The null byte ends a character that needs two more bytes, so the bytes are not valid UTF-8.
+
+import std::memory;
+
+void main() {
+    mut byte[4] raw = [0x61, 0xE2, 0x82, 0];
+    unsafe {
+        byte* data = memory::allocate<byte>(4);
+        for (int i : 0..4) {
+            memory::initialize(data + i, raw[i]);
+        }
+        std::print(String.fromCString(data)); // panic-here: invalid UTF-8 at byte offset 1
+    }
+}

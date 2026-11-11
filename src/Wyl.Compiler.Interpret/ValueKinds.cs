@@ -59,6 +59,9 @@ public sealed class StringValue(byte[] bytes) : Value
 
     public byte[] Bytes { get; } = bytes;
 
+    /// <summary>The bytes and a null byte, as storage that <c>cstr</c>'s pointer walks, made on first use.</summary>
+    internal Buffer? Storage;
+
     public static StringValue Of(string text) => new(Encoding.UTF8.GetBytes(text));
 
     public string Text => Encoding.UTF8.GetString(Bytes);

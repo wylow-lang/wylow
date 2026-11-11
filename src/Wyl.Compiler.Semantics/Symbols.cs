@@ -181,9 +181,10 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     /// <summary>
     /// A method with a body of an extern struct. The compiler does not write the struct's C++ class,
-    /// so the method becomes a C++ function that takes the receiver as its first parameter.
+    /// so the method becomes a C++ function, and an instance method's function takes the receiver as
+    /// its first parameter.
     /// </summary>
-    public bool IsExternStructBody => IsInstanceMethod && ContainingType is { IsExtern: true } && !IsBuiltin;
+    public bool IsExternStructBody => ContainingType is { IsExtern: true } && !IsConstructor && !IsDestructor && !IsBuiltin;
 
     /// <summary>Whether a call dispatches on the receiver's runtime type. Interface methods always do.</summary>
     public bool IsDispatched => IsVirtual || IsOverride || IsAbstract || ContainingType?.Kind == TypeKind.Interface;
@@ -457,7 +458,8 @@ public sealed class TypeSymbol
     /// <summary>
     /// The name the C++ runtime declares the type by, which the emitter then gives it: an extern
     /// struct's class, and a standard library type the runtime's code names (<c>ReadOnlySpan</c>, which
-    /// <c>String.bytes</c> returns), so the runtime never depends on how the emitter names things.
+    /// <c>memory::compare</c>, <c>memory::equal</c>, and <c>String.copyOf</c> take), so the runtime
+    /// never depends on how the emitter names a type.
     /// </summary>
     public string? RuntimeName => IsExtern || IsNamedByRuntime ? "wyl::" + Name : null;
 

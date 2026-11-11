@@ -171,15 +171,19 @@ public sealed partial class IrLowering
         : IrRead.Copy(new IrPlace(Let(new IrUse(Value(index)))));
 
     /// <summary>
-    /// A local holding the object that a place's first step is in: <c>this</c>, which the caller
-    /// holds, a temporary, or a hold of the object, which <c>HoldElision</c> turns into an alias
-    /// where nothing can replace it. <paramref name="borrows"/> when the object hands out storage
-    /// it may move unless it is borrowed.
+    /// A local holding the object that a place's first step is in: a class's <c>this</c>, which the
+    /// caller holds, a temporary, or a hold of the object, which <c>HoldElision</c> turns into an
+    /// alias where nothing can replace it. <paramref name="borrows"/> when the object hands out
+    /// storage it may move unless it is borrowed.
     /// </summary>
     IrLocal ObjectLocal(BoundExpression root, bool borrows)
     {
         switch (root)
         {
+            // The `this` of an extern struct's method, such as a `String`'s, is the caller's place,
+            // so the method holds it as it holds an `in` parameter.
+            case BoundThis when !self!.Type.IsReference:
+                return Hold(new IrPlace(self), borrows);
             case BoundThis:
                 return borrows ? Hold(new IrPlace(self!), borrows) : self!;
             case BoundLiteral:

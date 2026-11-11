@@ -251,6 +251,8 @@ public sealed partial class CppEmitter
                 return $"{builtin}{typeArguments}({arguments})";
             if (function.ContainingType is null)
                 return $"{FunctionName(function)}{typeArguments}({arguments})";
+            if (function.IsExternStructBody)
+                return $"{ExternStructFunctionName(function)}{typeArguments}({arguments})";
             return $"{ObjectType(method.Owner!)}::{memberName}({arguments})";
         }
 

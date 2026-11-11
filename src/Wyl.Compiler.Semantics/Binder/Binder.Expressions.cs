@@ -109,12 +109,14 @@ public sealed partial class Binder
 
     /// <summary>
     /// The declared type an expression names, as <c>Vec3</c> or <c>world::Chunk</c> write it, with
-    /// the name that carries its type arguments; null if it names none. Looking doesn't report a
-    /// path that leads nowhere, which binding the expression then does.
+    /// the name that carries its type arguments; null if it names none. A built-in type's name, as
+    /// <c>String</c>, gives the <c>extern struct</c> that declares its members. Looking doesn't
+    /// report a path that leads nowhere, which binding the expression then does.
     /// </summary>
     (TypeSymbol Symbol, NameExpr Name)? AsTypeSymbol(Expr expression) => expression switch
     {
         NameExpr name when !IsValueName(name.Name) && LookupType(name.Name, name.Location) is { } s => (s, name),
+        NameExpr name when !IsValueName(name.Name) && BuiltinType(name.Name) is { } builtin && stdlib.MemberHost(builtin).Symbol is { } host => (host, name),
         PathExpr path when FindPath(path.Modules, path.Name.Name, path.Name.Location) is { Type: { } s } => (s, path.Name),
         _ => null,
     };
@@ -233,7 +235,8 @@ public sealed partial class Binder
                 CheckVisible(e.NameLocation, statics.Field.Reach, $"static field '{statics.Field.Owner.Name}.{e.Name}'");
                 return new BoundStaticFieldAccess(e.Location, statics.Field, TypeMap.For(statics.Owner).Apply(statics.Field.Type));
             }
-            return ErrorExpression(LookupMethods(typeName, e.Name).Count > 0 ? Catalog.FunctionNotValue(e.NameLocation, "method", $"{typeName.Symbol!.Name}.{e.Name}", e.Name, CanReference(e)) : Catalog.NoStaticMember(e.NameLocation, typeName.Symbol!.Name, e.Name));
+            var owner = stdlib.MemberHost(typeName).Symbol!.Name;
+            return ErrorExpression(LookupMethods(typeName, e.Name).Count > 0 ? Catalog.FunctionNotValue(e.NameLocation, "method", $"{owner}.{e.Name}", e.Name, CanReference(e)) : Catalog.NoStaticMember(e.NameLocation, owner, e.Name));
         }
 
         return BindFieldAccess(e.Location, BindExpression(e.Target), e.Name, e.NameLocation);

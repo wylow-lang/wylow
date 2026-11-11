@@ -75,16 +75,9 @@ public sealed partial class Interpreter
             ["wyl::memory::compare"] = (i, call, location, caller) => MemoryCompare(i.ArgumentsOf(call, caller)),
             ["wyl::memory::equal"] = (i, call, location, caller) => MemoryEqual(i.ArgumentsOf(call, caller)),
             ["String::byteLength"] = StringMethod(s => new IntValue(s.Bytes.Length)),
-            ["String::bytes"] = StringMethod(s => s.Interpreter.StringBytes(s.Bytes, s.Caller)),
-            ["String::charCount"] = StringMethod(s => new IntValue(CharCount(s.Bytes))),
-            ["String::startsWith"] = StringMethod(s => new BoolValue(Starts(s.Bytes, s.Text(0)))),
-            ["String::endsWith"] = StringMethod(s => new BoolValue(Ends(s.Bytes, s.Text(0)))),
-            ["String::indexOf"] = StringMethod(s => new OptionalValue(IndexOf(s.Bytes, s.Text(0)) is { } at ? new Cell(WylType.Int, new IntValue(at)) : null)),
-            ["String::slice"] = StringMethod(s => Slice(s.Bytes, s.Int(0), s.Int(1), s.Location)),
-            ["String::compareTo"] = StringMethod(s => new IntValue(RuntimeText.CompareBytes(s.Bytes, s.Text(0)))),
+            ["String::cstr"] = StringMethod(s => s.Interpreter.StringStorage(s.Receiver)),
             ["String::toString"] = StringMethod(s => s.Receiver),
-            ["String::charAt"] = StringMethod(s => new CharValue(Decode(s.Bytes, s.Int(0)))),
-            ["String::nextChar"] = StringMethod(s => new IntValue(s.Int(0) + LeadLength(s.Bytes[s.Int(0)]))),
+            ["wyl::string::copyOf"] = (i, call, location, caller) => CopyOf(i.ArgumentsOf(call, caller)),
         };
         foreach (var type in StdlibSymbols.HostedPrimitives)
         {
@@ -288,112 +281,52 @@ public sealed partial class Interpreter
         return null;
     }
 
-    /// <summary>
-    /// A call to a member of <c>String</c>, which works over the receiver's UTF-8 bytes as
-    /// <c>runtime/wyl/core.h</c> and <c>strings.h</c> do.
-    /// </summary>
-    readonly record struct StringCall(Interpreter Interpreter, StringValue Receiver, IReadOnlyList<Value> Arguments, string? Location, Frame Caller)
+    /// <summary>A call to an extern method of <c>String</c>, which works over the receiver's UTF-8 bytes as <c>runtime/wyl/core.h</c> does.</summary>
+    readonly record struct StringCall(Interpreter Interpreter, StringValue Receiver)
     {
         public byte[] Bytes => Receiver.Bytes;
-
-        public byte[] Text(int index) => (Arguments[index] as StringValue ?? throw new InterpreterException("a String argument is not one")).Bytes;
-
-        public int Int(int index) => (int)Integer(Arguments[index]);
     }
 
     static IntrinsicHandler StringMethod(Func<StringCall, Value?> body) => (i, call, location, caller) =>
     {
         var receiver = i.ReceiverOf(call, caller) as StringValue
             ?? throw new InterpreterException($"'{call.Method.Symbol.Name}' was called on something that is not a String");
-        return body(new StringCall(i, receiver, i.ArgumentsOf(call, caller), location, caller));
+        return body(new StringCall(i, receiver));
     };
 
     /// <summary>
-    /// The bytes as a <c>ReadOnlySpan&lt;byte&gt;</c> over a buffer of them, made by the span's own
-    /// constructor, so the interpreter never assumes the span's layout. The string is immutable, so
-    /// the span reads a copy that nothing can tell from the string's own storage.
+    /// A pointer to the string's bytes and the null byte after them, which <c>cstr</c> returns. The
+    /// interpreter makes the storage once per string value, so a method that calls <c>bytes</c> in a
+    /// loop does not copy the string each time. Writing through the pointer is the program's
+    /// undefined behavior, which the interpreter does not detect.
     /// </summary>
-    Value StringBytes(byte[] bytes, Frame caller)
+    Value StringStorage(StringValue text)
     {
-        var storage = AllocateBuffer(bytes.Length);
-        for (int i = 0; i < bytes.Length; i++)
-            storage.Write(i, new Cell(WylType.Byte, new IntValue(bytes[i])));
-        var span = program.Bound.Stdlib.ReadOnlySpan?.Construct([WylType.Byte])
-            ?? throw new InterpreterException("the standard library declares no 'ReadOnlySpan'");
-        var constructor = span.Symbol!.Constructors.FirstOrDefault(c => c.Parameters.Count == 2 && c.Parameters[0].Type.IsPointer)
-            ?? throw new InterpreterException($"'{span}' declares no constructor from a pointer and a length");
-        var method = new MethodReference(constructor, span, []);
-        return ConstructWith(method, [
-            new Cell(method.ParameterType(0), new PointerValue(storage, 0)),
-            new Cell(WylType.Int, new IntValue(bytes.Length)),
-        ], caller);
-    }
-
-    /// <summary>Makes a struct by running its constructor's IR with values the interpreter already has.</summary>
-    Value ConstructWith(MethodReference constructor, IReadOnlyList<Cell> arguments, Frame caller)
-    {
-        var function = program.Functions.Single(constructor.Symbol)
-            ?? throw new InterpreterException($"no lowered function for '{constructor.Symbol.Signature}'");
-        var frame = CalleeFrame(caller, constructor.Map);
-        for (int i = 0; i < arguments.Count; i++)
-            frame.Locals[function.Parameters[i]] = new OwnedStorage(new Cell(frame.Type(function.Parameters[i].Type), arguments[i].Value));
-        return Invoke(function, frame) ?? throw new InterpreterException($"'{function.Name}' returned nothing");
-    }
-
-    static int CharCount(byte[] bytes)
-    {
-        int count = 0;
-        foreach (var b in bytes)
+        if (text.Storage is not { } storage)
         {
-            if ((b & 0xC0) != 0x80)
-                count++;
+            var made = AllocateBuffer(text.Bytes.Length + 1);
+            for (int i = 0; i < text.Bytes.Length; i++)
+                made.Write(i, new Cell(WylType.Byte, new IntValue(text.Bytes[i])));
+            made.Write(text.Bytes.Length, new Cell(WylType.Byte, new IntValue(0)));
+            storage = Interlocked.CompareExchange(ref text.Storage, made, null) ?? made;
         }
-        return count;
+        return new PointerValue(storage, 0);
     }
 
-    static bool Starts(byte[] bytes, byte[] prefix) =>
-        prefix.Length <= bytes.Length && bytes.AsSpan(0, prefix.Length).SequenceEqual(prefix);
+    static readonly System.Text.UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    static bool Ends(byte[] bytes, byte[] suffix) =>
-        suffix.Length <= bytes.Length && bytes.AsSpan(bytes.Length - suffix.Length, suffix.Length).SequenceEqual(suffix);
-
-    /// <summary>The byte offset where the text first occurs, or null; the empty text occurs at the start.</summary>
-    static int? IndexOf(byte[] bytes, byte[] text)
+    /// <summary><c>String.copyOf</c>, whose caller promises valid UTF-8; the interpreter checks the promise.</summary>
+    static Value CopyOf(IReadOnlyList<Value> arguments)
     {
-        if (text.Length > bytes.Length)
-            return null;
-        if (text.Length == 0)
-            return 0;
-        for (int at = 0; at <= bytes.Length - text.Length; at++)
+        var bytes = SpanBytes(arguments[0]);
+        try
         {
-            if (bytes.AsSpan(at, text.Length).SequenceEqual(text))
-                return at;
+            StrictUtf8.GetCharCount(bytes);
         }
-        return null;
-    }
-
-    static StringValue Slice(byte[] bytes, int start, int count, string? location)
-    {
-        if (start < 0 || count < 0 || (long)start + count > bytes.Length)
-            throw new WylPanic($"byte range of {count} from {start} is out of bounds for length {bytes.Length}", location ?? "<unknown>");
-        foreach (var offset in new[] { start, start + count })
+        catch (System.Text.DecoderFallbackException)
         {
-            if (offset != bytes.Length && (bytes[offset] & 0xC0) == 0x80)
-                throw new WylPanic($"byte offset {offset} is inside a character", location ?? "<unknown>");
+            throw new UndefinedBehavior("String.copyOf was given bytes that are not valid UTF-8");
         }
-        if (count == bytes.Length)
-            return new StringValue(bytes);
-        return new StringValue(bytes[start..(start + count)]);
+        return new StringValue(bytes);
     }
-
-    static int Decode(byte[] bytes, int offset)
-    {
-        int lead = bytes[offset];
-        if (lead < 0x80) return lead;
-        if (lead < 0xE0) return ((lead & 0x1F) << 6) | (bytes[offset + 1] & 0x3F);
-        if (lead < 0xF0) return ((lead & 0x0F) << 12) | ((bytes[offset + 1] & 0x3F) << 6) | (bytes[offset + 2] & 0x3F);
-        return ((lead & 0x07) << 18) | ((bytes[offset + 1] & 0x3F) << 12) | ((bytes[offset + 2] & 0x3F) << 6) | (bytes[offset + 3] & 0x3F);
-    }
-
-    static int LeadLength(int lead) => lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
 }

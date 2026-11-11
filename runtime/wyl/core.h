@@ -34,8 +34,8 @@ static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<doubl
 
 namespace wyl {
 
-// The standard library's ReadOnlySpan, which String::bytes returns. The runtime names it, and the
-// emitter defines it under this name (TypeSymbol.RuntimeName).
+// The standard library's ReadOnlySpan, which memory::compare, memory::equal, and String.copyOf
+// read. The runtime names it, and the emitter defines it under this name (TypeSymbol.RuntimeName).
 template <class T>
 struct ReadOnlySpan;
 
@@ -66,8 +66,8 @@ class Optional;
 
 // An immutable, null-terminated UTF-8 string. A literal points at static bytes and owns nothing, so
 // literals never allocate; a built string shares one counted block among its copies.
-// The camelCase members are String's methods in Wylow (String.wyl); indexOf, contains, and slice are
-// defined in strings.h.
+// The camelCase members are String's extern methods in Wylow (string.wyl), whose other methods are
+// written in Wylow on top of them.
 class String {
 public:
     struct Block {
@@ -117,63 +117,14 @@ public:
 
     int32_t byteLength() const { return m_Length; }
 
-    // A template so that the span is a complete type by the time a program instantiates it. The
-    // span is read-only, so a literal's static bytes are never written.
-    template <class Byte = uint8_t>
-    wyl::ReadOnlySpan<Byte> bytes() const {
-        return wyl::ReadOnlySpan<Byte>::make(reinterpret_cast<Byte*>(const_cast<char*>(m_Data)), m_Length);
-    }
-
-    int32_t charCount() const {
-        int32_t count = 0;
-        for (int32_t i = 0; i < m_Length; i++) {
-            if (!IsContinuation(m_Data[i])) count++;
-        }
-        return count;
-    }
-
-    bool startsWith(const String& prefix) const {
-        return prefix.m_Length <= m_Length && std::memcmp(m_Data, prefix.m_Data, static_cast<size_t>(prefix.m_Length)) == 0;
-    }
-
-    bool endsWith(const String& suffix) const {
-        return suffix.m_Length <= m_Length &&
-               std::memcmp(m_Data + (m_Length - suffix.m_Length), suffix.m_Data, static_cast<size_t>(suffix.m_Length)) == 0;
-    }
-
-    Optional<int32_t> indexOf(const String& text) const;
-    String slice(int32_t start, int32_t count, const char* location) const;
-
-    // A string is always valid UTF-8, and the compiler passes only offsets where a character starts.
-    char32_t charAt(int32_t offset) const {
-        auto byte = [&](int32_t i) { return static_cast<uint32_t>(static_cast<unsigned char>(m_Data[offset + i])); };
-        uint32_t lead = byte(0);
-        if (lead < 0x80) return static_cast<char32_t>(lead);
-        if (lead < 0xE0) return static_cast<char32_t>(((lead & 0x1F) << 6) | (byte(1) & 0x3F));
-        if (lead < 0xF0) return static_cast<char32_t>(((lead & 0x0F) << 12) | ((byte(1) & 0x3F) << 6) | (byte(2) & 0x3F));
-        return static_cast<char32_t>(((lead & 0x07) << 18) | ((byte(1) & 0x3F) << 12) | ((byte(2) & 0x3F) << 6) | (byte(3) & 0x3F));
-    }
-
-    int32_t nextChar(int32_t offset) const {
-        auto lead = static_cast<unsigned char>(m_Data[offset]);
-        return offset + (lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4);
-    }
-
-    // memcmp compares bytes as unsigned, so UTF-8 sorts by code point.
-    int32_t compareTo(const String& other) const {
-        auto common = static_cast<size_t>(m_Length < other.m_Length ? m_Length : other.m_Length);
-        int order = std::memcmp(m_Data, other.m_Data, common);
-        if (order == 0) order = m_Length < other.m_Length ? -1 : m_Length > other.m_Length ? 1 : 0;
-        return order < 0 ? -1 : order > 0 ? 1 : 0;
-    }
+    // Wylow reads the bytes through a byte*, and the spec makes writing through it undefined
+    // behavior, so a literal's static bytes are never written.
+    uint8_t* cstr() const { return reinterpret_cast<uint8_t*>(const_cast<char*>(m_Data)); }
 
     String toString() const { return *this; }
 
 private:
     String(const char* data, int32_t length, Block* block) : m_Data(data), m_Length(length), m_Block(block) {}
-
-    // Whether a character starts at the byte offset, or it is the end.
-    bool IsBoundary(int32_t offset) const { return offset == m_Length || !IsContinuation(m_Data[offset]); }
 
     void Release() {
         if (m_Block != nullptr && --m_Block->Count == 0) ::operator delete(m_Block);

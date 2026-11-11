@@ -112,7 +112,7 @@ with `@SuppressWarnings("unqualified-call")` on the import or the declaration (d
   `s_PascalCase` static data members and namespace-scope state, and `UPPER_SNAKE_CASE` constants
   and variable templates. A name the emitter derives from a Wylow declaration keeps the derived
   spelling: the binder names an `extern` member from its Wylow name (`Binder.ExternName`), so
-  `String.charAt`, `wyl::memory.allocate`, `wyl::replace`, and `wyl::print` stay `camelCase`, and
+  `String.byteLength`, `wyl::memory.allocate`, `wyl::replace`, and `wyl::print` stay `camelCase`, and
   an interface implementation keeps the emitter's `m_` prefix (`Builtin::m_compareTo`). A name the
   runtime and the emitter's generated C++ share is renamed on both sides in the same change.
 - **Comments are concise and explain why, never what.** A comment that would go stale when other

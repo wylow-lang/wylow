@@ -1,7 +1,7 @@
 # Interop, slice 1
 
-Do this after `docs/handoff/string-methods.md`, whose emitter form for methods with bodies this work
-reuses. The rules are in `docs/spec/21-interop.md`, `programs.manifest`, `unsafe.blocks`, and
+This work reuses the emitter form for methods with bodies of extern structs
+(`FunctionSymbol.IsExternStructBody`). The rules are in `docs/spec/21-interop.md`, `programs.manifest`, `unsafe.blocks`, and
 `annotations.list`. The reasons are in decisions 0084 to 0087. The goal is a package that binds a C
 library by hand, with a few dozen declarations, and calls the library from Wylow.
 

@@ -17,6 +17,14 @@ void main() {
     std::print(s.slice(1));         // error[WYL0233]: no overload of 'String.slice' takes 1 argument
     std::print(s.indexOf(5));       // error[WYL0236]: no overload of 'String.indexOf' accepts (int)
     int at = s.indexOf("b");        // error[WYL0079]: expected 'int', found 'int?'
-    std::print(String.byteLength);  // error[WYL0281]: cannot find 'String' in this scope
+    std::print(String.byteLength);  // error[WYL0275]: instance method 'String.byteLength' cannot be used as a value
+    std::print(String.missing);     // error[WYL0293]: cannot find static member 'missing' in 'String'
+    String.missing();               // error[WYL0300]: cannot find method 'missing' in 'String'
+    String.isEmpty();               // error[WYL0302]: instance method 'String.isEmpty' cannot be called through its type
+    std::print(s.cstr()[0]);        // error[WYL0304]: 'cstr' is unsafe and can only be called in 'unsafe' code
+    String.fromCString(null);       // error[WYL0304]: 'fromCString' is unsafe and can only be called in 'unsafe' code
+    unsafe {
+        String.copyOf(s.bytes());   // error[WYL0054]: method 'String.copyOf' is not visible here
+    }
     std::print(maybe().byteLength); // error[WYL0065]: 'maybe()' might be null
 }

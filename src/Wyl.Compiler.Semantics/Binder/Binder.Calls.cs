@@ -194,7 +194,7 @@ public sealed partial class Binder
         {
             if (type == WylType.Error)
                 return new BoundErrorExpression(e.Location);
-            var s = type.Symbol!;
+            var s = stdlib.MemberHost(type).Symbol!;
             var staticCandidates = LookupMethods(type, member.Name);
             if (staticCandidates.Count == 0)
                 return ErrorExpression(Catalog.NoMethod(member.NameLocation, s.Name, member.Name));

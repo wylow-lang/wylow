@@ -38,7 +38,7 @@ struct Builtin {
 
     int32_t compareTo(const T& other) const {
         if constexpr (std::is_same_v<T, String>) {
-            return Value.compareTo(other);
+            return MethodsOf<T>::m_compareTo(Value, other);
         } else {
             return Compare(Value, other);
         }

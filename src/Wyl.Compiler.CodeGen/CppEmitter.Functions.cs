@@ -24,7 +24,7 @@ public sealed partial class CppEmitter
         var parameters = function.Parameters.Select(p => ParameterDeclaration(function, p, p.Type));
         if (function.ReceiverParameter is { } receiver)
             return [ParameterDeclaration(function, receiver, receiver.Type), .. parameters];
-        if (function.IsExternStructBody)
+        if (function.IsExternStructBody && function.IsInstanceMethod)
             return [$"{ParameterType(stdlib.ThisType(function.ContainingType!), function.IsReadOnly ? RefKind.In : RefKind.Ref)} {SelfName}", .. parameters];
         return parameters;
     }

@@ -257,38 +257,20 @@ private:
     size_t m_Capacity = 0;
 };
 
-inline Optional<int32_t> String::indexOf(const String& text) const {
-    if (text.m_Length > m_Length) return nullptr;
-    if (text.m_Length == 0) return 0;
-    const char* last = m_Data + (m_Length - text.m_Length);
-    for (const char* p = m_Data; p <= last; p++) {
-        p = static_cast<const char*>(std::memchr(p, text.m_Data[0], static_cast<size_t>(last - p) + 1));
-        if (p == nullptr) break;
-        if (std::memcmp(p, text.m_Data, static_cast<size_t>(text.m_Length)) == 0) return static_cast<int32_t>(p - m_Data);
-    }
-    return nullptr;
-}
+namespace string {
 
-
-inline String String::slice(int32_t start, int32_t count, const char* location) const {
-    if (start < 0 || count < 0 || static_cast<int64_t>(start) + count > m_Length) {
-        char message[128];
-        std::snprintf(message, sizeof message, "byte range of %" PRId32 " from %" PRId32 " is out of bounds for length %" PRId32, count, start,
-                      m_Length);
-        RaisePanic(message, location);
-    }
-    for (int32_t offset : {start, start + count}) {
-        if (!IsBoundary(offset)) {
-            char message[96];
-            std::snprintf(message, sizeof message, "byte offset %" PRId32 " is inside a character", offset);
-            RaisePanic(message, location);
-        }
-    }
-    if (count == m_Length) return *this;
+// String.copyOf, which the caller promises is given valid UTF-8. The standard library's ReadOnlySpan
+// is complete only after the program defines it, so the function is a template.
+template <class T>
+inline String copyOf(ReadOnlySpan<T> bytes) {
+    static_assert(sizeof(T) == 1, "String.copyOf copies bytes");
     StringBuffer text;
-    text.Append(m_Data + start, static_cast<size_t>(count), location);
+    // A span's length is an int32_t, so the text never reaches the length limit, which needs a location.
+    text.Append(reinterpret_cast<const char*>(bytes.f_data), static_cast<size_t>(bytes.f_size), "");
     return text.Take();
 }
+
+}  // namespace string
 
 template <class T>
 inline Formatted<T>::operator String() const {

@@ -1,0 +1,57 @@
+// String.cstr gives a pointer to a string's bytes, which a null byte follows, and
+// String.fromCString copies null-terminated UTF-8 into a new string.
+
+import std::memory;
+
+// Returns new storage that holds a copy of `bytes`. The caller frees it.
+byte* stored(ReadOnlySpan<byte> bytes) {
+    unsafe {
+        byte* data = memory::allocate<byte>(bytes.length());
+        for (int i : 0..bytes.length()) {
+            memory::initialize(data + i, bytes[i]);
+        }
+        return data;
+    }
+}
+
+void main() {
+    String word = "héllo";
+    unsafe {
+        byte* text = word.cstr();
+        std::print(text[0]);                            // output: 104
+        std::print(text[1]);                            // output: 195
+        std::print(text[word.byteLength()]);            // output: 0
+        std::print(String.fromCString(text));           // output: héllo
+        std::print(String.fromCString(text) == word);   // output: true
+
+        // An empty string's pointer points at its null byte.
+        std::print("".cstr()[0]);                       // output: 0
+        std::print(String.fromCString("".cstr()).byteLength()); // output: 0
+
+        // A built string and a slice are null-terminated too.
+        int n = 42;
+        String built = $"n{n}";
+        std::print(built.cstr()[3]);                    // output: 0
+        String part = word.slice(1, 2);
+        std::print(part.cstr()[2]);                     // output: 0
+        std::print(String.fromCString(part.cstr()));    // output: é
+    }
+
+    // fromCString stops at the first null byte, and accepts the largest code point of each length.
+    mut byte[13] raw = [0x7F, 0xDF, 0xBF, 0xEF, 0xBF, 0xBF, 0xF4, 0x8F, 0xBF, 0xBF, 0, 0x61, 0];
+    unsafe {
+        byte* data = stored(raw);
+        String text = String.fromCString(data);
+        std::print(text.byteLength());                  // output: 10
+        std::print(text.charCount());                   // output: 4
+        for (char c : text) {
+            std::print((int)c);
+            // output: 127
+            // output: 2047
+            // output: 65535
+            // output: 1114111
+        }
+        std::print(String.fromCString(data + 11));      // output: a
+        memory::free(data);
+    }
+}

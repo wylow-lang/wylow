@@ -1,0 +1,14 @@
+// UTF-8 does not encode a surrogate code point, so the three bytes of U+D800 are invalid.
+
+import std::memory;
+
+void main() {
+    mut byte[6] raw = [0x61, 0x62, 0xED, 0xA0, 0x80, 0];
+    unsafe {
+        byte* data = memory::allocate<byte>(6);
+        for (int i : 0..6) {
+            memory::initialize(data + i, raw[i]);
+        }
+        std::print(String.fromCString(data)); // panic-here: invalid UTF-8 at byte offset 2
+    }
+}
