@@ -272,7 +272,7 @@ public sealed partial class IrLowering
             var copies = bindings.Skip(1).Select(b => (b.Local, Copy: Let(new IrUse(BoundValue(b))))).ToList();
             Add(new IrStore(new IrPlace(locals[bindings[0].Local]), BoundValue(bindings[0])) { Origin = at });
             foreach (var (local, copy) in copies)
-                Add(new IrStore(new IrPlace(locals[local]), IrRead.Move(new IrPlace(copy))) { Origin = at });
+                Add(new IrStore(new IrPlace(locals[local]), FromTemporary(copy)) { Origin = at });
             return IrConstant.Bool(true);
         }));
     }

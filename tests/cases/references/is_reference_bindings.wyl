@@ -1,0 +1,26 @@
+// An `is` pattern that binds several variant fields by reference stores each binding after the
+// test succeeds: the first directly, and each later one through a copy of its reference.
+enum Shape {
+    Rect(double width, double height),
+    Box(double width, double height, double depth),
+    Dot,
+}
+
+bool square(in Shape shape) {
+    return shape is Rect(in var width, in var height) && width == height;
+}
+
+double volume(in Shape shape) {
+    if (shape is Box(in var w, in double h, in var d)) {
+        return w * h * d;
+    }
+    return 0.0;
+}
+
+void main() {
+    std::print(square(Shape.Rect(2.0, 2.0)));       // output: true
+    std::print(square(Shape.Rect(2.0, 3.0)));       // output: false
+    std::print(square(Shape.Dot));                  // output: false
+    std::print(volume(Shape.Box(1.0, 2.0, 3.0)));   // output: 6.0
+    std::print(volume(Shape.Dot));                  // output: 0.0
+}

@@ -216,7 +216,10 @@ public sealed partial class IrLowering
     {
         if (Moves(place.Type))
             return IrRead.Borrow(place);
-        var copy = Let(new IrUse(IrRead.Copy(place)));
-        return new IrRead(copy.Kind == IrLocalKind.Value ? IrOwnership.Move : IrOwnership.Copy, new IrPlace(copy));
+        return FromTemporary(Let(new IrUse(IrRead.Copy(place))));
     }
+
+    /// <summary>A read of a temporary that is used once: a value is moved from it, and a reference is copied.</summary>
+    static IrRead FromTemporary(IrLocal temporary) =>
+        new(temporary.Kind == IrLocalKind.Value ? IrOwnership.Move : IrOwnership.Copy, new IrPlace(temporary));
 }
