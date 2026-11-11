@@ -57,6 +57,15 @@ pub unsafe extern T moveOut<T>(T* place);
 /// The `count` places at `from` must hold values, and those at `to` that aren't among them must not.
 pub unsafe extern void moveTo<T>(T* from, T* to, int count);
 
+/// Returns -1, 0, or 1 as `a` sorts before, the same as, or after `b`. The spans are compared byte
+/// by byte, each byte as an unsigned number, and a span that is a prefix of the other sorts first.
+@Pure
+pub extern int compare(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b);
+
+/// Returns whether `a` and `b` have the same length and the same bytes.
+@Pure
+pub extern bool equal(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b);
+
 /// A class that keeps values in raw memory and reports them to the cycle collector, which looks at
 /// a class through its fields otherwise (spec `library.memory`).
 ///

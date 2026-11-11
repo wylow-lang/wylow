@@ -1,0 +1,35 @@
+// memory::compare and memory::equal compare bytes as unsigned numbers, and a prefix sorts first.
+
+import std::memory;
+
+void main() {
+    std::print(memory::compare("abc".bytes(), "abc".bytes()));  // output: 0
+    std::print(memory::equal("abc".bytes(), "abc".bytes()));    // output: true
+
+    std::print(memory::compare("abc".bytes(), "abd".bytes()));  // output: -1
+    std::print(memory::compare("abd".bytes(), "abc".bytes()));  // output: 1
+    std::print(memory::equal("abc".bytes(), "abd".bytes()));    // output: false
+
+    // The first byte of "é" is 195, which sorts after 'z' only as an unsigned byte.
+    std::print(memory::compare("é".bytes(), "z".bytes()));      // output: 1
+    std::print(memory::compare("z".bytes(), "é".bytes()));      // output: -1
+
+    std::print(memory::compare("ab".bytes(), "abc".bytes()));   // output: -1
+    std::print(memory::compare("abc".bytes(), "ab".bytes()));   // output: 1
+    std::print(memory::equal("ab".bytes(), "abc".bytes()));     // output: false
+
+    std::print(memory::compare("".bytes(), "".bytes()));        // output: 0
+    std::print(memory::equal("".bytes(), "".bytes()));          // output: true
+    std::print(memory::compare("".bytes(), "a".bytes()));       // output: -1
+    std::print(memory::compare("a".bytes(), "".bytes()));       // output: 1
+    std::print(memory::equal("".bytes(), "a".bytes()));         // output: false
+
+    // A default span has no storage, and its pointer is null.
+    ReadOnlySpan<byte> none = ReadOnlySpan<byte>();
+    std::print(memory::compare(none, "".bytes()));              // output: 0
+    std::print(memory::equal(none, "".bytes()));                // output: true
+    std::print(memory::compare(none, "a".bytes()));             // output: -1
+
+    // A slice compares only the bytes it views.
+    std::print(memory::equal("xabcx".bytes().slice(1, 3), "abc".bytes())); // output: true
+}

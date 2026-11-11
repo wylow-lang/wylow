@@ -131,6 +131,33 @@ public sealed partial class Interpreter
         return null;
     }
 
+    static Value MemoryCompare(IReadOnlyList<Value> arguments) =>
+        new IntValue(RuntimeText.CompareBytes(SpanBytes(arguments[0]), SpanBytes(arguments[1])));
+
+    static Value MemoryEqual(IReadOnlyList<Value> arguments) =>
+        new BoolValue(SpanBytes(arguments[0]).AsSpan().SequenceEqual(SpanBytes(arguments[1])));
+
+    /// <summary>
+    /// The bytes that a <c>ReadOnlySpan&lt;byte&gt;</c> views. An empty span reads no storage, because
+    /// its pointer may be null.
+    /// </summary>
+    static byte[] SpanBytes(Value value)
+    {
+        var span = (StructValue)value;
+        Value Field(string name) => span.Fields[span.Type.Symbol!.Fields.FindIndex(f => f.Name == name)].Value;
+        int length = (int)(long)Integer(Field("size"));
+        if (length == 0)
+            return [];
+        var data = PointerAt(Field("data"));
+        var bytes = new byte[length];
+        for (int i = 0; i < length; i++)
+        {
+            var cell = data.Buffer.Read(data.Index + i) ?? throw new UndefinedBehavior("a span viewed storage that was never initialized");
+            bytes[i] = (byte)Integer(cell.Value);
+        }
+        return bytes;
+    }
+
     static PointerValue PointerAt(Value value) => value switch
     {
         PointerValue pointer => pointer,

@@ -72,6 +72,8 @@ public sealed partial class Interpreter
             ["wyl::memory::drop"] = (i, call, location, caller) => i.MemoryDrop(i.ArgumentsOf(call, caller)),
             ["wyl::memory::moveOut"] = (i, call, location, caller) => MemoryMoveOut(i.ArgumentsOf(call, caller)),
             ["wyl::memory::moveTo"] = (i, call, location, caller) => MemoryMoveTo(i.ArgumentsOf(call, caller)),
+            ["wyl::memory::compare"] = (i, call, location, caller) => MemoryCompare(i.ArgumentsOf(call, caller)),
+            ["wyl::memory::equal"] = (i, call, location, caller) => MemoryEqual(i.ArgumentsOf(call, caller)),
             ["String::byteLength"] = StringMethod(s => new IntValue(s.Bytes.Length)),
             ["String::bytes"] = StringMethod(s => s.Interpreter.StringBytes(s.Bytes, s.Caller)),
             ["String::charCount"] = StringMethod(s => new IntValue(CharCount(s.Bytes))),
