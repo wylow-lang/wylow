@@ -1,9 +1,9 @@
 # Interop, slice 3: callbacks, C sources, and what the SQLite binding lacked
 
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
-binding shows what the interop system still lacks. Step 1 built callbacks, the largest gap. The
-steps below close the smaller gaps that the binding found. The `dependencies`
-design comes last, because the steps before it change what a library package needs.
+binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
+smaller gaps that the binding found. The `dependencies` design comes last, because the steps before
+it change what a library package needs.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -60,15 +60,20 @@ WSL").
   and `fetch-sqlite.sh` on Linux put `sqlite3.c` and `sqlite3.h` in the example's `native/`, which
   the repository ignores. The manifest has no `native` block.
 
-## 3. Gaps the binding found
+## Facts from step 3
 
-- An extern function cannot return a `@Repr` enum, which crosses only as a parameter. SQLite's
-  result codes are therefore `int` constants. Decide whether a return value may be a `@Repr` enum,
-  and what happens when C returns a value that no variant has.
-- An array literal cannot end with a comma (`WYL0001`). A list of rows written one per line
-  needs one.
-- The types matrix has no row for pointer types, so `void*` has no row either. The fuzzer has no
-  mutation that crosses the `void*` rules.
+- An extern function may return a `@Repr` enum (decision 0100). The call panics if C++ returns an
+  integer that no variant has, with the message of a cast. `FunctionSymbol.ReturnedInteger` names
+  the enum's integer type. An `IrCall` of the function has that type, and lowering converts the
+  integer to the enum after the call. A constant, a field, and a `@CCallback` function still take
+  the integer type (`WYL0507`).
+- `examples/sqlite` still declares SQLite's result codes as `int` constants. SQLite returns extended
+  result codes that a binding may not list, and a call that returns an enum would panic on one.
+- An array literal may end with a comma.
+- The types matrix has the rows `pointer` and `void-pointer`. The fuzzer's `type-void-pointer`
+  mutation makes a pointer type `void*`.
+- `@Flags`, `E.tryFrom`, and `bitcast<T>` are in the spec, but the compiler does not build them.
+  Step 4 cannot use them.
 
 ## 4. A safe layer in the example
 
