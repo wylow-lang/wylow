@@ -31,11 +31,11 @@ static partial class BuildFailure
     public static ExecutableBuild Classify(string output, string cppPath, CppInterop interop, NativeInputs native)
     {
         var errors = ErrorLine().Matches(output).Select(m => (File: m.Groups["file"].Value.Trim(), Line: int.Parse(m.Groups["line"].Value, CultureInfo.InvariantCulture), Message: m.Groups["message"].Value.Trim())).ToList();
-        var cppName = Path.GetFileName(cppPath);
+        var cppName = FileName(cppPath);
         // An error other than a failed check on a region's lines is the C++ compiler's rejection of
         // its declaration, which replaces the region's checks, since they fail after it.
         var rejected = new SortedDictionary<int, Diagnostic>();
-        foreach (var error in errors.Where(e => Path.GetFileName(e.File).Equals(cppName, StringComparison.OrdinalIgnoreCase) && !Check().IsMatch(e.Message)))
+        foreach (var error in errors.Where(e => FileName(e.File).Equals(cppName, StringComparison.OrdinalIgnoreCase) && !Check().IsMatch(e.Message)))
         {
             int index = interop.Regions.ToList().FindIndex(r => r.FirstLine <= error.Line && error.Line <= r.LastLine);
             if (index >= 0 && !rejected.ContainsKey(index))
@@ -139,8 +139,8 @@ static partial class BuildFailure
     {
         if (string.IsNullOrEmpty(user))
             return "the program";
-        var file = Path.GetFileName(user);
-        if (Path.GetFileNameWithoutExtension(file).Equals(Path.GetFileNameWithoutExtension(cppPath), StringComparison.OrdinalIgnoreCase))
+        var file = FileName(user);
+        if (Path.GetFileNameWithoutExtension(file).Equals(Path.GetFileNameWithoutExtension(FileName(cppPath)), StringComparison.OrdinalIgnoreCase))
             return null;
         var sources = native.Sources;
         // An object that the build compiled from a native source is named '{index}_{name}.obj'.
@@ -164,6 +164,12 @@ static partial class BuildFailure
     /// <summary>GNU ld: <c>user.cpp:(.text+0x15): undefined reference to `f(int)'</c>, with the quotes of the C locale or of UTF-8.</summary>
     [GeneratedRegex(@"(?<user>[^\s:]+):\([^)]*\): undefined reference to [`‘'](?<symbol>[^'’]+)['’]")]
     private static partial Regex LdUnresolved();
+
+    /// <summary>
+    /// The last part of a path that a compiler or linker printed. A Windows toolchain may print
+    /// either separator, and MSYS2's ld prints both in one line, so both separate parts on every host.
+    /// </summary>
+    static string FileName(string path) => path[(path.LastIndexOfAny(['/', '\\']) + 1)..];
 
     [GeneratedRegex(@"^(?<index>\d+)_.+\.obj$", RegexOptions.IgnoreCase)]
     private static partial Regex NativeObject();
