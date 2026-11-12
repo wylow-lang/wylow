@@ -230,8 +230,9 @@ A `String` is stored null-terminated. Two members of `String` cross the boundary
 <a id="interop.buffers"></a>
 ## 21.5 Buffers
 
-`Span<T>.data()` and `ReadOnlySpan<T>.data()` return a `T*` to the span's first element, and
-`Span<T>.byteLength()` returns the size of its elements in bytes. `data()` is unsafe. It is
+`Span<T>.data()` and `ReadOnlySpan<T>.data()` return a `T*` to the span's first element.
+`Span<T>.byteLength()` and `ReadOnlySpan<T>.byteLength()` return the size of the span's elements in
+bytes, as an `int`. They panic if the size is greater than the largest `int`. `data()` is unsafe. It is
 undefined behavior to write through the pointer of a `ReadOnlySpan<T>`.
 
 The pointer is valid only while the span's borrow is active, which is its lexical scope

@@ -21,6 +21,16 @@ pub ref struct Span<T> implements ReadOnlySpannable<T> {
         return size;
     }
 
+    /// Returns the size of the elements in bytes.
+    ///
+    /// # Panics
+    ///
+    /// If the size is greater than the largest `int`.
+    @CallerLocation
+    pub int byteLength() {
+        return memory::byteLength<T>(size);
+    }
+
     /// Returns a pointer to the first element.
     ///
     /// # Safety
@@ -93,6 +103,16 @@ pub ref struct ReadOnlySpan<T> {
     /// Returns the number of elements.
     pub int length() {
         return size;
+    }
+
+    /// Returns the size of the elements in bytes.
+    ///
+    /// # Panics
+    ///
+    /// If the size is greater than the largest `int`.
+    @CallerLocation
+    pub int byteLength() {
+        return memory::byteLength<T>(size);
     }
 
     /// Returns a pointer to the first element.

@@ -9,7 +9,7 @@ public static class Conversions
     /// references, upcasts and adding nullability. A value converts to a nullable of any type it converts
     /// to, and a nullable value to another nullable whose value type it converts to. An escaping
     /// function converts to its non-escaping form, a shared one to the same type without shared, and
-    /// a <c>ref? T</c> to an <c>in? T</c>. A type parameter has the bounds it has in
+    /// a <c>ref? T</c> to an <c>in? T</c>, and every pointer to <c>void*</c>. A type parameter has the bounds it has in
     /// <paramref name="function"/>.
     /// </summary>
     public static bool IsImplicit(WylType from, WylType to, FunctionSymbol? function) =>
@@ -20,6 +20,7 @@ public static class Conversions
         || (from is FunctionType fromFunction && to is FunctionType target && IsFunctionConversion(fromFunction, target))
         || IsNumericWidening(from, to)
         || (from == WylType.Null && (to.IsNullable || to.IsPointer || to.IsNullableReference))
+        || (from.IsPointer && to.IsVoidPointer)
         || (from is NullableReferenceType reference && to is NullableReferenceType { Kind: RefKind.In } readOnly && reference.Referenced == readOnly.Referenced)
         || (to.IsNullableValue && from != WylType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull, function))
         || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull, function));

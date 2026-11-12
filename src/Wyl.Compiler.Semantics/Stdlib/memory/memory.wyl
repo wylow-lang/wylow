@@ -60,6 +60,15 @@ extern {
     /// The `count` places at `from` must hold values, and those at `to` that aren't among them must not.
     pub void moveTo<T>(T* from, T* to, int count);
 
+    /// Returns the size in bytes of `count` values of `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the size is greater than the largest `int`.
+    @Safe
+    @CallerLocation
+    package int byteLength<T>(int count);
+
     /// Returns -1, 0, or 1 as `a` sorts before, the same as, or after `b`. The spans are compared byte
     /// by byte, each byte as an unsigned number, and a span that is a prefix of the other sorts first.
     @Safe

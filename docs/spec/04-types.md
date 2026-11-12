@@ -326,6 +326,10 @@ wherever a type may; only the operations on pointers need `unsafe` code
 ([Implementation-defined behavior](01-introduction.md#introduction.implementation-defined)). A pointer
 type is not nullable, and its default value is the null pointer.
 
+`void*` is a pointer to storage of any type. A pointer of any type converts implicitly to `void*`
+([Pointer conversions](05-conversions.md#conversions.pointers)). A `void*` does not say what type
+it points to, so a program reads or writes through it only after a cast to another pointer type.
+
 <a id="types.string"></a>
 ## 4.10 `String`
 

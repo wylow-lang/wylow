@@ -154,6 +154,11 @@ public static partial class Catalog
         Make(at, $"nothing that the program links defines '{cppName}', which {what} names")
             .Help("define it in a source file under 'native/', or name the library that defines it in the manifest's 'link' list");
 
+    [Error(520, "unsafe.pointers")]
+    public static Diagnostic VoidPointerAccess(Location at, string operation) =>
+        Make(at, $"cannot {operation} a 'void*', which does not say what type it points to")
+            .Help("cast it to a pointer to the type of the storage in 'unsafe' code");
+
     [Error(513, "interop.extern.names")]
     public static Diagnostic CppRejected(Location at, string what, string cppMessage) =>
         Make(at, $"the C++ compiler rejects {what}").Note(cppMessage);

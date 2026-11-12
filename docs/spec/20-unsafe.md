@@ -58,9 +58,11 @@ not nullable.
   an object, an element that a pointer points to, or the place a method returns by `ref`. An
   element's index is checked, as indexing is everywhere.
 - `(U*) p` converts a pointer to type `U*`. The pointer's value does not change. Reading or writing
-  through the result is allowed only as [Storage and types](#unsafe.aliasing) says.
-- Two pointers of one type compare with `==` and `!=` by address: they are equal when they point to
-  the same element of the same storage. A pointer compares with `null`. No other operator applies
+  through the result is allowed only as [Storage and types](#unsafe.aliasing) says. A cast to
+  `void*` is the implicit conversion ([Pointer conversions](05-conversions.md#conversions.pointers)),
+  and it needs no unsafe code.
+- Two pointers of one type, or a pointer and a `void*`, compare with `==` and `!=` by address. They
+  are equal when they point to the same element of the same storage. A pointer compares with `null`. No other operator applies
   to a pointer, and comparing needs no unsafe code.
 - `bitcast<T>(x)` returns a value of type `T` whose bits are those of `x`. It is a compile-time
   error if `T` and the type of `x` have different sizes. The result is a value of `T` only when
@@ -73,6 +75,9 @@ not nullable.
   parameter, a static, or a place inside one.
 - It is a compile-time error if the operand of `&` has a type that a pointer cannot point to: a
   `ref struct` or a nullable reference ([Pointer types](04-types.md#types.pointers)).
+- It is a compile-time error to index a `void*` or to add an integer to it or subtract one from it,
+  in unsafe code as well as in safe code. A cast converts a `void*` to a pointer to the storage's
+  type, and indexing applies to the result.
 
 Code that runs after `&place` may read or write the place through the pointer. The program
 behaves as if any call made after that point may do so.

@@ -131,9 +131,11 @@ public sealed partial class Binder
             {
                 Unify(parameter.TypeArguments[0], null, viewed);
             }
+            // A `void*` says nothing about the type it points to.
             else if (parameter is PointerType pointer && argumentType is PointerType argumentPointer)
             {
-                Unify(pointer.Element, null, argumentPointer.Element);
+                if (!argumentType.IsVoidPointer)
+                    Unify(pointer.Element, null, argumentPointer.Element);
             }
             else if (parameter is FixedArrayType array && argumentType is FixedArrayType argumentArray && array.Length == argumentArray.Length)
             {

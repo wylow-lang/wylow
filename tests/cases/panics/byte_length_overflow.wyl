@@ -1,0 +1,12 @@
+// `byteLength()` panics when the size of a span's elements in bytes is greater than the largest
+// `int`. The span here claims more elements than its storage holds, but nothing reads them.
+
+void main() {
+    mut long[1] one = [1];
+    unsafe {
+        Span<long> view = one;
+        Span<long> huge = Span<long>(view.data(), 1000000000);
+        std::print(huge.length());              // output: 1000000000
+        std::print(huge.byteLength());          // panic-here: byte length is too large
+    }
+}

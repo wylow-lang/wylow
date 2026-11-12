@@ -82,6 +82,9 @@ public abstract class WylType
 
     public bool IsNullable => this is NullableType;
     public bool IsPointer => this is PointerType;
+
+    /// <summary><c>void*</c>, which points to storage of any type and cannot be read or written through.</summary>
+    public bool IsVoidPointer => this is PointerType { Element: var element } && element == Void;
     public bool IsFixedArray => this is FixedArrayType;
     public bool IsNullableReference => this is NullableReferenceType;
     public bool IsTypeParameter => this is TypeParameterType;

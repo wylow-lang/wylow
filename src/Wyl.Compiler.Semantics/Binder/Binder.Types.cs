@@ -67,7 +67,9 @@ public sealed partial class Binder
 
     WylType BindCompositeType(TypeSyntax syntax)
     {
-        var element = BindType(syntax.Element!, allowVoid: false);
+        var element = BindType(syntax.Element!, allowVoid: syntax.Shape == TypeShape.Pointer);
+        if (element == WylType.Void)
+            return element.PointerTo;
         if (element == WylType.Error || !CheckStorable(element, syntax.Element!.Location, syntax.Shape == TypeShape.Pointer ? "pointed to" : "an array's element"))
             return WylType.Error;
         switch (syntax.Shape)

@@ -66,6 +66,7 @@ public sealed partial class Interpreter
             ["wyl::memory::collectCycles"] = (i, call, location, caller) => i.CollectCycles(call, caller, location ?? "<unknown>"),
             ["wyl::memory::takeCycleStats"] = (i, call, location, caller) => i.TakeCycleStats(call, caller),
             ["wyl::memory::allocate"] = (i, call, location, caller) => i.MemoryAllocate(i.ArgumentsOf(call, caller), location),
+            ["wyl::memory::byteLength"] = (i, call, location, caller) => i.MemoryByteLength(call, caller, location),
             ["wyl::memory::free"] = (i, call, location, caller) => MemoryFree(i.ArgumentsOf(call, caller)),
             ["wyl::memory::initialize"] = (i, call, location, caller) => i.MemoryInitialize(call, caller),
             ["wyl::memory::initializeDefault"] = (i, call, location, caller) => i.MemoryInitializeDefault(call, caller),

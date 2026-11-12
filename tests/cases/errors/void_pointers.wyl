@@ -1,0 +1,18 @@
+// The errors of `void*`: it has no element type to read, write, or move by, and converting it back
+// to another pointer type is a cast that needs unsafe code (spec unsafe.pointers).
+import std::memory;
+
+void main() {
+    mut int value = 7;
+    int* p = null;
+    void* any = p;
+    int* implicit = any;                        // error[WYL0079]: expected 'int*', found 'void*'
+    int* back = (int*) any;                     // error[WYL0517]: pointer casts can only be used in 'unsafe' code
+    void*? maybe = null;                        // error[WYL0066]: pointer type 'void*' cannot be nullable
+    unsafe {
+        int* fine = (int*) any;
+        std::print(any[0]);                     // error[WYL0520]: cannot index a 'void*', which does not say what type it points to
+        void* next = any + 1;                   // error[WYL0520]: cannot do arithmetic on a 'void*', which does not say what type it points to
+        memory::free(any);                      // error[WYL0201]: cannot infer type argument 'T' of 'free'
+    }
+}

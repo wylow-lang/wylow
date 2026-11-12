@@ -16,6 +16,17 @@ int64_t sum_values(const int32_t* values, int32_t count) {
     return sum;
 }
 
+uint32_t checksum(const void* data, int32_t size) {
+    const unsigned char* bytes = static_cast<const unsigned char*>(data);
+    uint32_t sum = 0;
+    for (int32_t i = 0; i < size; i++) sum = sum * 31 + bytes[i];
+    return sum;
+}
+
+void* advance(void* data, int32_t size) {
+    return static_cast<unsigned char*>(data) + size;
+}
+
 void fill_squares(int32_t* values, int32_t count) {
     for (int32_t i = 0; i < count; i++) values[i] = i * i;
 }

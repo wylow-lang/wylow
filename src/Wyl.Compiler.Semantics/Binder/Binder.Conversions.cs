@@ -119,7 +119,7 @@ public sealed partial class Binder
             return new BoundErrorExpression(e.Location);
         if (operand.Type == type)
             return operand;
-        if (operand.Type.IsPointer && type.IsPointer)
+        if (operand.Type.IsPointer && type.IsPointer && !type.IsVoidPointer)
             return InUnsafe ? new BoundConversion(e.Location, type, operand) : ErrorExpression(Catalog.PointerCast(e.Location));
         if (!Conversions.IsExplicit(operand.Type, type, currentFunction))
             return ErrorExpression(Catalog.InvalidCast(e.Location, operand.Type.ToString(), type.ToString()));

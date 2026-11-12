@@ -1,0 +1,40 @@
+// `byteLength()` is the size of a span's elements in bytes: the element count times the element's
+// size, as C++ lays the element out (spec interop.buffers, interop.blittable).
+
+struct Header {
+    pub byte tag;
+    pub double weight;
+    pub int count;
+}
+
+struct Empty { }
+
+void main() {
+    mut int[3] ints = [1, 2, 3];
+    Span<int> view = ints;
+    std::print(view.byteLength());              // output: 12
+    std::print(view.slice(1, 1).byteLength());  // output: 4
+
+    // A struct's fields are padded to their alignment, and its size to the largest one.
+    mut Header[2] headers = [Header(1, 2.0, 3), Header(4, 5.0, 6)];
+    ReadOnlySpan<Header> readOnly = headers;
+    std::print(readOnly.byteLength());          // output: 48
+
+    mut short[3][2] grid = [[1, 2], [3, 4], [5, 6]];
+    Span<short[2]> rows = grid;
+    std::print(rows.byteLength());              // output: 12
+
+    // An empty struct still takes one byte.
+    mut Empty[4] empties = [Empty(), Empty(), Empty(), Empty()];
+    Span<Empty> nothing = empties;
+    std::print(nothing.byteLength());           // output: 4
+
+    mut char[2] chars = ['a', 'b'];
+    Span<char> text = chars;
+    std::print(text.byteLength());              // output: 8
+    std::print("hello".bytes().byteLength());   // output: 5
+
+    mut bool[0] none = [];
+    Span<bool> zero = none;
+    std::print(zero.byteLength());              // output: 0
+}

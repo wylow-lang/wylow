@@ -22,6 +22,8 @@ public sealed partial class Binder
         {
             if (arguments.Count != 1 || arguments[0].IsRef)
                 return ErrorExpression(Catalog.IndexCount(e.Location, type.ToString()));
+            if (type.IsVoidPointer)
+                return ErrorExpression(Catalog.VoidPointerAccess(e.Location, "index"));
             if (type.IsPointer && !InUnsafe)
                 return ErrorExpression(Catalog.PointerIndexing(e.Location));
             var index = Convert(arguments[0].Expression, WylType.Int);

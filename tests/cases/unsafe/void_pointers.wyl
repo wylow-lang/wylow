@@ -1,0 +1,35 @@
+// A pointer of any type converts to `void*` without unsafe code, and a cast converts a `void*` back
+// to the type of the storage it points to (spec types.pointers, unsafe.pointers).
+
+void main() {
+    mut int value = 7;
+    mut long other = 8;
+    unsafe {
+        int* p = &value;
+        mut void* any = p;
+        void* cast = (void*) p;
+        void* elsewhere = &other;
+        std::print(any == cast);                // output: true
+        std::print(p == any);                   // output: true
+        std::print(any == p);                   // output: true
+        std::print(any == elsewhere);           // output: false
+        std::print(any != elsewhere);           // output: true
+
+        int* back = (int*) any;
+        back[0] = 9;
+        long* longBack = (long*) elsewhere;
+        std::print(longBack[0]);                // output: 8
+
+        void** outer = &any;
+        std::print(outer[0] == p);              // output: true
+        outer[0] = elsewhere;
+        std::print(any == elsewhere);           // output: true
+    }
+    std::print(value);                          // output: 9
+
+    void* none = null;
+    std::print(none == null);                   // output: true
+    int* empty = null;
+    void* converted = empty;
+    std::print(converted == null);              // output: true
+}

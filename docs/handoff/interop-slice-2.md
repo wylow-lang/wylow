@@ -21,17 +21,19 @@ Step 1 is committed. The next session starts at step 2. These facts from step 1 
 - The wrapper of an extern function without parameters no longer declares the alias `F`, which
   clang reported as unused.
 
-## 2. `void*` and `Span<T>.byteLength()`
+## 2. `void*` and `Span<T>.byteLength()` (done)
 
-Both are in the spec (`interop.blittable`, `interop.buffers`, `interop.callbacks`) and not built.
-SQLite passes blobs as `const void*` with a length in bytes, and frees memory through `void*`.
+Step 2 is committed. These facts from step 2 matter later:
 
-- `void*` is blittable. A pointer of any type converts to it, and a conversion back is a pointer
-  cast, which is unsafe (`WYL0517`). Reading or writing through a `void*` is an error.
-- `Span<T>.byteLength()` and `ReadOnlySpan<T>.byteLength()` return the size of the elements in
-  bytes.
-- Tests: each conversion, each error, and a call that passes a buffer's `data()` and `byteLength()`
-  to C++.
+- `WylType.IsVoidPointer` names `void*`. A pointer of any type converts to it implicitly, also in
+  safe code, and a cast back is unsafe (`WYL0517`). Indexing a `void*` and arithmetic on it are
+  `WYL0520`. A `void*` argument gives a generic `T*` parameter no type argument.
+- `byteLength()` calls the package-visible `memory::byteLength<T>(count)`, which C++ computes with
+  `sizeof` and which panics above the largest `int`. The interpreter computes the size with
+  `CLayout`, its model of the C++ layout of a blittable type. For any other type, the run ends as
+  unsupported.
+- `interop/buffers` passes a byte buffer's `data()` and `byteLength()` to a C++ function that
+  takes `const void*`.
 
 ## 3. Loose ends of slice 1
 

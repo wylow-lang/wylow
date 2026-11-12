@@ -269,8 +269,34 @@ void main() {
 }
 ```
 
+<a id="conversions.pointers"></a>
+## 5.10 Pointer conversions
+
+A pointer of any type converts implicitly to `void*`, and the conversion keeps the address. The
+conversion needs no unsafe code. No other pointer type converts implicitly to another: a `void*`
+converts to another pointer type only by a cast, which is unsafe
+([Pointers](20-unsafe.md#unsafe.pointers)).
+
+Two pointers compare with `==` and `!=` when one of them converts to the other's type, so a `T*`
+compares with a `void*`.
+
+**Example:**
+
+```java
+void main() {
+    mut int count = 3;
+    unsafe {
+        int* p = &count;
+        void* any = p;
+        std::print(any == p);   // true
+        int* back = (int*) any;
+        int* wrong = any;       // error[WYL0079]
+    }
+}
+```
+
 <a id="conversions.casts"></a>
-## 5.10 Casts
+## 5.11 Casts
 
 A cast `(T) e` converts the value of `e` to `T`. Its form is given in
 [Casts](13-expressions.md#expressions.casts). A cast is valid between any two numeric types, between

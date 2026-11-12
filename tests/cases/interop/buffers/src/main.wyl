@@ -1,6 +1,7 @@
 // native
-// Pointers into Wylow storage given to C++: out-parameters through `&`, and a span's data read and
-// written by C++ (spec unsafe.pointers, interop.buffers).
+// Pointers into Wylow storage given to C++: out-parameters through `&`, a span's data read and
+// written by C++, and a buffer that C++ reads as bytes through a `void*` and its `byteLength()`
+// (spec unsafe.pointers, interop.buffers).
 import std::collections::List;
 
 @Include("buffers.h")
@@ -14,6 +15,8 @@ extern {
     int divide(int a, int b, int* remainder);
     long sum_values(int* values, int count);
     void fill_squares(int* values, int count);
+    uint checksum(void* data, int size);
+    void* advance(void* data, int size);
 }
 
 void main() {
@@ -38,6 +41,16 @@ void main() {
 
         Span<int> view = squares;
         fill_squares(view.data(), view.length());
+
+        // The checksum reads the bytes 1, 2, and 3, whatever the order of an int's bytes.
+        mut byte[3] bytes = [1, 2, 3];
+        Span<byte> raw = bytes;
+        std::print(checksum(raw.data(), raw.byteLength())); // output: 1026
+
+        // A `void*` that C++ returns casts back to the type of the storage it points into.
+        Span<int> squaresView = squares;
+        int* second = (int*) advance(squaresView.data(), 4);
+        std::print(second == squaresView.data() + 1);   // output: true
     }
     std::print(squares[3]);                             // output: 9
 }

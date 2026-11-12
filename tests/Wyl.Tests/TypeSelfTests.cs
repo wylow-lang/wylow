@@ -440,7 +440,7 @@ sealed class TypeGenerator(BoundProgram program, int seed)
                 2 => random.Next(4) == 0 ? parameters[random.Next(parameters.Count)].Type : place == Place.Return && random.Next(3) == 0 ? WylType.Void : null,
                 3 or 4 => Named(depth),
                 5 => Nullable(place, depth),
-                6 => Make(Place.Storable, depth - 1).PointerTo,
+                6 => (random.Next(5) == 0 ? WylType.Void : Make(Place.Storable, depth - 1)).PointerTo,
                 7 => Make(Place.Storable, depth - 1).FixedArrayOf(random.Next(1, 4)),
                 8 => Function(place, depth),
                 _ => place == Place.Parameter ? NullableReference(depth) : null,

@@ -183,13 +183,15 @@ public sealed partial class Binder
     {
         if (op is BoundBinaryOperator.Equal or BoundBinaryOperator.NotEqual)
         {
-            var type = left.Type.IsPointer ? left.Type : right.Type;
+            var type = left.Type.IsPointer && CanConvert(right, left.Type) ? left.Type : right.Type;
             if (!CanConvert(left, type) || !CanConvert(right, type))
                 return ErrorExpression(mismatch);
             return new BoundBinary(location, Convert(left, type), op, Convert(right, type), WylType.Bool);
         }
         if (op is not (BoundBinaryOperator.Add or BoundBinaryOperator.Subtract) || !left.Type.IsPointer || !CanConvert(right, WylType.Int))
             return ErrorExpression(mismatch);
+        if (left.Type.IsVoidPointer)
+            return ErrorExpression(Catalog.VoidPointerAccess(location, "do arithmetic on"));
         if (!InUnsafe)
             return ErrorExpression(Catalog.PointerArithmetic(location));
         return new BoundBinary(location, left, op, Convert(right, WylType.Int), left.Type);

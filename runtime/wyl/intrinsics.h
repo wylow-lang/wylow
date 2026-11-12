@@ -138,6 +138,14 @@ inline T* allocate(int32_t count, const char* location) {
     return static_cast<T*>(::operator new(sizeof(T) * static_cast<size_t>(count), std::align_val_t(alignof(T))));
 }
 
+// The size in bytes of count values of T.
+template <class T>
+inline int32_t byteLength(int32_t count, const char* location) {
+    uint64_t size = static_cast<uint64_t>(count) * sizeof(T);
+    if (size > INT32_MAX) RaisePanic("byte length is too large", location);
+    return static_cast<int32_t>(size);
+}
+
 template <class T>
 inline void free(T* data) {
     ::operator delete(static_cast<void*>(data), std::align_val_t(alignof(T)));

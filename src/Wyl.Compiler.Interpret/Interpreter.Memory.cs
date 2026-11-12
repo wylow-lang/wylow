@@ -34,6 +34,15 @@ public sealed partial class Interpreter
         return new PointerValue(AllocateBuffer(count), 0);
     }
 
+    Value MemoryByteLength(IrCall call, Frame caller, string? location)
+    {
+        var element = caller.Map.Compose(call.Method.Map).Apply(call.Method.Symbol.TypeParameters[0].Type);
+        long size = (long)Integer(ArgumentsOf(call, caller)[0]) * CLayout.Of(element).Size;
+        if (size > int.MaxValue)
+            throw new WylPanic("byte length is too large", location ?? "<unknown>");
+        return new IntValue((int)size);
+    }
+
     static Value? MemoryFree(IReadOnlyList<Value> arguments)
     {
         switch (arguments[0])
