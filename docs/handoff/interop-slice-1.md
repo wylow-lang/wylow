@@ -80,7 +80,7 @@ The original list:
 
 ## 4. Pointers and buffers (done)
 
-Step 4 is committed. The next session starts at step 5. These facts from step 4 matter later:
+Step 4 is committed. These facts from step 4 matter later:
 
 - `&place` binds to `BoundAddressOf` and lowers to the IR value `ptr P` (`IrPointer`). It takes
   only a place that an assignment could write (`WYL0514` to `WYL0516`), and a pointer cast is
@@ -98,21 +98,21 @@ Step 4 is committed. The next session starts at step 5. These facts from step 4 
   later, the pointer still reads the old cell, while C++ reads the new value. No test does that
   yet.
 
-## 5. The manifest's `native` block and `native/` sources
+## 5. The manifest's `native` block (done)
 
-Step 3 already compiles and links the sources under `native/`, puts the directory on the include
-path, and hashes its files into both build keys, which `build-cache/native` pins. What remains is
-the manifest's block, the mapping of `link` names, `copy`, and their part of the architecture row.
+Step 5 is committed, and the slice is complete. These facts from step 5 matter later:
 
-- Read `include`, `libraryPaths`, `link`, `copy`, `defines`, and the platform blocks, and remove
-  `native` from the rule "It is a compile-time error if the manifest has a `dependencies` or `native`
-  entry" in `programs.manifest`.
-- Compile each `.cpp` file under `native/` with the toolchain of the build, and link it. Each of the
-  seven modes builds the native sources with its own flags.
-- Map each `link` name to the toolchain's spelling, and copy each `copy` file next to the executable.
-- Hash the `native` entries and every file under `native/` into the build key, and add them to the
-  architecture row "A reused executable is the one a new build would produce". Add a `build-cache`
-  self-test that fails if a changed native file reuses the old executable.
+- `Manifest.Native` holds the lists of the `native` block and of its platform blocks.
+  `PackageSources.Load` turns the lists for this platform into `NativeInputs`, which replaces the
+  old `NativeDirectory` everywhere, and reports a missing path as `WYL0518`.
+- The build gives the manifest's definitions to every C++ source, so a program built with
+  definitions does not use the precompiled `wyl.h`. clang-cl refuses a file name in `/Fo` when its
+  call has more than one input, so `/Fo` names a directory whenever the program's call also takes
+  the precompiled object or a native object.
+- `interop/manifest_native` links `shlwapi` on Windows, and fails to link without it. On Linux and
+  macOS, it links `m`, which a C++ program links anyway, so only the spelling is tested there.
+- `build-cache/native-rebuild` builds a package four times with the default toolchain and checks
+  each run's output and the copied file. No test copies a shared library that the program loads.
 
 ## After this slice
 

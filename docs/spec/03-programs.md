@@ -105,7 +105,10 @@ native {
 - It is a compile-time error if the name is not an identifier ([Identifiers](02-lexical.md#lexical.identifiers)),
   or is `std`.
 - It is a compile-time error if an entry of `dependencies` has no `path`.
-- It is a compile-time error if the manifest has a `dependencies` or `native` entry.
+- It is a compile-time error if the manifest has a `dependencies` entry.
+- It is a compile-time error if a directory that `include` or `libraryPaths` names does not exist,
+  or if a file that `copy` names does not exist. These rules apply to the lists of `native` and to
+  the lists of the platform block of the platform that the program is built for.
 
 **Example:**
 

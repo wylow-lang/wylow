@@ -50,6 +50,10 @@ public static partial class Catalog
     public static Diagnostic UnusableManifestKey(Location at, string key) =>
         Make(at, $"manifest key '{key}' cannot be used");
 
+    [Error(518, "programs.manifest")]
+    public static Diagnostic MissingNativePath(Location at, string key, string path, string kind) =>
+        Make(at, $"'{key}' names '{path}', which is not a {kind}");
+
     [Error(19, "programs.packages")]
     public static Diagnostic MissingSourceDirectory(Location at) =>
         Make(at, "package has no 'src/' directory");

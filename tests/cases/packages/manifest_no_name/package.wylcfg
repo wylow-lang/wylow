@@ -1,4 +1,4 @@
 // error[WYL0026]: manifest does not give the package's 'name'
-native {                                // error[WYL0031]: manifest key 'native' cannot be used
+native {
     link = ["SDL3"];
 }

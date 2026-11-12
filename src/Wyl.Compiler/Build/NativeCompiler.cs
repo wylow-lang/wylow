@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -41,28 +42,22 @@ public sealed class NativeCompiler
 
     /// <summary>
     /// Everything a build depends on besides the program's own directory: the generated C++, the flags,
-    /// the runtime headers, and the C++ compiler itself. Equal keys mean the executable a previous build
+    /// the runtime headers, the C++ compiler itself, the manifest's <c>native</c> lists, and the files
+    /// that <see cref="NativeInputs.Files"/> gives. Equal keys mean the executable a previous build
     /// left is the one this build would produce.
     /// </summary>
-    public string BuildKey(bool release, string cpp, string? nativeDirectory = null)
+    public string BuildKey(bool release, string cpp, NativeInputs? native = null)
     {
+        native ??= NativeInputs.None;
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{cpp}"));
-        foreach (var (path, bytes) in NativeFiles(nativeDirectory))
+        hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{cpp}\n{native.Text}"));
+        foreach (var (path, bytes) in native.Files())
         {
             hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));
             hash.AppendData(bytes);
         }
         return Convert.ToHexString(hash.GetHashAndReset());
     }
-
-    /// <summary>Every file under a package's <c>native/</c> directory, by its path there, with its bytes, in a stable order.</summary>
-    public static IEnumerable<(string Path, byte[] Bytes)> NativeFiles(string? nativeDirectory) => nativeDirectory is null
-        ? []
-        : Directory.EnumerateFiles(nativeDirectory, "*", SearchOption.AllDirectories)
-            .Select(f => (Path: Path.GetRelativePath(nativeDirectory, f).Replace('\\', '/'), File: f))
-            .OrderBy(f => f.Path, StringComparer.Ordinal)
-            .Select(f => (f.Path, File.ReadAllBytes(f.File)));
 
     /// <summary>What a build depends on besides the C++ it compiles: the toolchain, the mode, the C++ compiler itself, and the runtime headers.</summary>
     internal string Identity(bool release)
@@ -354,16 +349,18 @@ public sealed class NativeCompiler
             : PrecompiledHeaders.GetOrAdd($"{Toolchain}|{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
 
     /// <summary>
-    /// Builds the executable from the generated C++ and, if <paramref name="nativeDirectory"/> is
-    /// given, every <c>.cpp</c> file under it, with that directory on the include path (spec
-    /// <c>interop.native</c>). A native source does not include <c>wyl.h</c>, so where the program
-    /// uses the precompiled header, the native sources compile in a call of their own first.
+    /// Builds the executable from the generated C++ and every <c>.cpp</c> file under the package's
+    /// <c>native/</c> directory, with the include directories and definitions of <paramref name="native"/>,
+    /// and links the libraries it names (spec <c>interop.native</c>, <c>programs.manifest</c>). A
+    /// native source does not include <c>wyl.h</c>, so where the program uses the precompiled header,
+    /// the native sources compile in a call of their own first. A definition could change what
+    /// <c>wyl.h</c> means, so a program built with definitions does not use the precompiled header.
     /// </summary>
-    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true, string? nativeDirectory = null)
+    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true, NativeInputs? native = null)
     {
-        var nativeSources = nativeDirectory is null
-            ? []
-            : Directory.GetFiles(nativeDirectory, "*.cpp", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToList();
+        native ??= NativeInputs.None;
+        var nativeSources = native.Sources;
+        precompiledHeader &= native.Defines.Count == 0;
         var nativeObjects = new List<string>();
         var startInfo = new ProcessStartInfo(compilerPath)
         {
@@ -387,12 +384,9 @@ public sealed class NativeCompiler
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
             args.Add($"/I{RuntimeDirectory}");
-            if (nativeDirectory is not null)
-            {
-                args.Add($"/I{nativeDirectory}");
-                if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
-                    return failed;
-            }
+            AddNativeFlags(args, native, msvc: true);
+            if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
+                return failed;
             var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
             if (precompiled is not null)
             {
@@ -400,15 +394,17 @@ public sealed class NativeCompiler
                 args.Add($"/Fp{Path.Combine(precompiled, "wyl.pch")}");
             }
             args.Add($"/Fe{exePath}");
-            if (Toolchain == Toolchain.Clang && precompiled is not null)
+            // clang-cl refuses an object file's name in /Fo when the call has more than one input.
+            if (Toolchain == Toolchain.Clang && (precompiled is not null || nativeObjects.Count > 0))
                 args.Add($"/Fo{Path.GetDirectoryName(Path.GetFullPath(exePath))}{Path.DirectorySeparatorChar}");
             else
                 args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
             args.Add(cppPath);
             if (precompiled is not null)
                 args.Add(Path.Combine(precompiled, "wyl.obj"));
-            foreach (var native in nativeObjects)
-                args.Add(native);
+            foreach (var obj in nativeObjects)
+                args.Add(obj);
+            AddLibraries(args, native, msvc: true);
         }
         else if ((Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized) && environment is not null)
         {
@@ -421,30 +417,28 @@ public sealed class NativeCompiler
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
             args.Add($"/I{RuntimeDirectory}");
-            if (nativeDirectory is not null)
-            {
-                args.Add($"/I{nativeDirectory}");
-                if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
-                    return failed;
-            }
+            AddNativeFlags(args, native, msvc: true);
+            if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
+                return failed;
             args.Add($"/Fe{exePath}");
-            if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
+            var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
+            if (precompiled is not null)
             {
-                // As for MSVC, the program and the precompiled object link in one call; /Fo names a
-                // directory because that call has two inputs.
                 args.Add("/Yuwyl.h");
                 args.Add($"/Fp{Path.Combine(precompiled, "wyl.pch")}");
+            }
+            // As for MSVC, the program, the precompiled object, and the native objects link in one
+            // call, and /Fo names a directory if that call has more than one input.
+            if (precompiled is not null || nativeObjects.Count > 0)
                 args.Add($"/Fo{Path.GetDirectoryName(Path.GetFullPath(exePath))}{Path.DirectorySeparatorChar}");
-                args.Add(cppPath);
-                args.Add(Path.Combine(precompiled, "wyl.obj"));
-            }
             else
-            {
                 args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
-                args.Add(cppPath);
-            }
-            foreach (var native in nativeObjects)
-                args.Add(native);
+            args.Add(cppPath);
+            if (precompiled is not null)
+                args.Add(Path.Combine(precompiled, "wyl.obj"));
+            foreach (var obj in nativeObjects)
+                args.Add(obj);
+            AddLibraries(args, native, msvc: true);
         }
         else
         {
@@ -466,17 +460,50 @@ public sealed class NativeCompiler
             if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
                 args.Add($"-I{precompiled}");
             args.Add($"-I{RuntimeDirectory}");
-            if (nativeDirectory is not null)
-                args.Add($"-I{nativeDirectory}");
+            AddNativeFlags(args, native, msvc: false);
             args.Add("-o");
             args.Add(exePath);
             args.Add(cppPath);
-            foreach (var native in nativeSources)
-                args.Add(native);
+            foreach (var source in nativeSources)
+                args.Add(source);
+            AddLibraries(args, native, msvc: false);
         }
 
         var result = ProcessRunner.Run(startInfo);
         return new NativeBuildResult(result.ExitCode == 0, (result.StandardOutput + result.StandardError).Trim());
+    }
+
+    /// <summary>The include directories and the definitions that every C++ source of the program is compiled with.</summary>
+    static void AddNativeFlags(Collection<string> args, NativeInputs native, bool msvc)
+    {
+        foreach (var directory in native.IncludeDirectories)
+            args.Add((msvc ? "/I" : "-I") + directory);
+        foreach (var define in native.Defines)
+            args.Add((msvc ? "/D" : "-D") + define);
+    }
+
+    /// <summary>
+    /// The libraries of <c>link</c>, each in the toolchain's spelling, and the directories of
+    /// <c>libraryPaths</c> to search for them. With MSVC and clang-cl, the directories come last,
+    /// because every argument after <c>/link</c> goes to the linker.
+    /// </summary>
+    static void AddLibraries(Collection<string> args, NativeInputs native, bool msvc)
+    {
+        if (!msvc)
+        {
+            foreach (var directory in native.LibraryPaths)
+                args.Add($"-L{directory}");
+            foreach (var library in native.Link)
+                args.Add($"-l{library}");
+            return;
+        }
+        foreach (var library in native.Link)
+            args.Add($"{library}.lib");
+        if (native.LibraryPaths.Count == 0)
+            return;
+        args.Add("/link");
+        foreach (var directory in native.LibraryPaths)
+            args.Add($"/LIBPATH:{directory}");
     }
 
     /// <summary>

@@ -10,8 +10,14 @@ dependencies {                          // error[WYL0031]: manifest key 'depende
     other { path = ["../other"]; }      // error[WYL0025]: 'path' takes a string
 }
 
-native {                                // error[WYL0031]: manifest key 'native' cannot be used
+native {
     include = "third_party/sdl";        // error[WYL0025]: 'include' takes a list of strings
     link = ["SDL3", "opengl32"];
     flags = [];                         // error[WYL0023]: 'flags' is not a key here
+    linux = ["m"];                      // error[WYL0025]: 'linux' takes a block of entries
+    windows {
+        link = ["ws2_32"];
+        windows { }                     // error[WYL0023]: 'windows' is not a key here
+        name = "x";                     // error[WYL0023]: 'name' is not a key here
+    }
 }

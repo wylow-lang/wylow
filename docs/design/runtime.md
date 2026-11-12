@@ -405,6 +405,16 @@ the flags of the build, and puts the directory on the include path. With MSVC an
 native source compiles in a call of its own, since the program's call uses the precompiled `wyl.h`,
 which a native source does not include.
 
+`PackageSources.Load` reads the lists of the manifest's `native` block for the platform that the
+compiler runs on (`NativeInputs.Platform`) and makes each path absolute (`NativeInputs`). The build
+adds each directory of `include` to the include path after `native/`, and gives each definition of
+`defines` to the generated program and to every native source. A definition could change what
+`wyl.h` means, so a program built with definitions does not use the precompiled `wyl.h`. The build
+links each library of `link` by the toolchain's spelling: `name.lib` with MSVC and clang-cl, and
+`-lname` with g++. The linker searches each directory of `libraryPaths`, which the build passes as
+`/LIBPATH:` after `/link` with MSVC and clang-cl, and as `-L` with g++. `Driver` copies each file
+of `copy` into the executable's directory after every build, and also when it reuses an executable.
+
 ## Panics
 
 A panic prints its message and a stack trace where it happens, and a debugger stops there (`wyl::RaisePanic` in `runtime/wyl/core.h`, which ends with `std::abort`).

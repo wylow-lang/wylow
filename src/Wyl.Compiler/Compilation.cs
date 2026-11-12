@@ -1,3 +1,4 @@
+using Wyl.Compiler.Build;
 using Wyl.Compiler.Analysis;
 using Wyl.Compiler.CodeGen;
 using Wyl.Compiler.Diagnostics;
@@ -40,8 +41,8 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
     /// <summary>What the build reports a header that does not match an extern block with.</summary>
     public CppInterop Interop { get; init; } = CppInterop.None;
 
-    /// <summary>The package's <c>native/</c> directory, which the build compiles and puts on the include path.</summary>
-    public string? NativeDirectory { get; init; }
+    /// <summary>What the build takes from the package besides the generated C++: its <c>native/</c> directory and the manifest's <c>native</c> lists.</summary>
+    public NativeInputs Native { get; init; } = NativeInputs.None;
 
     /// <summary>Where each object that is on the stack instead of the heap is made, for tests.</summary>
     public IReadOnlyList<Location> StackObjects { get; init; } = [];
@@ -146,6 +147,6 @@ public static class Compilation
     public static CompilationResult Compile(PackageSources sources, CompileOptions? options = null)
     {
         options ??= new CompileOptions();
-        return Emit(Lower(sources, options), options.Nest) with { NativeDirectory = sources.NativeDirectory };
+        return Emit(Lower(sources, options), options.Nest) with { Native = sources.Native };
     }
 }

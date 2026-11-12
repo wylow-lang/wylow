@@ -1,0 +1,19 @@
+// The manifest's native block: an include directory outside native/, definitions for every platform
+// and for the platform the program is built for, and a library that is linked by its name.
+name = "manifest_native";
+native {
+    include = ["vendor/include"];
+    defines = ["GREETING_BASE=40"];
+    windows {
+        link = ["shlwapi"];
+        defines = ["GREETING_PLATFORM=2"];
+    }
+    linux {
+        link = ["m"];
+        defines = ["GREETING_PLATFORM=2"];
+    }
+    macos {
+        link = ["m"];
+        defines = ["GREETING_PLATFORM=2"];
+    }
+}

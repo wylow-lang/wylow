@@ -24,7 +24,11 @@ static partial class BuildFailure
     [GeneratedRegex(@"wyl-interop-check (\d+)")]
     private static partial Regex Check();
 
-    public static ExecutableBuild Classify(string output, string cppPath, CppInterop interop, string? nativeDirectory)
+    /// <summary>MSVC's link.exe, lld-link, and GNU ld, each failing to find a library it was told to link.</summary>
+    [GeneratedRegex(@"LNK1181|could not open '[^']*\.lib'|cannot find -l")]
+    private static partial Regex MissingLibrary();
+
+    public static ExecutableBuild Classify(string output, string cppPath, CppInterop interop, NativeInputs native)
     {
         var errors = ErrorLine().Matches(output).Select(m => (File: m.Groups["file"].Value.Trim(), Line: int.Parse(m.Groups["line"].Value, CultureInfo.InvariantCulture), Message: m.Groups["message"].Value.Trim())).ToList();
         var cppName = Path.GetFileName(cppPath);
@@ -44,10 +48,13 @@ static partial class BuildFailure
         if (diagnostics.Count > 0)
             return new ExecutableBuild(null, null) { Diagnostics = diagnostics };
 
-        // An error in a header or source of native/ is the package's, and so is a C++ function that
-        // an extern block declares and nothing defines.
-        if (nativeDirectory is not null && errors.Any(e => IsUnder(e.File, nativeDirectory)))
+        // An error in a header or source of the package's include directories is the package's, and
+        // so are a library that the manifest names and the linker cannot find, and a C++ function
+        // that an extern block declares and nothing defines.
+        if (errors.Any(e => native.IncludeDirectories.Any(d => IsUnder(e.File, d))))
             return new ExecutableBuild(null, $"error: the package's native sources do not compile\n{output}");
+        if (native.Link.Count > 0 && MissingLibrary().IsMatch(output))
+            return new ExecutableBuild(null, $"error: the program does not link, since a library that the manifest's 'link' names was not found\n{output}");
         if (interop.Regions.Count > 0 && UnresolvedSymbol().IsMatch(output))
             return new ExecutableBuild(null, $"error: the program does not link, since a C++ function that an extern block declares is not defined\n{output}");
         return new ExecutableBuild(null, $"internal compiler error: the generated C++ failed to compile ({cppPath})\n{output}");

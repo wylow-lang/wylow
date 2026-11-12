@@ -2,7 +2,7 @@
 name
     = "manifest_syntax"
 ;
-native { include = ["a", "b"] link = ["c"]; }   // error[WYL0021]: expected ';' // error[WYL0031]: manifest key 'native' cannot be used
+native { include = ["a", "b"] link = ["c"]; }   // error[WYL0021]: expected ';'
 native "x";                             // error[WYL0021]: expected '=' or '{' after 'native'
 = "x";                                  // error[WYL0021]: expected a key
 dependencies = 3;                       // error[WYL0021]: expected a string

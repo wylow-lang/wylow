@@ -1,3 +1,4 @@
+using Wyl.Compiler.Build;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
@@ -10,16 +11,8 @@ namespace Wyl.Compiler;
 /// </summary>
 public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> Files, IReadOnlyList<Diagnostic> Diagnostics)
 {
-    /// <summary>
-    /// The package's <c>native/</c> directory, if it has one: its C++ sources are compiled and linked
-    /// with the program, and it is on the include path (spec <c>interop.native</c>).
-    /// </summary>
-    public string? NativeDirectory { get; init; }
-
-    /// <summary>Every <c>.cpp</c> file under <see cref="NativeDirectory"/>, by full path, in a stable order.</summary>
-    public IReadOnlyList<string> NativeSources => NativeDirectory is null
-        ? []
-        : [.. Directory.GetFiles(NativeDirectory, "*.cpp", SearchOption.AllDirectories).Select(Path.GetFullPath).Order(StringComparer.Ordinal)];
+    /// <summary>The package's <c>native/</c> directory and the manifest's <c>native</c> lists for this platform.</summary>
+    public NativeInputs Native { get; init; } = NativeInputs.None;
 
     /// <summary>A file compiled on its own: the one file of its own unnamed package.</summary>
     public static PackageSources Of(SourceText file) => new(file.Module.Package, [file], []);
@@ -50,8 +43,8 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
         AddModule(src, package.Root, files, diagnostics);
         if (files.Count == 0)
             diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
-        var native = Path.GetFullPath(Path.Combine(directory, "native"));
-        return new PackageSources(package, files, diagnostics.Sorted()) { NativeDirectory = Directory.Exists(native) ? native : null };
+        var native = ReadNative(directory, manifest, diagnostics);
+        return new PackageSources(package, files, diagnostics.Sorted()) { Native = native };
 
         void AddModule(string path, Module module, List<SourceText> into, DiagnosticBag bag)
         {
@@ -76,5 +69,40 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                     bag.Add(Catalog.StdModuleName(at));
             }
         }
+    }
+
+    /// <summary>
+    /// The package's <c>native/</c> directory and the lists of its manifest's <c>native</c> block for
+    /// this platform, with each path made absolute from the package's directory. A directory of
+    /// <c>include</c> or <c>libraryPaths</c>, or a file of <c>copy</c>, that does not exist is an error.
+    /// </summary>
+    static NativeInputs ReadNative(string directory, Manifest manifest, DiagnosticBag diagnostics)
+    {
+        var lists = manifest.NativeFor(NativeInputs.Platform).ToList();
+        List<string> Paths(string key, bool directories)
+        {
+            List<string> paths = [];
+            foreach (var list in lists.Where(l => l.Key == key))
+            {
+                foreach (var value in list.Values)
+                {
+                    var path = Path.GetFullPath(Path.Combine(directory, value));
+                    if (directories ? !Directory.Exists(path) : !File.Exists(path))
+                        diagnostics.Add(Catalog.MissingNativePath(list.KeyLocation, key, value, directories ? "directory" : "file"));
+                    paths.Add(path);
+                }
+            }
+            return paths;
+        }
+        List<string> Values(string key) => [.. lists.Where(l => l.Key == key).SelectMany(l => l.Values)];
+
+        var native = Path.GetFullPath(Path.Combine(directory, "native"));
+        return new NativeInputs(
+            Directory.Exists(native) ? native : null,
+            Paths("include", directories: true),
+            Paths("libraryPaths", directories: true),
+            Values("link"),
+            Paths("copy", directories: false),
+            Values("defines"));
     }
 }

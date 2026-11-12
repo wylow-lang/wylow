@@ -7,12 +7,29 @@ namespace Wyl.Compiler.Syntax;
 /// What a package's <c>package.wylcfg</c> says (spec programs.manifest), read with
 /// Wylow's own lexer: a list of entries, each <c>key = value;</c> or <c>key { entries }</c>, whose
 /// value is a string or a list of strings. The keys are fixed, so a misspelled one is an error.
-/// Only <c>name</c> means anything yet; <c>dependencies</c> and <c>native</c> are read to their shape
-/// and reported as not supported.
+/// <c>dependencies</c> is read to its shape and reported as an error.
 /// </summary>
 public sealed record Manifest(string Name, Location NameLocation)
 {
     public const string FileName = "package.wylcfg";
+
+    /// <summary>The platforms that a <c>native</c> block may hold a block for.</summary>
+    public static readonly string[] Platforms = ["windows", "linux", "macos"];
+
+    /// <summary>
+    /// The lists of the <c>native</c> block, those of the block itself first and then those of its
+    /// platform blocks, each in the order the manifest gives them.
+    /// </summary>
+    public IReadOnlyList<NativeList> Native { get; init; } = [];
+
+    /// <summary>The lists of the <c>native</c> block that apply when the program is built for <paramref name="platform"/>.</summary>
+    public IEnumerable<NativeList> NativeFor(string platform) => Native.Where(n => n.Platform is null || n.Platform == platform);
+
+    /// <summary>
+    /// One list of the <c>native</c> block, such as <c>link</c>, with the platform block it is in, or
+    /// null if it is in the <c>native</c> block itself.
+    /// </summary>
+    public sealed record NativeList(string? Platform, string Key, IReadOnlyList<string> Values, Location KeyLocation);
 
     abstract record Entry(string Key, Location KeyLocation);
 
@@ -42,10 +59,16 @@ public sealed record Manifest(string Name, Location NameLocation)
             }
             diagnostics.Add(Catalog.UnusableManifestKey(dependencies.KeyLocation, "dependencies"));
         }
+        List<NativeList> nativeLists = [];
         if (keys.GetValueOrDefault("native") is BlockEntry native)
         {
-            Check(native.Entries, [("include", Kind.List), ("link", Kind.List)], diagnostics);
-            diagnostics.Add(Catalog.UnusableManifestKey(native.KeyLocation, "native"));
+            var given = Check(native.Entries, [.. NativeListKeys, .. Platforms.Select(p => (p, Kind.Block))], diagnostics);
+            nativeLists.AddRange(Lists(null, given.Values));
+            foreach (var platform in Platforms)
+            {
+                if (given.GetValueOrDefault(platform) is BlockEntry block)
+                    nativeLists.AddRange(Lists(platform, Check(block.Entries, NativeListKeys, diagnostics).Values));
+            }
         }
 
         if (keys.GetValueOrDefault("name") is not ValueEntry { Text: { } name } entry)
@@ -59,8 +82,14 @@ public sealed record Manifest(string Name, Location NameLocation)
         else if (!Lexer.IsIdentifier(name))
             diagnostics.Add(Catalog.PackageNameNotIdentifier(entry.KeyLocation, name));
         bool failed = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error) > errors;
-        return failed ? null : new Manifest(name, entry.KeyLocation);
+        return failed ? null : new Manifest(name, entry.KeyLocation) { Native = nativeLists };
+
+        static IEnumerable<NativeList> Lists(string? platform, IEnumerable<Entry> entries) =>
+            entries.OfType<ValueEntry>().Where(e => e.List is not null).Select(e => new NativeList(platform, e.Key, e.List!, e.KeyLocation));
     }
+
+    static readonly (string Key, Kind Kind)[] NativeListKeys =
+        [("include", Kind.List), ("libraryPaths", Kind.List), ("link", Kind.List), ("copy", Kind.List), ("defines", Kind.List)];
 
     /// <summary>Checks a list of entries against its keys and their kinds, and returns each one given, by key.</summary>
     static Dictionary<string, Entry> Check(IReadOnlyList<Entry> entries, (string Key, Kind Kind)[] schema, DiagnosticBag diagnostics)

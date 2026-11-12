@@ -1,0 +1,20 @@
+// native
+// The generated program and the native source see the manifest's definitions, the header comes from
+// the manifest's include directory, and the library that 'link' names is linked (spec programs.manifest).
+@Include("greeting.h")
+extern {
+    static int GREETING_BASE;
+    static int GREETING_PLATFORM;
+    static int GREETING_OFFSET;
+
+    @Safe int greeting_value();
+    @Safe int greeting_relative();
+}
+
+void main() {
+    std::print(GREETING_BASE);                      // output: 40
+    std::print(GREETING_PLATFORM);                  // output: 2
+    std::print(GREETING_OFFSET);                    // output: 2
+    std::print(greeting_value());                   // output: 42
+    std::print(greeting_relative());                // output: 1
+}

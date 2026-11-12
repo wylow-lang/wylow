@@ -25,7 +25,7 @@ static class BuildCacheSelfTests
         var compiler = NativeCompiler.Find(null, out var error);
         if (compiler is null)
             return [new("build-cache/key", error)];
-        return [CppKey(compiler), SourceKey(compiler), Replay(outputDirectory), Native(compiler, outputDirectory)];
+        return [CppKey(compiler), SourceKey(compiler), Replay(outputDirectory), Native(compiler, outputDirectory), NativeRebuild(outputDirectory)];
     }
 
     static TestResult CppKey(NativeCompiler compiler)
@@ -66,35 +66,125 @@ static class BuildCacheSelfTests
     }
 
     /// <summary>
-    /// Both keys cover every file of a package's <c>native/</c> directory, so that a changed native
-    /// source or header does not reuse the executable built from the old one.
+    /// Both keys cover the manifest's <c>native</c> lists and every file that the C++ build reads from
+    /// the package: each file of <c>native/</c> and of an <c>include</c> directory, each library that
+    /// <c>link</c> names in a <c>libraryPaths</c> directory, and each file of <c>copy</c>. A key that
+    /// ignores one of them reuses the executable built from the old file.
     /// </summary>
     static TestResult Native(NativeCompiler compiler, string outputDirectory)
     {
         var directory = Path.Combine(outputDirectory, "build-cache", "native");
         if (Directory.Exists(directory))
             Directory.Delete(directory, recursive: true);
-        var native = Path.Combine(directory, "native");
-        Directory.CreateDirectory(Path.Combine(native, "detail"));
-        var sources = PackageSources.Of(new SourceText(Path.Combine(directory, "main.wyl"), Source)) with { NativeDirectory = native };
-        string? Key() => Driver.SourceKey(compiler, sources, new CompileOptions(), release: false);
-        string BuildKey() => compiler.BuildKey(release: false, Program, native);
+        Write(directory, "src/main.wyl", Source);
+        Write(directory, "native/detail/shim.cpp", "int shim() { return 1; }\n");
+        Write(directory, "include/base.h", "#define BASE 1\n");
+        Write(directory, "lib/shapes.lib", "one");
+        Write(directory, "lib/libshapes.a", "one");
+        Write(directory, "data/notes.txt", "one");
+        string Manifest(string defines) => $$"""
+            name = "native";
+            native {
+                include = ["include"];
+                libraryPaths = ["lib"];
+                link = ["shapes"];
+                copy = ["data/notes.txt"];
+                defines = [{{defines}}];
+            }
+            """;
+        Write(directory, "package.wylcfg", Manifest("\"BASE_ON\""));
+        string? Key() => Driver.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
+        string BuildKey() => compiler.BuildKey(release: false, Program, PackageSources.Load(directory).Native);
 
-        File.WriteAllText(Path.Combine(native, "detail", "shim.cpp"), "int shim() { return 1; }\n");
-        var (key, buildKey) = (Key(), BuildKey());
         List<string> problems = [];
+        if (PackageSources.Load(directory).Diagnostics is { Count: > 0 } diagnostics)
+            return new("build-cache/native", $"the package does not load: {string.Join('\n', diagnostics)}");
+        var (key, buildKey) = (Key(), BuildKey());
         if (Key() != key || BuildKey() != buildKey)
             problems.Add("the same native files give different keys");
-        File.WriteAllText(Path.Combine(native, "detail", "shim.cpp"), "int shim() { return 2; }\n");
-        if (Key() == key)
-            problems.Add("the source key ignores a changed native source");
-        if (BuildKey() == buildKey)
-            problems.Add("the build key ignores a changed native source");
-        (key, buildKey) = (Key(), BuildKey());
-        File.WriteAllText(Path.Combine(native, "shim.h"), "#pragma once\n");
-        if (Key() == key || BuildKey() == buildKey)
-            problems.Add("a key ignores a native header that was added");
+        void Changed(string what, Action change)
+        {
+            (key, buildKey) = (Key(), BuildKey());
+            change();
+            if (Key() == key)
+                problems.Add($"the source key ignores {what}");
+            if (BuildKey() == buildKey)
+                problems.Add($"the build key ignores {what}");
+        }
+        Changed("a changed native source", () => Write(directory, "native/detail/shim.cpp", "int shim() { return 2; }\n"));
+        Changed("a native header that was added", () => Write(directory, "native/shim.h", "#pragma once\n"));
+        Changed("a changed header of an 'include' directory", () => Write(directory, "include/base.h", "#define BASE 2\n"));
+        Changed("a changed library that 'link' names", () => Write(directory, $"lib/{(OperatingSystem.IsWindows() ? "shapes.lib" : "libshapes.a")}", "two"));
+        Changed("a changed file of 'copy'", () => Write(directory, "data/notes.txt", "two"));
+        Changed("a changed list of the manifest", () => Write(directory, "package.wylcfg", Manifest("\"BASE_ON=2\"")));
         return new("build-cache/native", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    /// <summary>
+    /// A package built again after a header of its <c>include</c> directory, a definition of its
+    /// manifest, or a file of <c>copy</c> changed runs the new program, with the new file next to it.
+    /// </summary>
+    static TestResult NativeRebuild(string outputDirectory)
+    {
+        var directory = Path.Combine(outputDirectory, "build-cache", "native-rebuild");
+        if (Directory.Exists(directory))
+            Directory.Delete(directory, recursive: true);
+        Write(directory, "src/main.wyl", """
+            @Include("shim.h")
+            extern {
+                @Safe int shim_value();
+            }
+
+            void main() {
+                std::print(shim_value());
+            }
+            """);
+        Write(directory, "native/shim.h", "#pragma once\nint shim_value();\n");
+        Write(directory, "native/shim.cpp", "#include \"shim.h\"\n#include \"offset.h\"\nint shim_value() { return SHIM_BASE + SHIM_OFFSET; }\n");
+        Write(directory, "include/offset.h", "#define SHIM_OFFSET 2\n");
+        Write(directory, "data/notes.txt", "one");
+        string Manifest(int value) => $$"""
+            name = "rebuild";
+            native {
+                include = ["include"];
+                copy = ["data/notes.txt"];
+                defines = ["SHIM_BASE={{value}}"];
+            }
+            """;
+        Write(directory, "package.wylcfg", Manifest(40));
+        var output = Path.Combine(directory, ".build");
+        var notes = Path.Combine(output, "notes.txt");
+        string Run()
+        {
+            var build = Driver.Build(PackageSources.Load(directory), new CompileOptions(), "rebuild", output, new BuildOptions());
+            if (build.Executable is not { Success: true } executable)
+                return $"the build failed: {build.Executable?.Error ?? string.Join('\n', build.Diagnostics)}";
+            var run = ProcessRunner.Run(new System.Diagnostics.ProcessStartInfo(executable.ExePath!), TimeSpan.FromSeconds(10));
+            return $"{run.StandardOutput.Trim()} {(File.Exists(notes) ? File.ReadAllText(notes) : "(no copy)")}";
+        }
+
+        List<string> problems = [];
+        void Expect(string expected, string after)
+        {
+            if (Run() is var actual && actual != expected)
+                problems.Add($"after {after}, the program printed and copied '{actual}' instead of '{expected}'");
+        }
+        Expect("42 one", "the first build");
+        Write(directory, "include/offset.h", "#define SHIM_OFFSET 3\n");
+        Expect("43 one", "a header of an 'include' directory changed");
+        Write(directory, "package.wylcfg", Manifest(50));
+        Write(directory, "data/notes.txt", "two");
+        Expect("53 two", "a definition and a file of 'copy' changed");
+        File.Delete(notes);
+        Expect("53 two", "the copied file was deleted");
+        return new("build-cache/native-rebuild", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    static void Write(string directory, string path, string text)
+    {
+        var file = Path.Combine(directory, path);
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, text);
     }
 
     /// <summary>A build that reuses an executable reports the warnings of the build that made it.</summary>

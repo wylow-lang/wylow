@@ -39,7 +39,7 @@ public static class Driver
         var diagnosticsPath = Path.Combine(outputDirectory, name + ".diagnostics.json");
         var key = compiler is null ? null : SourceKey(compiler, sources, compileOptions, options.Release);
         if (key is not null && File.Exists(exePath) && ReadText(keyPath) == key && ReadDiagnostics(diagnosticsPath) is { } kept)
-            return new ProgramBuild(kept, 0, new ExecutableBuild(exePath, null));
+            return new ProgramBuild(kept, 0, CopyNextTo(exePath, sources.Native));
 
         var compilation = Compilation.Compile(sources, compileOptions);
         var diagnostics = compilation.Diagnostics.Select(d => d.ToString()).ToList();
@@ -81,17 +81,37 @@ public static class Driver
         File.WriteAllText(cppPath, cpp);
         var exePath = ExePath(outputDirectory, name);
         var keyPath = Path.Combine(outputDirectory, name + ".key");
-        var key = compiler.BuildKey(release, cpp, compilation.NativeDirectory);
+        var key = compiler.BuildKey(release, cpp, compilation.Native);
         if (File.Exists(exePath) && ReadText(keyPath) == key)
-            return new ExecutableBuild(exePath, null);
+            return CopyNextTo(exePath, compilation.Native);
 
         File.Delete(keyPath);
-        var result = compiler.Build(cppPath, exePath, release, nativeDirectory: compilation.NativeDirectory);
-        if (result.Success)
-            File.WriteAllText(keyPath, key);
-        return result.Success
-            ? new ExecutableBuild(exePath, null)
-            : BuildFailure.Classify(result.Output, cppPath, compilation.Interop, compilation.NativeDirectory);
+        var result = compiler.Build(cppPath, exePath, release, native: compilation.Native);
+        if (!result.Success)
+            return BuildFailure.Classify(result.Output, cppPath, compilation.Interop, compilation.Native);
+        File.WriteAllText(keyPath, key);
+        return CopyNextTo(exePath, compilation.Native);
+    }
+
+    /// <summary>
+    /// Copies each file that the manifest's <c>copy</c> names next to the executable. A reused
+    /// executable gets them too, since the files next to it may have been removed or changed.
+    /// </summary>
+    static ExecutableBuild CopyNextTo(string exePath, NativeInputs native)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(exePath))!;
+        foreach (var file in native.Copy)
+        {
+            try
+            {
+                File.Copy(file, Path.Combine(directory, Path.GetFileName(file)), overwrite: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return new ExecutableBuild(null, $"error: cannot copy '{file}' next to the program: {exception.Message}");
+            }
+        }
+        return new ExecutableBuild(exePath, null);
     }
 
     /// <summary>
@@ -118,7 +138,8 @@ public static class Driver
         Add(sources.Package.Name ?? "");
         foreach (var diagnostic in sources.Diagnostics)
             Add(diagnostic.ToString());
-        foreach (var (path, bytes) in NativeCompiler.NativeFiles(sources.NativeDirectory))
+        Add(sources.Native.Text);
+        foreach (var (path, bytes) in sources.Native.Files())
         {
             Add(path);
             Add(Convert.ToBase64String(bytes));

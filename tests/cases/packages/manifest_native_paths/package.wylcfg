@@ -1,0 +1,9 @@
+// Each directory of 'include' and 'libraryPaths', and each file of 'copy', must exist.
+name = "manifest_native_paths";
+native {
+    include = ["include", "missing"];       // error[WYL0518]: 'include' names 'missing', which is not a directory
+    libraryPaths = ["notes.txt"];           // error[WYL0518]: 'libraryPaths' names 'notes.txt', which is not a directory
+    copy = ["notes.txt", "include"];        // error[WYL0518]: 'copy' names 'include', which is not a file
+    link = ["parser"];
+    defines = ["PARSER_STATIC"];
+}
