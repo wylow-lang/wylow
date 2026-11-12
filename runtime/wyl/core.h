@@ -34,7 +34,7 @@ static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<doubl
 
 namespace wyl {
 
-// The standard library's ReadOnlySpan, which memory::compare, memory::equal, and String.copyOf
+// The standard library's ReadOnlySpan, which memory::compare, memory::equal, and copyString
 // read. The runtime names it, and the emitter defines it under this name (TypeSymbol.RuntimeName).
 template <class T>
 struct ReadOnlySpan;

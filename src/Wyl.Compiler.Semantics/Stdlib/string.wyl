@@ -41,7 +41,7 @@ extern {
             if (invalidOffset(text) is int offset) {
                 panic::panic($"invalid UTF-8 at byte offset {offset}");
             }
-            return copyOf(text);
+            return copyString(text);
         }
 
         /// Returns whether the string has no bytes.
@@ -119,7 +119,7 @@ extern {
                 return this;
             }
             unsafe {
-                return copyOf(bytes().slice(start, length));
+                return copyString(bytes().slice(start, length));
             }
         }
 
@@ -236,6 +236,5 @@ extern {
     /// # Safety
     ///
     /// `bytes` must be valid UTF-8.
-    @CppName("wyl::string::copyOf")
-    package String copyOf(ReadOnlySpan<byte> bytes);
+    package String copyString(ReadOnlySpan<byte> bytes);
 }

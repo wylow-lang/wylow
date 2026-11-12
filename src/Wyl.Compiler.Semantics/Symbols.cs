@@ -479,7 +479,7 @@ public sealed class TypeSymbol
     /// <summary>
     /// The name C++ declares the type by, which the emitter then gives it: a struct or union of an
     /// extern block, and a standard library type the runtime's code names (<c>ReadOnlySpan</c>, which
-    /// <c>memory::compare</c>, <c>memory::equal</c>, and <c>String.copyOf</c> take), so the runtime
+    /// <c>memory::compare</c>, <c>memory::equal</c>, and <c>copyString</c> take), so the runtime
     /// never depends on how the emitter names a type.
     /// </summary>
     public string? RuntimeName => IsExtern ? CppName : IsNamedByRuntime ? "wyl::" + Name : null;

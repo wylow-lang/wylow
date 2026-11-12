@@ -22,8 +22,8 @@ Step 1 is committed. The next session starts at step 3. These facts from step 1 
 - `WYL0428` is retired along with `WYL0425` and `WYL0426`, because a struct with fields in a block is
   now a C struct. Decision 0094 lets the standard library declare a struct backed by a C++ class
   `unique`, which `ElementVisitor<T>` needs.
-- `String.copyOf` is now the top-level `package` function `copyOf` in the standard library's root
-  module, with `@CppName("wyl::string::copyOf")`.
+- `String.copyOf` is now the top-level `package` function `copyString` in the standard library's
+  root module, which C++ names `wyl::copyString`.
 
 ## 2. The interpreter refuses user externs (done)
 

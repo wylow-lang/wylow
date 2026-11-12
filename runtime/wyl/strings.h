@@ -257,20 +257,16 @@ private:
     size_t m_Capacity = 0;
 };
 
-namespace string {
-
-// String.copyOf, which the caller promises is given valid UTF-8. The standard library's ReadOnlySpan
-// is complete only after the program defines it, so the function is a template.
+// The standard library's copyString, which the caller promises is given valid UTF-8. The standard
+// library's ReadOnlySpan is complete only after the program defines it, so the function is a template.
 template <class T>
-inline String copyOf(ReadOnlySpan<T> bytes) {
-    static_assert(sizeof(T) == 1, "String.copyOf copies bytes");
+inline String copyString(ReadOnlySpan<T> bytes) {
+    static_assert(sizeof(T) == 1, "copyString copies bytes");
     StringBuffer text;
     // A span's length is an int32_t, so the text never reaches the length limit, which needs a location.
     text.Append(reinterpret_cast<const char*>(bytes.f_data), static_cast<size_t>(bytes.f_size), "");
     return text.Take();
 }
-
-}  // namespace string
 
 template <class T>
 inline Formatted<T>::operator String() const {

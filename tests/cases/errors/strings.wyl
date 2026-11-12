@@ -24,7 +24,7 @@ void main() {
     std::print(s.cstr()[0]);        // error[WYL0304]: 'cstr' is unsafe and can only be called in 'unsafe' code
     String.fromCString(null);       // error[WYL0304]: 'fromCString' is unsafe and can only be called in 'unsafe' code
     unsafe {
-        std::copyOf(s.bytes());     // error[WYL0054]: function 'copyOf' is not visible here
+        std::copyString(s.bytes()); // error[WYL0054]: function 'copyString' is not visible here
     }
     std::print(maybe().byteLength); // error[WYL0065]: 'maybe()' might be null
 }

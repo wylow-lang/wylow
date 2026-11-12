@@ -77,7 +77,7 @@ public sealed partial class Interpreter
             ["String::byteLength"] = StringMethod(s => new IntValue(s.Bytes.Length)),
             ["String::cstr"] = StringMethod(s => s.Interpreter.StringStorage(s.Receiver)),
             ["String::toString"] = StringMethod(s => s.Receiver),
-            ["wyl::string::copyOf"] = (i, call, location, caller) => CopyOf(i.ArgumentsOf(call, caller)),
+            ["wyl::copyString"] = (i, call, location, caller) => CopyString(i.ArgumentsOf(call, caller)),
         };
         foreach (var type in StdlibSymbols.HostedPrimitives)
         {
@@ -315,8 +315,8 @@ public sealed partial class Interpreter
 
     static readonly System.Text.UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    /// <summary><c>String.copyOf</c>, whose caller promises valid UTF-8; the interpreter checks the promise.</summary>
-    static Value CopyOf(IReadOnlyList<Value> arguments)
+    /// <summary><c>copyString</c>, whose caller promises valid UTF-8; the interpreter checks the promise.</summary>
+    static Value CopyString(IReadOnlyList<Value> arguments)
     {
         var bytes = SpanBytes(arguments[0]);
         try
@@ -325,7 +325,7 @@ public sealed partial class Interpreter
         }
         catch (System.Text.DecoderFallbackException)
         {
-            throw new UndefinedBehavior("String.copyOf was given bytes that are not valid UTF-8");
+            throw new UndefinedBehavior("copyString was given bytes that are not valid UTF-8");
         }
         return new StringValue(bytes);
     }

@@ -55,7 +55,7 @@ separately (two allocations; the elements are stored inline, not as references t
 Generics are monomorphized: each instantiation is its own C++ template instantiation, so a
 generic method can't be virtual (a C++ virtual function can't be a template).
 
-`String`'s methods are declared in `string.wyl`. The runtime's `wyl::String` implements four of them, `byteLength`, `cstr`, `toString`, and `copyOf`, and `string.wyl` writes the others in Wylow on top of those four and `std::memory`. A `wyl::String` keeps a null byte after its bytes, so `cstr` never copies.
+`String`'s methods are declared in `string.wyl`. The runtime's `wyl::String` implements four of them, `byteLength`, `cstr`, `toString`, and `copyString`, and `string.wyl` writes the others in Wylow on top of those four and `std::memory`. A `wyl::String` keeps a null byte after its bytes, so `cstr` never copies.
 
 A `ref?` or `in?` reference is a C++ pointer, null when there is no place.
 
