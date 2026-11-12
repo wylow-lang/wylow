@@ -26,7 +26,9 @@ public sealed class NativeCompiler
 
     static readonly string[] ThreadSanitizedClangFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=thread", "-g", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"];
 
-    static readonly string[] ThreadSanitizedGccFlags = ["-std=c++20", "-fsanitize=thread", "-g", "-pthread"];
+    // The runtime frees pool slots with sized operator delete, which clang++ before 19 declares only
+    // with -fsized-deallocation; g++ accepts the flag and enables it anyway.
+    static readonly string[] ThreadSanitizedGccFlags = ["-std=c++20", "-fsanitize=thread", "-fsized-deallocation", "-g", "-pthread"];
 
     readonly string compilerPath;
     readonly IReadOnlyDictionary<string, string>? environment;
