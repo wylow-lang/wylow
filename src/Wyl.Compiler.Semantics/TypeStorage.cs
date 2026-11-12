@@ -40,14 +40,14 @@ public static class TypeStorage
         /// Whether a value of the type may hold strong references to objects, directly or through a
         /// closure, so that releasing it may destroy one and run its destructor.
         /// </summary>
-        public bool MayOwnObjects => type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping);
+        public bool MayOwnObjects => type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscapingClosure);
 
         /// <summary>
         /// Whether copying or destroying a value of the type runs code: it counts references, strong
         /// or weak, or a string's bytes. A unique struct's destructor runs code when the value is
         /// released. A struct backed by a C++ class keeps its storage in C++, so it may.
         /// </summary>
-        public bool IsCounted => type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscaping || t == WylType.String || t.Symbol is { IsCppClass: true }
+        public bool IsCounted => type.InlineTypes().Any(t => t.IsReference || t.IsTypeParameter || t.IsEscapingClosure || t == WylType.String || t.Symbol is { IsCppClass: true }
             || t.Symbol is { Destructor: not null });
 
         /// <summary>Whether releasing a value of the type runs a struct destructor's body.</summary>
@@ -82,7 +82,7 @@ public static class TypeStorage
         /// object's fields, a string's bytes, or a closure's captures. Such a value is held, not
         /// itself kept in place, while something points into it.
         /// </summary>
-        public bool SharesStorage => type.NonNull.IsReference || type.NonNull == WylType.String || type.NonNull.IsEscaping;
+        public bool SharesStorage => type.NonNull.IsReference || type.NonNull == WylType.String || type.NonNull.IsEscapingClosure;
 
         /// <summary>Whether the copies of a value may share their storage, as a type parameter's may.</summary>
         public bool MayShareStorage => type.SharesStorage || type.IsTypeParameter;
@@ -91,6 +91,6 @@ public static class TypeStorage
         /// Whether a value of the type may refer to an object or a closure, so that converting to it
         /// keeps the object's identity; a function value converted to another type refers to the same closure.
         /// </summary>
-        public bool KeepsIdentity => type.NonNull.IsReference || type.NonNull.IsTypeParameter || type.NonNull.IsFunction;
+        public bool KeepsIdentity => type.NonNull.IsReference || type.NonNull.IsTypeParameter || type.NonNull.IsFunction && !type.NonNull.IsExternFunction;
     }
 }

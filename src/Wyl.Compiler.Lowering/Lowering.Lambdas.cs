@@ -66,7 +66,7 @@ public sealed partial class IrLowering
     IrInvoke Invocation(BoundInvocation invocation)
     {
         var callee = invocation.Callee;
-        var target = callee.Type.NonNull.IsEscaping && IsPlace(callee)
+        var target = callee.Type.NonNull.IsEscapingClosure && IsPlace(callee)
             ? IrRead.Borrow(new IrPlace(Hold(Place(callee, Use.Read), borrows: false)))
             : Value(callee);
         return new IrInvoke(target, invocation.Signature, Arguments(invocation.Signature, invocation.Arguments));

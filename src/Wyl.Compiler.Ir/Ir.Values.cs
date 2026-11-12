@@ -100,7 +100,10 @@ public abstract class IrOperand : IrArgument
     public abstract WylType Type { get; }
 }
 
-/// <summary>A constant; <see cref="Value"/> is as for a <see cref="BoundLiteral"/>, or null for <c>null</c>.</summary>
+/// <summary>
+/// A constant; <see cref="Value"/> is as for a <see cref="BoundLiteral"/>, null for <c>null</c>, or
+/// the <see cref="FunctionSymbol"/> of a <c>@CCallback</c> function for its address as an <c>extern fn</c>.
+/// </summary>
 public sealed class IrConstant(WylType type, object? value) : IrOperand
 {
     public object? Value { get; } = value;

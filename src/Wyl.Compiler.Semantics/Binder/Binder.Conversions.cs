@@ -60,6 +60,12 @@ public sealed partial class Binder
         {
             if (to.NonNull is not FunctionType function)
                 return ErrorExpression(Catalog.FunctionToNonFunction(expression.Location, lambda.Syntax.IsFunctionReference, to.ToString()));
+            if (function.IsExtern)
+            {
+                return lambda.Referenced is var (reference, overloads)
+                    ? Convert(BindCallback(reference, overloads, function), to)
+                    : ErrorExpression(Catalog.LambdaToExternFunction(expression.Location, function.ToString()));
+            }
             var bound = lambda.Inferred is { } inferred
                 ? RetargetLambda(lambda, inferred, function)
                 : BindLambda(lambda.SyntaxFor(function.Parameters), function, lambda.DeclaredParameters);

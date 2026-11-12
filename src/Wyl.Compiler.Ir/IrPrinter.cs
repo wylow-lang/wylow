@@ -252,6 +252,7 @@ public sealed class IrPrinter
         string s => $"\"{s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n")}\"",
         System.Text.Rune r => $"'{r}'",
         int i => i.ToString(CultureInfo.InvariantCulture),
+        FunctionSymbol callback => $"callback {callback.Name}:{constant.Type}",
         IFormattable number => $"{number.ToString(null, CultureInfo.InvariantCulture)}:{constant.Type}",
         var other => $"{other}:{constant.Type}",
     };

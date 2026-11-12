@@ -46,10 +46,17 @@ public sealed class Callees
                 }
             }
         }
+        callbacks = [.. program.Functions.Where(f => f.Symbol.IsCCallback).Select(f => new Callee(f, TypeMap.Empty))];
         var borrowable = program.Bound.Stdlib.Borrowable;
         borrows = [.. borrowable is null ? [] : borrowable.Methods.Values.SelectMany(m => m).SelectMany(Targets).SelectMany(functions.Of)];
         released = [.. program.Functions.Where(f => f.Symbol.IsDestructor), .. borrows];
     }
+
+    /// <summary>
+    /// The <c>@CCallback</c> functions, which C code may call during any call of the program's extern
+    /// functions or of an <c>extern fn</c> value, since it may have kept their addresses.
+    /// </summary>
+    readonly IReadOnlyList<Callee> callbacks;
 
     /// <summary>Every implementation of <c>Borrowable</c>'s methods.</summary>
     readonly IReadOnlyList<IrFunction> borrows;
@@ -89,12 +96,18 @@ public sealed class Callees
                     if (lowered.Count > 0)
                         found.AddRange(lowered.Select(f => new Callee(f, method.Map)));
                     else if (target.IsExtern || target.IsBuiltin)
+                    {
                         runsExtern = true;
+                        if (target.IsProgramExtern)
+                            found.AddRange(callbacks);
+                    }
                     else if (!target.IsImplicit)
                         return null;
                 }
                 return new(found, runsExtern);
             }
+            case IrRunFunctionValue(var type) when type.IsExternFunction:
+                return new(callbacks, true);
             case IrRunFunctionValue(var type):
                 return new([.. LambdasOfType(type).Select(f => new Callee(f, TypeMap.Empty))], false);
             case IrRunDefault(var type):

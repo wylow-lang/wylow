@@ -799,9 +799,9 @@ out 3
 exit 0
 
 === function-shared-escaping/case-null
-error 39: expected 'shared fn() -> int?', found 'null'
-error 44: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
-error 50: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
+out 3
+out null
+exit 0
 
 === function-shared-escaping/guarded
 out 3
@@ -855,9 +855,9 @@ exit 0
 error 42: non-escaping variable 'value' cannot be stored or returned
 
 === function-shared-nonescaping/case-null
-error 39: expected 'shared fn() -> int?', found 'null'
-error 44: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
-error 50: pattern 'null' can never match a value of non-nullable type 'shared fn() -> int?'
+out 3
+out null
+exit 0
 
 === function-shared-nonescaping/guarded
 error 42: non-escaping variable 'value' cannot be stored or returned
@@ -866,6 +866,68 @@ error 42: non-escaping variable 'value' cannot be stored or returned
 error 40: non-escaping parameter 'value' cannot be stored or returned
 error 67: non-escaping parameter 'value' cannot be stored or returned
 error 80: non-escaping variable 'value' cannot be stored or returned
+
+=== function-extern/local
+out 3
+exit 0
+
+=== function-extern/field
+out 3
+out 7
+exit 0
+
+=== function-extern/parameter
+out 3
+exit 0
+
+=== function-extern/return
+out 3
+exit 0
+
+=== function-extern/type-argument
+out 3
+exit 0
+
+=== function-extern/element
+out 3
+out 7
+exit 0
+
+=== function-extern/capture
+out 3
+exit 0
+
+=== function-extern/equality
+error 43: operator '==' cannot be applied to 'extern fn() -> int' and 'extern fn() -> int'
+
+=== function-extern/default
+error 45: 'Defaults' has no default value
+
+=== function-extern/overloads
+out typed
+exit 0
+
+=== function-extern/struct-pattern
+out 3
+out 3
+exit 0
+
+=== function-extern/case-null
+out 3
+out null
+exit 0
+
+=== function-extern/guarded
+out 3
+exit 0
+
+=== function-extern/constructor-call
+out 3
+out 7
+out 7
+out 3
+out 7
+exit 0
 
 === generic/local
 out 3

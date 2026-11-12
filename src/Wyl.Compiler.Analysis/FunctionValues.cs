@@ -28,6 +28,7 @@ public static class FunctionValues
         if (value.IsFunction || lambda.IsFunction)
         {
             return value is FunctionType function && lambda is FunctionType other
+                && function.IsExtern == other.IsExtern
                 && function.Parameters.Count == other.Parameters.Count
                 && function.Parameters.Zip(other.Parameters).All(p => p.First.RefKind == p.Second.RefKind && MayBe(p.First.Type, p.Second.Type))
                 && MayBe(function.ReturnType, other.ReturnType);

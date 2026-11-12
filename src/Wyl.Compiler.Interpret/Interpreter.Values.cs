@@ -70,7 +70,7 @@ public sealed partial class Interpreter
     /// holds nothing, while a nullable reference is a null reference and a pointer is a null
     /// pointer. A type parameter's <c>T?</c> may be either, so the frame's type arguments decide.
     /// </summary>
-    static Value ConstantValue(IrConstant constant, Frame frame)
+    Value ConstantValue(IrConstant constant, Frame frame)
     {
         var type = frame.Type(constant.Type);
         if (constant.Value is null)
@@ -93,6 +93,8 @@ public sealed partial class Interpreter
             ulong v => new IntValue(v),
             nint v => new IntValue((long)v),
             nuint v => new IntValue((ulong)v),
+            // A C function pointer to a @CCallback function, which captures nothing.
+            FunctionSymbol callback => new FunctionValue(program.Functions.Of(callback).Single(), TypeMap.Empty, null, null),
             Rune rune => new CharValue(rune.Value),
             float f => new FloatValue(f),
             double d => new FloatValue(d),

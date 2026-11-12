@@ -102,6 +102,15 @@ public abstract class WylType
 
     public bool IsNonEscapingFunction => this is FunctionType { IsEscaping: false };
 
+    /// <summary>An <c>extern fn</c>, the type of a C function pointer (spec <c>interop.callbacks</c>).</summary>
+    public bool IsExternFunction => this is FunctionType { IsExtern: true };
+
+    /// <summary>
+    /// The escaping form of a function type that is not <c>extern</c>: a closure, which is counted and
+    /// shares its captures among its copies. An <c>extern fn</c> is escaping too, but holds no closure.
+    /// </summary>
+    public bool IsEscapingClosure => this is FunctionType { IsEscaping: true, IsExtern: false };
+
     /// <summary>A nullable non-escaping function, which only a parameter passing it on may be.</summary>
     public bool IsNullableNonEscapingFunction => IsNullable && NonNull.IsNonEscapingFunction;
 
@@ -274,7 +283,7 @@ public sealed class TypeMap
 /// <summary>A parameter of a function type, which has a mode but no name, and prints escaping since its two forms print alike.</summary>
 public readonly record struct FunctionParameterType(RefKind RefKind, WylType Type)
 {
-    public override string ToString() => (Type.NonNull.IsEscaping ? "escaping " : "") + FunctionSymbol.ParameterText(RefKind, Type);
+    public override string ToString() => (Type.NonNull.IsEscapingClosure ? "escaping " : "") + FunctionSymbol.ParameterText(RefKind, Type);
 }
 
 sealed class FunctionParameterListComparer : IEqualityComparer<IReadOnlyList<FunctionParameterType>>

@@ -50,6 +50,8 @@ public sealed partial class Binder
         {
             return ErrorExpression(Catalog.InstanceMethodReference(reference.Location, name));
         }
+        if (type is { IsExtern: true })
+            return BindCallback(reference, overloads, type);
         if (type is not null)
             return BindLambda(ReferenceLambda(reference, type.Parameters), type, null);
 
@@ -63,7 +65,29 @@ public sealed partial class Binder
         return new BoundPendingLambda(reference.Location, ReferenceLambda(reference, parameters), null)
         {
             Reference = p => ReferenceLambda(reference, p),
+            Referenced = (reference, overloads),
         };
+    }
+
+    /// <summary>
+    /// A reference converted to an <c>extern fn</c> type: the one function it names whose parameter
+    /// types and return type are the type's, which must be marked <c>@CCallback</c> (spec <c>interop.callbacks</c>).
+    /// </summary>
+    BoundExpression BindCallback(Expr reference, IReadOnlyList<FunctionSymbol> overloads, FunctionType type)
+    {
+        var name = TextOf(reference.Location);
+        var target = type.ToString();
+        var matching = overloads.Where(f => f.ReturnType == type.ReturnType && f.Parameters.Count == type.Parameters.Count
+            && f.Parameters.Zip(type.Parameters).All(p => p.First.RefKind == RefKind.None && p.First.Type == p.Second.Type)).ToList();
+        if (matching is not [var function])
+        {
+            var actual = overloads is [var only] ? only.ReturnType.FunctionReturning([.. only.Parameters.Select(p => new FunctionParameterType(p.RefKind, p.Type))]).ToString() : null;
+            return ErrorExpression(Catalog.CallbackMismatch(reference.Location, name, target, actual));
+        }
+        if (!function.IsCCallback)
+            return ErrorExpression(Catalog.CallbackNotMarked(reference.Location, name, target));
+        CheckVisible(reference.Location, function.Reach, $"function '{function.Name}'");
+        return new BoundCallback(reference.Location, type, function);
     }
 
     /// <summary><c>(a, b) -> f(a, b)</c> for a reference to <c>f</c>, whose parameters can't be named by Wylow code.</summary>

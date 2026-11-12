@@ -1,0 +1,78 @@
+// native
+// C++ calls Wylow functions through C function pointers: with a context that points to a Wylow
+// struct, with null in place of a nullable function, through a field of an extern struct, and with
+// C's `const char*` where the Wylow function takes a `byte*`. A function pointer that C++ returns is
+// called from Wylow, and a constant that is not a function's address passes back unchanged
+// (spec interop.callbacks).
+@Include("events.h")
+extern {
+    struct Watcher {
+        pub (extern fn(void*, int) -> int)? on_event;
+        pub int limit;
+    }
+
+    static extern fn(void*, int) -> int EVENTS_NONE;
+
+    int events_run(extern fn(void*, int) -> int handler, void* context, int count);
+    int events_run_optional((extern fn(void*, int) -> int)? handler, void* context);
+    void events_words(extern fn(void*, byte*) -> void handler, void* context);
+    int events_watch(Watcher* watcher);
+    extern fn(void*, int) -> int events_default();
+    bool events_is_none(extern fn(void*, int) -> int handler);
+}
+
+struct Counter {
+    pub int calls;
+    pub long total;
+}
+
+/// Returns ten times `value`, and counts the call in the `Counter` that `context` points to.
+@CCallback
+int count(void* context, int value) {
+    unsafe {
+        Counter* counter = (Counter*) context;
+        counter[0].calls += 1;
+        counter[0].total += value;
+    }
+    return value * 10;
+}
+
+/// Prints the C string `text`.
+@CCallback
+void say(void* context, byte* text) {
+    unsafe {
+        std::print(String.fromCString(text));
+    }
+}
+
+/// Returns `value` plus one.
+@CCallback
+int next(void* context, int value) {
+    return value + 1;
+}
+
+void main() {
+    mut var counter = Counter(0, 0);
+    unsafe {
+        std::print(events_run(count, &counter, 4));         // output: 100
+        std::print(counter.calls);                          // output: 4
+        std::print(counter.total);                          // output: 10
+
+        std::print(events_run_optional(next, null));        // output: 8
+        std::print(events_run_optional(null, null));        // output: -1
+
+        events_words(say, null);                            // output: alpha
+                                                            // output: beta
+
+        mut var watcher = Watcher(next, 41);
+        std::print(events_watch(&watcher));                 // output: 42
+        watcher.on_event = null;
+        std::print(events_watch(&watcher));                 // output: 0
+
+        extern fn(void*, int) -> int tripled = events_default();
+        std::print(tripled(null, 5));                       // output: 15
+
+        std::print(events_is_none(EVENTS_NONE));            // output: true
+        std::print(events_is_none(next));                   // output: false
+    }
+}

@@ -1,0 +1,43 @@
+// native
+// tsan
+// A callback runs on threads that C++ starts. Each thread makes objects, which it releases and
+// collects before it ends, as any thread that runs Wylow code does (spec interop.callbacks).
+import std::collections::List;
+
+@Include("workers.h")
+extern {
+    long workers_run(extern fn(int) -> long work, int threads);
+}
+
+class Node {
+    pub mut Node? next;
+    pub long value;
+
+    pub Node(long value) {
+        this.value = value;
+    }
+}
+
+/// Returns the sum of a list and a cycle of nodes that the call builds on its own thread.
+@CCallback
+long work(int index) {
+    var values = new List<long>();
+    for (int i : 0..100) {
+        values.add(i + index);
+    }
+    var first = new Node(index);
+    var second = new Node(1);
+    first.next = second;
+    second.next = first;
+    mut long sum = first.value + second.value;
+    for (long value : values) {
+        sum += value;
+    }
+    return sum;
+}
+
+void main() {
+    unsafe {
+        std::print(workers_run(work, 4));           // output: 20410
+    }
+}

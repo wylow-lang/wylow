@@ -117,7 +117,7 @@ public sealed partial class CppEmitter
         if (type is PointerType pointer) return "P" + Mangle(pointer.Element);
         if (type is FixedArrayType array) return $"A{array.Length}_" + Mangle(array.Element);
         if (type is FunctionType function)
-            return $"{(function.IsEscaping ? "E" : "")}{(function.IsShared ? "S" : "")}F{function.Parameters.Count}{string.Concat(function.Parameters.Select(p => Mode(p.RefKind) + Mangle(p.Type)))}R{Mangle(function.ReturnType)}";
+            return $"{(function.IsExtern ? "C" : function.IsEscaping ? "E" : "")}{(function.IsShared ? "S" : "")}F{function.Parameters.Count}{string.Concat(function.Parameters.Select(p => Mode(p.RefKind) + Mangle(p.Type)))}R{Mangle(function.ReturnType)}";
         if (type is TypeParameterType parameter) return "T" + Name(parameter.Parameter.Name);
         if (type.Symbol is { } s)
             return Name(s.RuntimeName is not null ? s.Name : QualifiedName(s)) + (type.TypeArguments.Count > 0 ? $"I{string.Concat(type.TypeArguments.Select(Mangle))}E" : "");

@@ -124,3 +124,4 @@ history and a reason can be found without searching the spec.
 | [0094](0094-unique-structs-backed-by-cpp-classes.md) | The standard library may declare a struct backed by a C++ class `unique` |
 | [0095](0095-native-paths-must-exist.md) | Each path that the manifest's `native` block names must exist |
 | [0096](0096-void-pointers-and-byte-lengths.md) | `void*` converts from every pointer, and `byteLength()` is an `int` that panics on overflow |
+| [0097](0097-c-function-pointer-types.md) | A C function pointer is an `extern fn` type, and only a `@CCallback` function converts to it |

@@ -15,7 +15,7 @@ public static class TypeSendable
             _ when type.IsWeakOfSharedClass => true,
             _ when type.Symbol is { IsSendableHandle: true } => true,
             _ when type.IsReference => type.Symbol is { IsShared: true },
-            _ when type.IsFunction => type is FunctionType { IsEscaping: true, IsShared: true },
+            _ when type.IsFunction => type is FunctionType { IsEscaping: true, IsShared: true } or FunctionType { IsExtern: true },
             _ when type.IsPointer => false,
             _ when type.Symbol is { IsCppClass: true } => false,
             _ => true,

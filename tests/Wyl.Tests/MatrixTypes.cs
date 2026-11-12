@@ -1,6 +1,6 @@
 // The types x contexts matrix: each kind of type crossed with where it can appear. A type is a
 // struct, class, enum with data, nullable value or reference, fixed array, escaping or non-escaping
-// function, generic instantiation, nint, a nesting of two, or a value kind programs compute with
+// function, C function pointer, generic instantiation, nint, a nesting of two, or a value kind programs compute with
 // (String, double, long). A context is a local, field, parameter, return, type argument, element,
 // capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
 // `case null`, a field a guarded case binds, or an argument of `super(...)` and `this(...)`. Each cell makes a value and shows something about
@@ -118,6 +118,12 @@ static class MatrixTypes
             raw => $"() -> {raw}",
             expr => $"print({expr}());",
             Comparable: false);
+        // A C function pointer: only a @CCallback function converts to one, and calling one is unsafe.
+        yield return new("function-extern", "extern fn() -> int", "extern fn() -> int", "(extern fn() -> int)[2]", "3", "7",
+            raw => raw == "3" ? "three" : "seven",
+            expr => $"unsafe {{ print({expr}()); }}",
+            Comparable: false,
+            Declarations: "@CCallback\nint three() { return 3; }\n\n@CCallback\nint seven() { return 7; }");
         yield return new("generic", "Box<int>", "Box<int>", "Box<int>[2]", "3", "7",
             raw => $"Box<int>({raw})",
             expr => $"print({expr}.value);");
@@ -461,7 +467,7 @@ static class MatrixTypes
             case "case-null":
             {
                 // A nullable row is matched as it is; another is made nullable.
-                var nullable = row.Nullable ? row.Type : row.Type.StartsWith("fn") ? $"({row.Type})?" : $"{row.Type}?";
+                var nullable = row.Nullable ? row.Type : row.Type.Contains("fn(") ? $"({row.Type})?" : $"{row.Type}?";
                 foreach (var some in new[] { "true", "false" })
                 {
                     main.Add($"switch (maybe({some})) {{");

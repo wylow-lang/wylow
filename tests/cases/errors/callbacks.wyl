@@ -1,0 +1,86 @@
+// The rules of `extern fn` types and `@CCallback` functions (spec interop.callbacks).
+struct Named {
+    String name;
+}
+
+struct Order {
+    int id;
+    double weight;
+}
+
+@Repr(uint)
+enum Mode {
+    Read,
+    Write,
+}
+
+@CCallback
+int byValue(void* context, int value) { return value; }
+
+@CCallback
+void byOrder(Order order) { }
+
+int unmarked(void* context, int value) { return value; }
+
+@CCallback
+int overloaded(int value) { return value; }
+
+@CCallback
+int overloaded(int value, int scale) { return value * scale; }
+
+@CCallback
+void text(String text) { }                      // error[WYL0506]: parameter 'text' has type 'String', which is not blittable
+
+@CCallback
+String name() { return ""; }                    // error[WYL0506]: the result of 'name' has type 'String', which is not blittable
+
+@CCallback
+void mode(Mode mode) { }                        // error[WYL0507]: parameter 'mode' has enum type 'Mode', which only a parameter of an extern function can have
+
+@CCallback
+void change(ref int value) { }                  // error[WYL0506]: parameter 'value' has type 'ref int', which is not blittable
+
+@CCallback
+void generic<T>(T* value) { }                   // error[WYL0521]: '@CCallback' function 'generic' cannot be generic
+
+struct Box<T> {
+    T value;
+
+    @CCallback
+    static void make(int value) { }             // error[WYL0521]: '@CCallback' function 'make' cannot be generic
+}
+
+class Handler {
+    @CCallback                                  // error[WYL0432]: '@CCallback' can only be used on static and top-level functions with a body
+    void handle(int value) { }
+
+    @CCallback
+    static void fromClass(int value) { }
+}
+
+@CCallback("name")                              // error[WYL0431]: '@CCallback' takes no arguments
+void named(int value) { }
+
+void takes(extern fn(String) -> void f) { }     // error[WYL0506]: a parameter of 'extern fn(String) -> void' has type 'String', which is not blittable
+void returns(extern fn() -> Named f) { }        // error[WYL0506]: the result of 'extern fn() -> Named' has type 'Named', which is not blittable
+void modes(extern fn(ref int) -> void f) { }    // error[WYL0506]: a parameter of 'extern fn(ref int) -> void' has type 'ref int', which is not blittable
+void escapes(escaping extern fn() -> void f) { } // error[WYL0525]: 'escaping' cannot be declared on 'extern fn() -> void'
+void closures(extern fn(fn() -> void) -> void f) { } // error[WYL0506]: a parameter of 'extern fn(fn() -> void) -> void' has type 'fn() -> void', which is not blittable
+
+void main() {
+    extern fn(void*, int) -> int good = byValue;
+    extern fn(Order) -> void order = byOrder;
+    extern fn(int) -> void member = Handler.fromClass;
+    extern fn(int, int) -> int picked = overloaded;
+    extern fn(void*, int) -> int plain = unmarked;      // error[WYL0522]: 'unmarked' cannot be converted to 'extern fn(void*, int) -> int' because it is not marked '@CCallback'
+    extern fn(void*, long) -> int wider = byValue;      // error[WYL0523]: 'byValue' has type 'fn(void*, int) -> int', which cannot be converted to 'extern fn(void*, long) -> int'
+    extern fn(long) -> int none = overloaded;           // error[WYL0523]: no function named 'overloaded' has the parameter and return types of 'extern fn(long) -> int'
+    extern fn(void*, int) -> int lambda = (c, v) -> v;  // error[WYL0524]: a lambda cannot be converted to 'extern fn(void*, int) -> int'
+    fn(void*, int) -> int closure = byValue;
+    extern fn(void*, int) -> int value = closure;       // error[WYL0079]: expected 'extern fn(void*, int) -> int', found 'fn(void*, int) -> int'
+    fn(void*, int) -> int back = good;                  // error[WYL0079]: expected 'fn(void*, int) -> int', found 'extern fn(void*, int) -> int'
+    std::print(good(null, 1));                          // error[WYL0304]: 'good' is unsafe and can only be called in 'unsafe' code
+    unsafe {
+        std::print(good(null, 1));
+    }
+}

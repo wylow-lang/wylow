@@ -109,7 +109,7 @@ shared class Node {
 written wherever a function type is: `shared fn(Span<float>) -> void`,
 `escaping shared fn() -> R`, `Channel<shared fn() -> void>`.
 
-A function type has four forms: `fn`, `escaping fn`, `shared fn`, and `escaping shared fn`.
+A function type that is not `extern` has four forms: `fn`, `escaping fn`, `shared fn`, and `escaping shared fn`.
 
 | | Escaping `shared fn` | Non-escaping `shared fn` |
 |---|---|---|

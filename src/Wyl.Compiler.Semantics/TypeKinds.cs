@@ -152,7 +152,19 @@ public sealed class FunctionType : WylType
         public IReadOnlyList<FunctionParameterType> Parameters { get; } = parameters;
         public WylType ReturnType { get; } = returnType;
 
-        FunctionType? plain, escaping, shared, sharedEscaping;
+        FunctionType? plain, escaping, shared, sharedEscaping, cFunction;
+
+        /// <summary>The <c>extern fn</c> form, which has no other forms.</summary>
+        public FunctionType Extern
+        {
+            get
+            {
+                if (Volatile.Read(ref cFunction) is { } existing)
+                    return existing;
+                var created = new FunctionType(this, isEscaping: true, isShared: false) { IsExtern = true };
+                return Interlocked.CompareExchange(ref cFunction, created, null) ?? created;
+            }
+        }
 
         public FunctionType Get(bool isEscaping, bool isShared)
         {
@@ -189,18 +201,30 @@ public sealed class FunctionType : WylType
     public override bool IsEscaping { get; }
     public override bool IsShared { get; }
 
-    public FunctionType Escaping => forms.Get(true, IsShared);
-    public FunctionType NonEscaping => forms.Get(false, IsShared);
-    public FunctionType Shared => forms.Get(IsEscaping, true);
-    public FunctionType NonShared => forms.Get(IsEscaping, false);
-    public FunctionType WithForms(bool escaping, bool shared) => forms.Get(escaping, shared);
+    /// <summary>
+    /// Whether the type is an <c>extern fn</c>, a C function pointer (spec <c>interop.callbacks</c>).
+    /// It captures nothing, so it is its own escaping and non-escaping form, and it is never shared.
+    /// </summary>
+    public bool IsExtern { get; private init; }
+
+    public FunctionType Escaping => IsExtern ? this : forms.Get(true, IsShared);
+    public FunctionType NonEscaping => IsExtern ? this : forms.Get(false, IsShared);
+    public FunctionType Shared => IsExtern ? throw new InvalidOperationException("an extern fn has no shared form") : forms.Get(IsEscaping, true);
+    public FunctionType NonShared => IsExtern ? this : forms.Get(IsEscaping, false);
+    public FunctionType WithForms(bool escaping, bool shared) => IsExtern ? this : forms.Get(escaping, shared);
+
+    /// <summary>The <c>extern fn</c> type with these parameters and return type.</summary>
+    public FunctionType Extern => forms.Extern;
 
     public override IReadOnlyList<WylType> Parts => [.. Parameters.Select(p => p.Type), ReturnType];
 
-    public override WylType MapParts(Func<WylType, WylType> map) =>
-        map(ReturnType).FunctionReturning([.. Parameters.Select(p => p with { Type = map(p.Type) })]).WithForms(IsEscaping, IsShared);
+    public override WylType MapParts(Func<WylType, WylType> map)
+    {
+        var mapped = map(ReturnType).FunctionReturning([.. Parameters.Select(p => p with { Type = map(p.Type) })]);
+        return IsExtern ? mapped.Extern : mapped.WithForms(IsEscaping, IsShared);
+    }
 
-    private protected override string BuildName() => $"{(IsShared ? "shared " : "")}fn({string.Join(", ", Parameters)}) -> {ReturnType}";
+    private protected override string BuildName() => $"{(IsShared ? "shared " : IsExtern ? "extern " : "")}fn({string.Join(", ", Parameters)}) -> {ReturnType}";
 }
 
 /// <summary>

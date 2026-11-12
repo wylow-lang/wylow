@@ -166,6 +166,7 @@ public sealed partial class Binder
             PassesLocation = HasCallerLocation(decl),
             BuiltinCppName = ExternFunctionName(decl, null),
             IsPure = IsPure(decl, null),
+            IsCCallback = IsCCallback(decl, null),
         };
         typeParameters = [];
         CheckExternFunction(function, null);
@@ -394,6 +395,7 @@ public sealed partial class Binder
                 PassesLocation = HasCallerLocation(decl, s),
                 BuiltinCppName = ExternFunctionName(decl, s),
                 IsPure = IsPure(decl, s),
+                IsCCallback = IsCCallback(decl, s),
             };
             CheckExternFunction(method, s);
             BindWhere(decl, method, s);
@@ -489,6 +491,10 @@ public sealed partial class Binder
                 CheckNoArguments(annotation);
             }
             else if (annotation.Name is "Pure" or "Safe" && isExtern)
+            {
+                CheckNoArguments(annotation);
+            }
+            else if (annotation.Name == CCallbackName && decl is FunctionDecl callback && IsCCallback(callback, owner))
             {
                 CheckNoArguments(annotation);
             }

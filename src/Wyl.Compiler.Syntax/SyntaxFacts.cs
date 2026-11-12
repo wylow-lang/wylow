@@ -81,7 +81,10 @@ public static class SyntaxFacts
     public static bool IsTypeStart(TokenKind kind) => IsPrimitiveTypeKeyword(kind) || kind is TokenKind.Identifier or TokenKind.FnKeyword;
 
     public static bool IsTypeStart(TokenKind kind, TokenKind next) =>
-        IsTypeStart(kind) || kind == TokenKind.SharedKeyword && next == TokenKind.FnKeyword;
+        IsTypeStart(kind) || IsFunctionTypePrefix(kind) && next == TokenKind.FnKeyword;
+
+    /// <summary>A keyword that may come before <c>fn</c> in a function type: <c>shared</c> or <c>extern</c>.</summary>
+    public static bool IsFunctionTypePrefix(TokenKind kind) => kind is TokenKind.SharedKeyword or TokenKind.ExternKeyword;
 
     public static string GetText(TokenKind kind) => kind switch
     {

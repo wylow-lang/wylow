@@ -1,0 +1,108 @@
+// `extern fn` values made from `@CCallback` functions, without C code: stored in a local, a field,
+// a list, and a nullable, passed as arguments, called in unsafe code, and sent to another thread
+// (spec interop.callbacks).
+// tsan
+import std::collections::List;
+import std::threading;
+
+struct Point {
+    pub int x;
+    pub int y;
+}
+
+struct Handler {
+    pub extern fn(void*, int) -> int run;
+    pub int scale;
+}
+
+/// Returns ten times `value`.
+@CCallback
+int tenfold(void* context, int value) {
+    return value * 10;
+}
+
+/// Returns `value` plus the `int` that `context` points to.
+@CCallback
+int offset(void* context, int value) {
+    unsafe {
+        int* amount = (int*) context;
+        return value + amount[0];
+    }
+}
+
+/// Returns `point` with its coordinates swapped.
+@CCallback
+Point swapped(Point point) {
+    return Point(point.y, point.x);
+}
+
+class Shapes {
+    /// Returns the area of a `width` by `height` rectangle.
+    @CCallback
+    static int area(int width, int height) {
+        return width * height;
+    }
+}
+
+/// Returns the result of `handler` for `value`, times its scale.
+int apply(Handler handler, int value) {
+    unsafe {
+        return handler.run(null, value) * handler.scale;
+    }
+}
+
+/// Returns `f` called with `value`, or -1 if `f` is null.
+int maybe((extern fn(void*, int) -> int)? f, int value) {
+    if (f == null) {
+        return -1;
+    }
+    unsafe {
+        return f(null, value);
+    }
+}
+
+void main() {
+    extern fn(void*, int) -> int f = tenfold;
+    unsafe {
+        std::print(f(null, 4));                             // output: 40
+    }
+
+    mut int amount = 5;
+    extern fn(void*, int) -> int g = offset;
+    unsafe {
+        std::print(g(&amount, 1));                          // output: 6
+    }
+
+    extern fn(Point) -> Point swap = swapped;
+    unsafe {
+        Point p = swap(Point(1, 2));
+        std::print($"{p.x} {p.y}");                         // output: 2 1
+    }
+
+    extern fn(int, int) -> int area = Shapes.area;
+    unsafe {
+        std::print(area(3, 4));                             // output: 12
+    }
+
+    std::print(apply(Handler(tenfold, 2), 3));              // output: 60
+    std::print(maybe(tenfold, 7));                          // output: 70
+    std::print(maybe(null, 7));                             // output: -1
+
+    var handlers = new List<extern fn(void*, int) -> int>();
+    handlers.add(tenfold);
+    handlers.add(f);
+    mut int sum = 0;
+    for (extern fn(void*, int) -> int handler : handlers) {
+        unsafe {
+            sum += handler(null, 1);
+        }
+    }
+    std::print(sum);                                        // output: 20
+
+    var thread = threading::spawn(() -> {
+        unsafe {
+            return f(null, 9);
+        }
+    });
+    std::print(thread.join());                              // output: 90
+}

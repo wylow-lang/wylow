@@ -29,6 +29,12 @@ public sealed partial class Binder
         if (failed || returnType == WylType.Error)
             return WylType.Error;
         var function = returnType.FunctionReturning(parameters).Escaping;
+        if (syntax.IsExtern)
+        {
+            var cFunction = function.Extern;
+            CheckExternFunctionType(syntax, cFunction);
+            return cFunction;
+        }
         return syntax.IsShared ? function.Shared : function;
     }
 
@@ -61,6 +67,8 @@ public sealed partial class Binder
 
     BoundExpression BindLambda(LambdaExpr e, FunctionType type, IReadOnlyList<FunctionParameterType>? declared)
     {
+        if (type.IsExtern)
+            return ErrorExpression(Catalog.LambdaToExternFunction(e.Location, type.ToString()));
         var expected = type.Parameters;
         if (e.Parameters.Count != expected.Count)
         {
@@ -300,7 +308,11 @@ public sealed partial class Binder
 
         var type = (FunctionType)callee.Type;
         var signature = new MethodReference(
-            new FunctionSymbol(TextOf(callee.Location), [.. type.Parameters.Select((p, i) => new LocalSymbol($"p{i}", p.Type, isParameter: true, p.RefKind))], type.ReturnType),
+            new FunctionSymbol(TextOf(callee.Location), [.. type.Parameters.Select((p, i) => new LocalSymbol($"p{i}", p.Type, isParameter: true, p.RefKind))], type.ReturnType)
+            {
+                // The code behind a C function pointer may be anything (spec interop.callbacks).
+                IsUnsafe = type.IsExtern,
+            },
             null,
             []);
         if (e.Arguments.OfType<NamedArgExpr>().FirstOrDefault() is { } named)
@@ -317,6 +329,8 @@ public sealed partial class Binder
         }
         if (ExplainRefMismatch(signature, arguments) is { } mismatch)
             return ErrorExpression(mismatch);
+        if (!CheckUnsafeCall(e.Location, signature))
+            return new BoundErrorExpression(e.Location);
         return new BoundInvocation(e.Location, callee, signature, ConvertArguments(signature, arguments));
     }
 }

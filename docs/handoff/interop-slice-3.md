@@ -1,8 +1,8 @@
 # Interop, slice 3: callbacks, C sources, and what the SQLite binding lacked
 
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
-binding shows what the interop system still lacks. This slice builds callbacks first, because they
-are the largest gap, and then closes the smaller gaps that the binding found. The `dependencies`
+binding shows what the interop system still lacks. Step 1 built callbacks, the largest gap. The
+steps below close the smaller gaps that the binding found. The `dependencies`
 design comes last, because the steps before it change what a library package needs.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
@@ -25,24 +25,20 @@ WSL").
 - `examples/sqlite` is outside the test suite. On Windows, `fetch-sqlite.ps1` puts SQLite's DLL,
   header, and import library in `vendor/windows`, which the repository ignores. On Linux, the
   package links the system's `sqlite3`. The example runs with clang, MSVC, ASan, and g++ on Linux.
-- Two native shims in the example pass `SQLITE_TRANSIENT`, which casts `-1` to a function pointer
-  type that an extern block cannot express.
 
-## 1. Callbacks (`@CCallback`)
+## Facts from step 1
 
-The spec describes callbacks (`interop.callbacks`, and the `@CCallback` row of `interop.blittable`),
-and no code implements them. The spec leaves one question open: how an extern function's
-parameter writes the type of a C function pointer. Decide that question with the user first, and
-record the answer in a decision record before the code.
-
-- A static or top-level function marked `@CCallback` converts to a C function pointer. A lambda
-  does not. It is an error if the function's parameters or return type are not blittable.
-- A panic inside a callback ends the program. The C library may call the function on a thread
-  that it created.
-- The callback's state crosses as a `void*` context, and casting the context back is unsafe.
-- The interpreter does not run C code, so every callback test is `// native`.
-- Tests: each error, a C++ function that calls a callback with a context, a panic in a callback,
-  and `sqlite3_exec` in `examples/sqlite`, which calls a function for each row.
+- Callbacks are built (decision 0097). A C function pointer has the type `extern fn(P) -> R`, and
+  only a reference to a function marked `@CCallback` converts to it. The emitter calls each
+  callback through a `noexcept` function with C's types. If C's parameter type matches the
+  `extern fn` type without being it, as `char**` matches `byte**`, the wrapper of the extern
+  function gives C an adapter of C's own type (`wyl::interop::ToC`).
+- `examples/sqlite` calls `sqlite3_exec` with a callback, and it passes `SQLITE_TRANSIENT` as an
+  extern constant. The two shims and the example's `native/` directory are deleted.
+- A field of an extern struct has C's own type, and Wylow code assigns it directly. A field of an
+  `extern fn` type therefore compiles only if C's type is exactly the `extern fn` type's C++ type.
+  A `byte*` field whose C type is `const char*` already had the same limit. Step 4 should record
+  both limits if the safe layer meets them.
 
 ## 2. C sources under `native/`
 

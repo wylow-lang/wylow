@@ -346,6 +346,12 @@ public sealed record BoundErrorExpression(Location Location) : BoundExpression(L
 public sealed record BoundLambda(Location Location, WylType Type, FunctionSymbol Function, BoundBlock Body) : BoundExpression(Location, Type);
 
 /// <summary>
+/// A reference to a <c>@CCallback</c> function converted to an <c>extern fn</c> type: the address
+/// of the function, which captures nothing (spec <c>interop.callbacks</c>).
+/// </summary>
+public sealed record BoundCallback(Location Location, WylType Type, FunctionSymbol Function) : BoundExpression(Location, Type);
+
+/// <summary>
 /// A lambda argument whose function type is known only once overload resolution picks a parameter
 /// for it. <see cref="DeclaredParameters"/> are its parameter types, if it declares them.
 /// </summary>
@@ -360,6 +366,9 @@ public sealed record BoundPendingLambda(Location Location, LambdaExpr Syntax, IR
     /// parameters its type takes by <c>ref</c>. <see cref="Syntax"/> is that lambda for no such parameters.
     /// </summary>
     public Func<IReadOnlyList<FunctionParameterType>, LambdaExpr>? Reference { get; init; }
+
+    /// <summary>For a function reference, the name as written and the functions it names, which an <c>extern fn</c> target needs.</summary>
+    public (Expr Syntax, IReadOnlyList<FunctionSymbol> Overloads)? Referenced { get; init; }
 
     public LambdaExpr SyntaxFor(IReadOnlyList<FunctionParameterType> parameters) => Reference?.Invoke(parameters) ?? Syntax;
 }

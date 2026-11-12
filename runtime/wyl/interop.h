@@ -12,6 +12,93 @@
 #include <type_traits>
 #include <utility>
 
+#include "core.h"
+#include "optional.h"
+
+namespace wyl {
+
+// A C function pointer's type, which a declaration cannot write directly before its name.
+template <class F>
+using CPointer = F*;
+
+namespace interop {
+
+template <class W, class C>
+constexpr bool Matches();
+
+template <class W, class C>
+constexpr bool ResultMatches();
+
+template <class To, class From>
+constexpr To Convert(From&& value) noexcept;
+
+template <class R, class F>
+constexpr R Result(F&& call) noexcept;
+
+}  // namespace interop
+
+// An `extern fn` value (spec interop.callbacks): the address of a function that captures nothing.
+// F is the C function type, so the pointer is the one C uses. The value has the pointer's size and
+// is trivially copyable, so Convert turns it into the raw pointer and back. It also converts
+// implicitly, because a field of an extern struct has C's own type. The value never crosses a C
+// call itself: the wrappers and callbacks pass the raw pointer.
+template <class F>
+struct CFunction;
+
+template <class R, class... A>
+struct CFunction<R(A...)> {
+    using Pointer = R (*)(A...);
+
+    Pointer Value = nullptr;
+
+    CFunction() = default;
+    constexpr CFunction(Pointer value) noexcept : Value(value) {}
+
+    constexpr operator Pointer() const noexcept { return Value; }
+
+    bool IsNull() const noexcept { return Value == nullptr; }
+
+    // Calls the function, with each argument converted to its C parameter's type and the result to
+    // the Wylow type Result, which match.
+    template <class Result, class... T>
+    Result Call(T&&... arguments) const {
+        if constexpr (WYL_DEBUG != 0) {
+            if (Value == nullptr) RaisePanic("internal compiler error: null function called", "<runtime>");
+        }
+        return interop::Result<Result>([&]() -> decltype(auto) { return Value(interop::Convert<A>(std::forward<T>(arguments))...); });
+    }
+};
+
+// A nullable `extern fn`: the null pointer is null. It converts to and from the raw pointer, as a
+// CFunction does.
+template <class F>
+class Optional<CFunction<F>> {
+    CFunction<F> m_Value;
+
+public:
+    using Pointer = typename CFunction<F>::Pointer;
+
+    Optional() noexcept = default;
+    Optional(std::nullptr_t) noexcept {}
+    Optional(const CFunction<F>& value) noexcept : m_Value(value) {}
+    Optional(Pointer value) noexcept : m_Value(value) {}
+
+    operator Pointer() const noexcept { return m_Value.Value; }
+
+    bool HasValue() const { return !m_Value.IsNull(); }
+
+    // Flow analysis proved there is a value.
+    CFunction<F>& Assumed() {
+        if constexpr (WYL_DEBUG != 0) {
+            if (m_Value.IsNull()) RaisePanic("internal compiler error: null value used as narrowed", "<runtime>");
+        }
+        return m_Value;
+    }
+    const CFunction<F>& Assumed() const { return const_cast<Optional*>(this)->Assumed(); }
+};
+
+}  // namespace wyl
+
 namespace wyl::interop {
 
 // The address of a function that has exactly one declaration. For an overload set, deduction of F
@@ -78,9 +165,31 @@ constexpr bool IsSigned() {
         return std::is_signed_v<T>;
 }
 
+template <class T>
+constexpr bool IS_FUNCTION_POINTER = std::is_pointer_v<T> && std::is_function_v<std::remove_pointer_t<T>>;
+
+template <class W, class C, std::size_t... I>
+constexpr bool ParametersMatch(std::index_sequence<I...>) {
+    return (Matches<std::tuple_element_t<I, typename Signature<W>::Parameters>, std::tuple_element_t<I, typename Signature<C>::Parameters>>() && ...);
+}
+
+// Whether two function pointers have the same number of parameters, and their results and each of
+// their parameters match.
+template <class W, class C>
+constexpr bool FunctionPointerMatches() {
+    using WylowParameters = typename Signature<W>::Parameters;
+    using CppParameters = typename Signature<C>::Parameters;
+    if constexpr (std::tuple_size_v<WylowParameters> != std::tuple_size_v<CppParameters>)
+        return false;
+    else
+        return ResultMatches<typename Signature<W>::Result, typename Signature<C>::Result>()
+            && ParametersMatch<W, C>(std::make_index_sequence<std::tuple_size_v<WylowParameters>>{});
+}
+
 // Whether a Wylow type W and a C++ type C match (spec interop.signatures): they are the same type,
-// both are integers or enumerations of the same size and signedness, or both are pointers whose
-// pointed-to types match, differ only in const, or are both one byte wide.
+// both are integers or enumerations of the same size and signedness, both are function pointers
+// whose results and parameters match, or both are pointers whose pointed-to types match, differ
+// only in const, or are both one byte wide.
 template <class W, class C>
 constexpr bool Matches() {
     using Wylow = std::remove_cvref_t<W>;
@@ -89,6 +198,11 @@ constexpr bool Matches() {
         return true;
     } else if constexpr (IS_INTEGER_LIKE<Wylow> && IS_INTEGER_LIKE<Cpp> && !std::is_same_v<Wylow, char32_t>) {
         return sizeof(Wylow) == sizeof(Cpp) && IsSigned<Wylow>() == IsSigned<Cpp>();
+    } else if constexpr (IS_FUNCTION_POINTER<Wylow> || IS_FUNCTION_POINTER<Cpp>) {
+        if constexpr (IS_FUNCTION_POINTER<Wylow> && IS_FUNCTION_POINTER<Cpp>)
+            return FunctionPointerMatches<Wylow, Cpp>();
+        else
+            return false;
     } else if constexpr (std::is_pointer_v<Wylow> && std::is_pointer_v<Cpp>) {
         using WylowTarget = std::remove_cv_t<std::remove_pointer_t<Wylow>>;
         using CppTarget = std::remove_cv_t<std::remove_pointer_t<Cpp>>;
@@ -146,6 +260,51 @@ constexpr To Convert(From&& value) noexcept {
         return std::forward<From>(value);
     else
         return std::bit_cast<To>(static_cast<Source>(value));
+}
+
+// The raw pointer of an `extern fn` value, nullable or not.
+template <class F>
+constexpr typename CFunction<F>::Pointer RawPointer(const CFunction<F>& value) noexcept {
+    return value.Value;
+}
+
+template <class F>
+constexpr typename CFunction<F>::Pointer RawPointer(const Optional<CFunction<F>>& value) noexcept {
+    return value;
+}
+
+// Calls a function with each argument converted to the type of its parameter.
+template <class R, class F, class... A, std::size_t... I>
+R CallConverted(F callee, std::index_sequence<I...>, A... arguments) noexcept {
+    return Result<R>([&]() -> decltype(auto) { return callee(Convert<Parameter<F, I>>(arguments)...); });
+}
+
+// A C function of exactly the type CP that calls the function Callback, whose type matches CP
+// without being it. C calls a function only through its own type.
+template <class CP, auto Callback>
+struct Adapter;
+
+template <class R, class... A, auto Callback>
+struct Adapter<R (*)(A...), Callback> {
+    static R Call(A... arguments) noexcept {
+        return CallConverted<R>(Callback, std::index_sequence_for<A...>{}, arguments...);
+    }
+};
+
+// The pointer that C receives as a parameter of type CP for an `extern fn` value. If the value's
+// type matches CP without being it, and the value is the address of one of Callbacks, the C
+// function receives an Adapter of its own type. Any other value keeps its bits: null, or a pointer
+// that C made.
+template <class CP, auto... Callbacks, class W>
+CP ToC(const W& value) noexcept {
+    auto pointer = RawPointer(value);
+    if constexpr (std::is_same_v<decltype(pointer), CP> || !FunctionPointerMatches<decltype(pointer), CP>()) {
+        return Convert<CP>(pointer);
+    } else {
+        CP result = std::bit_cast<CP>(pointer);
+        static_cast<void>(((pointer == Callbacks && (result = &Adapter<CP, Callbacks>::Call, true)) || ...));
+        return result;
+    }
 }
 
 // The result of a call, converted to the declared result type R. The call is a lambda, so that the

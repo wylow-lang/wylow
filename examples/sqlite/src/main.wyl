@@ -1,5 +1,6 @@
 // A program that binds SQLite's C API by hand. It opens an in-memory database, creates a table,
-// inserts rows with bound text, integers, doubles, and blobs, and prints each row of a query.
+// inserts rows with bound text, integers, doubles, and blobs, and prints each row of a query. A
+// last query runs through `sqlite3_exec`, which calls a Wylow function for each row.
 
 @Include("sqlite3.h")
 extern {
@@ -17,6 +18,7 @@ extern {
     static int SQLITE_TEXT;
     static int SQLITE_BLOB;
     static int SQLITE_NULL;
+    static extern fn(void*) -> void SQLITE_TRANSIENT;
 
     int sqlite3_open(byte* filename, Database** database);
     int sqlite3_close(Database* database);
@@ -25,6 +27,9 @@ extern {
     int sqlite3_bind_int64(Statement* statement, int index, long value);
     int sqlite3_bind_double(Statement* statement, int index, double value);
     int sqlite3_bind_null(Statement* statement, int index);
+    int sqlite3_bind_text(Statement* statement, int index, byte* text, int length, extern fn(void*) -> void destructor);
+    int sqlite3_bind_blob(Statement* statement, int index, void* data, int length, extern fn(void*) -> void destructor);
+    int sqlite3_exec(Database* database, byte* sql, (extern fn(void*, int, byte**, byte**) -> int)? callback, void* context, byte** error);
     int sqlite3_step(Statement* statement);
     int sqlite3_reset(Statement* statement);
     int sqlite3_finalize(Statement* statement);
@@ -36,12 +41,6 @@ extern {
     byte* sqlite3_column_text(Statement* statement, int column);
     void* sqlite3_column_blob(Statement* statement, int column);
     int sqlite3_column_bytes(Statement* statement, int column);
-}
-
-@Include("sqlite_shim.h")
-extern {
-    int sqlite_shim_bind_text(Statement* statement, int index, byte* text, int length);
-    int sqlite_shim_bind_blob(Statement* statement, int index, void* data, int length);
 }
 
 /// A row to insert: a name, a count, a weight, and a tag of raw bytes.
@@ -93,18 +92,18 @@ unsafe void insert(Database* database, ReadOnlySpan<Order> orders) {
     Statement* statement = prepare(database, "INSERT INTO orders (name, count, weight, tag) VALUES (?, ?, ?, ?)");
     for (Order order : orders) {
         String name = order.name;
-        check(database, sqlite_shim_bind_text(statement, 1, name.cstr(), name.byteLength()), SQLITE_OK);
+        check(database, sqlite3_bind_text(statement, 1, name.cstr(), name.byteLength(), SQLITE_TRANSIENT), SQLITE_OK);
         check(database, sqlite3_bind_int64(statement, 2, order.count), SQLITE_OK);
         check(database, sqlite3_bind_double(statement, 3, order.weight), SQLITE_OK);
         mut byte[4] tag = order.tag;
         Span<byte> bytes = tag;
-        check(database, sqlite_shim_bind_blob(statement, 4, bytes.data(), bytes.byteLength()), SQLITE_OK);
+        check(database, sqlite3_bind_blob(statement, 4, bytes.data(), bytes.byteLength(), SQLITE_TRANSIENT), SQLITE_OK);
         check(database, sqlite3_step(statement), SQLITE_DONE);
         check(database, sqlite3_reset(statement), SQLITE_OK);
     }
     // A row whose columns other than the name are null.
     String name = "empty";
-    check(database, sqlite_shim_bind_text(statement, 1, name.cstr(), name.byteLength()), SQLITE_OK);
+    check(database, sqlite3_bind_text(statement, 1, name.cstr(), name.byteLength(), SQLITE_TRANSIENT), SQLITE_OK);
     for (mut int column = 2; column <= 4; column++) {
         check(database, sqlite3_bind_null(statement, column), SQLITE_OK);
     }
@@ -164,6 +163,30 @@ unsafe void query(Database* database, String sql) {
     check(database, sqlite3_finalize(statement), SQLITE_OK);
 }
 
+/// The rows that `printRow` has printed.
+struct RowCount {
+    pub int rows;
+}
+
+/// Prints one row of `sqlite3_exec`'s result, with each column's name, and counts it in the
+/// `RowCount` that `context` points to. Returns 0, which lets SQLite go on to the next row.
+@CCallback
+int printRow(void* context, int columns, byte** values, byte** names) {
+    mut String line = "";
+    unsafe {
+        for (mut int column = 0; column < columns; column++) {
+            String name = String.fromCString(names[column]);
+            String value = values[column] == null ? "null" : String.fromCString(values[column]);
+            String separator = column == 0 ? "" : ", ";
+            line = $"{line}{separator}{name} = {value}";
+        }
+        RowCount* count = (RowCount*) context;
+        count[0].rows += 1;
+    }
+    std::print(line);
+    return 0;
+}
+
 void main() {
     Order[3] orders = [
         Order("bolts", 120, 0.25, [0xDE, 0xAD, 0xBE, 0xEF]),
@@ -178,6 +201,10 @@ void main() {
         insert(database, orders);
         query(database, "SELECT name, count, weight, tag FROM orders ORDER BY name");
         query(database, "SELECT count(*) AS rows, sum(count) AS total FROM orders");
+        mut var count = RowCount(0);
+        String sql = "SELECT name, weight FROM orders WHERE weight > 0.2 ORDER BY weight";
+        check(database, sqlite3_exec(database, sql.cstr(), printRow, &count, null), SQLITE_OK);
+        std::print($"sqlite3_exec printed {count.rows} rows");
         check(database, sqlite3_close(database), SQLITE_OK);
     }
 }

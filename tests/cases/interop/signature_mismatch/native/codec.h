@@ -10,3 +10,5 @@ int32_t codec_decode(int64_t value);
 int32_t codec_check(int32_t value, int32_t mask);
 void codec_reset();
 int32_t codec_flags(const char* name);
+int32_t codec_apply(int64_t (*step)(int32_t value));
+int32_t codec_visit(void (*visit)(const char* text, int32_t length));

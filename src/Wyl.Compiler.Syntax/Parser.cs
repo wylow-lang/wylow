@@ -80,7 +80,7 @@ public sealed partial class Parser
             int start = position;
             var annotations = ParseAnnotations();
             var modifiers = ParseModifiers();
-            if (At(TokenKind.ExternKeyword))
+            if (At(TokenKind.ExternKeyword) && Peek(1).Kind == TokenKind.OpenBrace)
             {
                 if (modifiers.VisibilitySpan is { } visibility)
                     Report(Catalog.ModifierOnExternBlock(Loc(visibility), source.Text[visibility.Start..visibility.End]));
@@ -301,7 +301,7 @@ public sealed partial class Parser
         TextSpan? visibilitySpan = null;
         while (true)
         {
-            if (At(TokenKind.SharedKeyword) && Peek(1).Kind == TokenKind.FnKeyword)
+            if (SyntaxFacts.IsFunctionTypePrefix(Current.Kind) && Peek(1).Kind == TokenKind.FnKeyword)
                 return new ModifierList(flags, tokens, visibility, visibilitySpan);
             if (SyntaxFacts.IsVisibilityKeyword(Current.Kind))
             {

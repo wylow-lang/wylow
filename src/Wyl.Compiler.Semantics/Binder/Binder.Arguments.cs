@@ -196,7 +196,7 @@ public sealed partial class Binder
     static bool IsConstantDefault(BoundExpression value) => value switch
     {
         // An error is reported already, as a default that depends on itself is in the call that needs it.
-        BoundLiteral or BoundNullLiteral or BoundFieldDefault or BoundErrorExpression => true,
+        BoundLiteral or BoundNullLiteral or BoundCallback or BoundFieldDefault or BoundErrorExpression => true,
         BoundConversion conversion => IsConstantDefault(conversion.Operand),
         BoundUnary unary => IsConstantDefault(unary.Operand),
         BoundBinary binary => IsConstantDefault(binary.Left) && IsConstantDefault(binary.Right),

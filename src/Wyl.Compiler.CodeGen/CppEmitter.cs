@@ -87,6 +87,7 @@ public sealed partial class CppEmitter
         }
 
         DeclareExternStructMethods(program);
+        EmitCallbacks(program);
         EmitInterop(program);
 
         foreach (var s in program.Types.Where(s => s.Kind == TypeKind.Struct && s.Type.HasDefaultCode))
@@ -333,6 +334,7 @@ public sealed partial class CppEmitter
         if (type is FixedArrayType array) return $"std::array<{CppType(array.Element)}, {array.Length}>";
         if (type.IsReference) return $"wyl::Ref<{ObjectType(type)}>";
         // A local holding a lambda is `auto`, and a template parameter its own type; see CppEmitter.Lambdas.cs.
+        if (type is FunctionType { IsExtern: true } cFunction) return $"wyl::CFunction<{CSignature(cFunction)}>";
         if (type is FunctionType function) return $"wyl::{(function.IsEscaping ? "Function" : "FunctionRef")}<{FunctionSignature(function)}>";
         // `T?` is a reference or an Optional depending on what `T` stands for.
         if (type.IsNullableValue) return type.NonNull.IsTypeParameter ? $"wyl::Nullable<{CppType(type.NonNull)}>" : $"wyl::Optional<{CppType(type.NonNull)}>";

@@ -45,7 +45,7 @@ These are the annotations:
 | `@Safe` | a function or method without a body in an extern block | It may be called from safe code | [Calling extern functions](21-interop.md#interop.safety) |
 | `@Pure` | a function or method without a body in an extern block | It neither panics nor changes anything | [Calling extern functions](21-interop.md#interop.safety) |
 | `@CppName("name")` | a member of an extern block, or a field of a struct or union in one | The C++ name it declares | [C++ names](21-interop.md#interop.extern.names) |
-| `@CCallback` | a static or top-level function | Its reference converts to a C++ function pointer | [Callbacks](21-interop.md#interop.callbacks) |
+| `@CCallback` | a static or top-level function | Its reference converts to an `extern fn` type, a C++ function pointer | [Callbacks](21-interop.md#interop.callbacks) |
 | `@Export` | a top-level function | It has C++ linkage and a stable name | [Exporting functions](21-interop.md#interop.export) |
 
 - It is a compile-time error to use a name that is not one of these annotations.

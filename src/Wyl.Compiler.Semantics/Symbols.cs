@@ -187,6 +187,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// An extern function or constant of a block outside the standard library. The compiler calls
     /// it through a wrapper that checks and converts its signature (spec <c>interop.signatures</c>).
     /// </summary>
+    /// <summary>
+    /// A static or top-level function marked <c>@CCallback</c>, whose reference converts to an
+    /// <c>extern fn</c> type (spec <c>interop.callbacks</c>).
+    /// </summary>
+    public bool IsCCallback { get; init; }
+
     public bool IsProgramExtern => IsExtern && (Declaration!.Block ?? ContainingType?.Declaration.Block) is { IsStd: false };
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingType is not null && !IsStatic && !IsConstructor && !IsDestructor;
@@ -233,7 +239,7 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
         get
         {
             var typeParameters = IsGeneric ? $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>" : "";
-            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscaping ? "escaping " : "") + ParameterText(p.RefKind, p.Type)));
+            var parameters = string.Join(", ", Parameters.Select(p => (p.Type.NonNull.IsEscapingClosure ? "escaping " : "") + ParameterText(p.RefKind, p.Type)));
             return $"{Name}{typeParameters}({parameters})";
         }
     }

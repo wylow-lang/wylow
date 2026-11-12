@@ -15,6 +15,8 @@ public sealed partial class IrLowering
                 return new IrConstant(literal.Type, literal.Value);
             case BoundNullLiteral:
                 return new IrConstant(WylType.Null, null);
+            case BoundCallback callback:
+                return new IrConstant(callback.Type, callback.Function);
             case BoundConversion { Operand.Type: var from } conversion when from == WylType.Null:
                 return new IrConstant(conversion.Type, null);
             case BoundThis { Type.IsReference: true }:
@@ -101,7 +103,7 @@ public sealed partial class IrLowering
             case BoundArrayData data:
                 // A view isn't read right away, so the object it points into is held while it may be used.
                 return new IrData(Place(data.Array, use == Use.Read ? Use.InUse : use));
-            case BoundLiteral or BoundNullLiteral or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundStaticFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
+            case BoundLiteral or BoundNullLiteral or BoundCallback or BoundThis or BoundLocalAccess or BoundFieldAccess or BoundStaticFieldAccess or BoundIndex or BoundNonNull { Operand.Type.IsNullableReference: true }:
                 return new IrUse(Value(expression));
             case BoundNonNull nonNull:
                 return Unwrapped(nonNull);

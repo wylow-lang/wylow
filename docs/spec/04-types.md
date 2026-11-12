@@ -282,7 +282,7 @@ are in [Span conversions](05-conversions.md#conversions.spans).
 A function type gives the parameters a function value takes and the type it returns:
 
 ```ebnf
-FunctionType      = [ "shared" ] "fn" "(" [ FunctionTypeParam { "," FunctionTypeParam } ] ")" "->" Type .
+FunctionType      = [ "shared" | "extern" ] "fn" "(" [ FunctionTypeParam { "," FunctionTypeParam } ] ")" "->" Type .
 FunctionTypeParam = { Annotation } [ ParameterMode ] [ "escaping" ] Type .
 ParameterMode     = ( "ref" | "in" ) [ "?" ] .
 ```
@@ -297,7 +297,9 @@ the right: `fn(int) -> fn(int) -> int` returns a function.
 A function type has no parameter names and no default values. Function values have no `==`.
 Whether a function value is escaping is part of its type
 ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)), and so is whether it is
-`shared` ([Shared functions](19-concurrency.md#concurrency.shared-functions)).
+`shared` ([Shared functions](19-concurrency.md#concurrency.shared-functions)). A function type
+written `extern fn` is the type of a C function pointer, and it has its own rules
+([Callbacks](21-interop.md#interop.callbacks)).
 
 - It is a compile-time error if parentheses surround a function type that no `?`, `[`, or `*`
   follows.

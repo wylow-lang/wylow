@@ -126,6 +126,7 @@ public sealed partial class CppEmitter
         null when constant.Type == WylType.Null => "nullptr",
         null when constant.Type.IsPointer || constant.Type.IsNullableReference => $"static_cast<{CppType(constant.Type)}>(nullptr)",
         null => $"{CppType(constant.Type)}()",
+        FunctionSymbol callback => $"{CppType(constant.Type)}{{&{callbackNames[callback]}}}",
         var value => Literal(constant.Type, value),
     };
 
@@ -176,6 +177,8 @@ public sealed partial class CppEmitter
         IrUnary unary => UnaryText(unary.Operator, OperandText(unary.Operand), PanicText(unary.Loc)),
         IrBinary binary => BinaryText(binary.Operator, binary.Left.Type, binary.Type, OperandText(binary.Left), OperandText(binary.Right), PanicText(binary.Loc)),
         IrCall call => CallText(call),
+        IrInvoke { Callee.Type.NonNull: FunctionType { IsExtern: true } cFunction } invoke =>
+            $"{OperandText(invoke.Callee)}.template Call<{(cFunction.ReturnType == WylType.Void ? "void" : CppType(cFunction.ReturnType))}>({string.Join(", ", invoke.Arguments.Select(ArgumentText))})",
         IrInvoke invoke => $"{OperandText(invoke.Callee)}({string.Join(", ", invoke.Arguments.Select((a, i) => OptionalFunctionArgument(invoke.Signature.ParameterType(i), ArgumentText(a))))})",
         IrLambda lambda => LambdaText(lambda.Function, "[&]", []),
         IrClosure closure => ClosureText(closure),

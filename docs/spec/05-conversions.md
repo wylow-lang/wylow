@@ -226,7 +226,9 @@ conversion applies to a reference type, and none changes the type `T` that it re
 An escaping function type converts to its non-escaping form, and a `shared` function type to the
 same type without `shared`. Nothing converts the other way. Function types whose parameters differ
 in `escaping` or `shared` are different types, and neither converts to the other
-([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)).
+([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)). An `extern fn` type
+converts to no other type, and only a `@CCallback` function reference converts to it
+([Callbacks](21-interop.md#interop.callbacks)).
 
 A lambda, a function reference, and a `?:` or `switch` expression that chooses between them have no type
 of their own: each converts to a function type that fits it ([Lambdas](12-functions.md#functions.lambdas.typing),

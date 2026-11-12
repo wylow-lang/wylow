@@ -112,7 +112,7 @@ public sealed class CyclicClasses
         {
             if (inline.IsReference)
                 references.Add(inline.CppIdentity);
-            else if (inline.IsTypeParameter || inline.IsFunction)
+            else if (inline.IsTypeParameter || inline.IsFunction && !inline.IsExternFunction)
                 references.Add(inline);
         }
     }

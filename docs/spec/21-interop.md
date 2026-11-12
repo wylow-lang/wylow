@@ -176,7 +176,9 @@ function it names. It is a compile-time error if they do not match. Two types ma
   signedness;
 - both are pointers, and their pointed-to types match, differ only in `const`, or are both one-byte
   integer or character types;
-- a Wylow `@Repr` enum is a parameter, and the C++ parameter's type matches the enum's integer type.
+- a Wylow `@Repr` enum is a parameter, and the C++ parameter's type matches the enum's integer type;
+- one is an `extern fn` type or its nullable form, and the other is a C++ function pointer whose
+  return type and parameter types match the `extern fn` type's.
 
 The compiler converts an argument or a result between two types that match without being the same
 type, and the conversion keeps the value's bits.
@@ -203,9 +205,9 @@ of a struct or union declared in an extern block.
 | A struct or union declared in an extern block | The same struct or union | yes |
 | A copyable struct of the program whose fields are all blittable | A struct with the same fields in the same order | yes |
 | `T[N]` with a blittable `T` | `T[N]` | yes |
-| A `@CCallback` function reference | A function pointer | yes |
+| `extern fn(P) -> R`, and its nullable form | `R (*)(P)`, null for `null` | yes |
 | An enum with `@Repr` and no data | An integer type or a C++ enumeration | only as a parameter of an extern function |
-| A class reference, `List<T>`, `T[]`, `Span<T>`, `ref T`, an enum with data, a nullable value, `String` | — | no |
+| A class reference, `List<T>`, `T[]`, `Span<T>`, `ref T`, an enum with data, another nullable value, a function type without `extern`, `String` | — | no |
 
 It is a compile-time error to use a type that is not blittable in one of these places.
 
@@ -251,8 +253,41 @@ unsafe {
 <a id="interop.callbacks"></a>
 ## 21.6 Callbacks
 
-- Only a static or top-level function marked `@CCallback` converts to a C++ function pointer. A lambda
-  does not convert. It is a compile-time error if its parameters or return type are not blittable.
+A C library calls back into a program through a function pointer. The type of a function pointer is
+a function type written with `extern` ([Function types](04-types.md#types.functions)):
+
+```java unchecked
+@Include("progress.h")
+extern {
+    void progress_watch(extern fn(void*, int) -> void callback, void* context);
+    void progress_stop((extern fn(void*, int) -> void)? callback);
+}
+
+@CCallback
+void onProgress(void* context, int done) { ... }
+
+unsafe {
+    progress_watch(onProgress, null);
+}
+```
+
+- A reference to a static or top-level function marked `@CCallback` converts to an `extern fn` type
+  whose parameter types and return type are the function's own. Nothing else converts to an
+  `extern fn` type: not a lambda, not a function value, and not a function without `@CCallback`. An
+  `extern fn` type converts to no other type.
+- It is a compile-time error if a parameter type or the return type of an `extern fn` type, or of a
+  `@CCallback` function, is not blittable, or if one of their parameters has a `ref` or `in` mode.
+- It is a compile-time error if a `@CCallback` function is generic, or is a static method of a
+  generic type.
+- An `extern fn` value captures nothing. It has one form, which may be stored anywhere and is
+  sendable. It is a compile-time error to write `escaping` on it.
+- Calling an `extern fn` value is unsafe. The value may come from C, and the program is responsible
+  for the function's behavior. It is undefined behavior to call, through an `extern fn` value, a C++
+  function whose type is not the C++ type of the `extern fn` type ([Blittable types](#interop.blittable)).
+- If an extern function's parameter is a C++ function pointer whose type matches an `extern fn`
+  type without being it ([Signature checks](#interop.signatures)), and the argument is a
+  `@CCallback` function, C++ receives a function of its own type. That function converts each
+  argument and the result, and calls the `@CCallback` function.
 - The C library's `void*` context passes the callback its state. Casting the context back to a
   Wylow type is unsafe.
 - A panic inside a callback ends the program.
@@ -260,15 +295,6 @@ unsafe {
   statics, which are read-only and sendable, and the objects it creates. Reaching other data needs
   the unsafe cast of the context, and the program is responsible for avoiding races
   ([Undefined behavior](20-unsafe.md#unsafe.undefined)).
-
-```java unchecked
-@CCallback
-static void onProgress(void* context, int done) { ... }
-
-unsafe {
-    native_set_progress(onProgress, null);
-}
-```
 
 <a id="interop.exceptions"></a>
 ## 21.7 C++ exceptions

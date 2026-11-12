@@ -109,6 +109,9 @@ static class Mutations
         new("type-fixed-array-length", SiteKind.Type, FixedArrayApplies, FixedArrayBuild),
         new("type-fixed-array", SiteKind.Type, ArrayApplies, TypeArrayBuild),
         new("type-shared-function", SiteKind.Type, SharedFunctionApplies, SharedFunctionBuild),
+        // Makes a function type a C function pointer, which only a @CCallback function converts to,
+        // so most mutants cross the conversion's errors.
+        new("type-extern-function", SiteKind.Type, ExternFunctionApplies, ExternFunctionBuild),
         new("type-kind", SiteKind.TypeDecl, KindApplies, KindBuild),
         new("type-unique", SiteKind.TypeDecl, UniqueApplies, UniqueBuild),
         // Gives a unique struct an empty destructor, which crosses destructor lowering and the
@@ -220,10 +223,16 @@ static class Mutations
         Single("type-fixed-array", site, context.Slice(site.Span) + "[1]");
 
     static bool SharedFunctionApplies(Site site) =>
-        site.Node is TypeSyntax { Shape: TypeShape.Function, IsShared: false };
+        site.Node is TypeSyntax { Shape: TypeShape.Function, IsShared: false, IsExtern: false };
 
     static Candidate? SharedFunctionBuild(MutationContext context, Site site) =>
         Insert("type-shared-function", site, site.Span.Start, "shared ");
+
+    static bool ExternFunctionApplies(Site site) =>
+        site.Node is TypeSyntax { Shape: TypeShape.Function, IsShared: false, IsExtern: false };
+
+    static Candidate? ExternFunctionBuild(MutationContext context, Site site) =>
+        Insert("type-extern-function", site, site.Span.Start, "extern ");
 
     static bool KindApplies(Site site) =>
         site.Node is TypeDecl { Kind: TypeKind.Class or TypeKind.Struct } declaration

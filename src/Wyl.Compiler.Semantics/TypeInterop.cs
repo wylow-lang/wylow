@@ -17,6 +17,8 @@ public static class TypeInterop
         _ when type == WylType.Error => true,
         _ when type == WylType.Bool || type == WylType.Char || type.IsNumeric => true,
         PointerType => true,
+        FunctionType { IsExtern: true } => true,
+        NullableType { NonNull: FunctionType { IsExtern: true } } => true,
         FixedArrayType array => IsBlittableType(array.Element, visiting),
         { Symbol: { Kind: Syntax.TypeKind.Struct } s } when s.IsExtern => !s.IsCppClass && !s.Declaration.IsOpaque,
         { Symbol: { Kind: Syntax.TypeKind.Struct } s } => !s.IsUnique && !s.IsRefStruct && !s.IsGeneric && s.Destructor is null

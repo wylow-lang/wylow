@@ -42,7 +42,7 @@ public sealed partial class Binder
         var type = BindType(syntax, allowVoid: false);
         if (IsDeclaredEscaping(escaping, type, isParameter ? "parameter" : "variable"))
             return type;
-        if (!isParameter && type.IsNullable && type.NonNull.IsFunction)
+        if (!isParameter && type.IsNullable && type.NonNull.IsFunction && !type.NonNull.IsExternFunction)
         {
             Error(Catalog.NullableNonEscapingVariable(syntax.Location));
             return WylType.Error;
@@ -72,6 +72,11 @@ public sealed partial class Binder
     {
         if (escaping is not { } at)
             return false;
+        if (type.NonNull.IsExternFunction)
+        {
+            Error(Catalog.EscapingExternFunction(at, type.NonNull.ToString()));
+            return false;
+        }
         if (type.NonNull.IsFunction || type == WylType.Error)
             return true;
         Error(Catalog.EscapingOnNonFunction(at, what, type.ToString()));
@@ -79,7 +84,7 @@ public sealed partial class Binder
     }
 
     /// <summary>Reports an annotation used where it doesn't apply, or unknown altogether.</summary>
-    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure" or "Safe" or Include or CppNamespaceName or CppNameName or SuppressWarnings
+    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure" or "Safe" or CCallbackName or Include or CppNamespaceName or CppNameName or SuppressWarnings
         ? Catalog.MisplacedAnnotation(annotation.Location, annotation.Name)
         : Catalog.UnknownAnnotation(annotation.Location, annotation.Name));
 

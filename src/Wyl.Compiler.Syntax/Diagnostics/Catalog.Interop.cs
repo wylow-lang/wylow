@@ -44,6 +44,7 @@ public static partial class Catalog
             "SuppressWarnings" => "'@SuppressWarnings' can only be used on declarations, local variables, and imports",
             "Include" or "CppNamespace" => $"'@{name}' can only be used on extern blocks",
             "CppName" => "'@CppName' can only be used on members of extern blocks and on the fields of their structs and unions",
+            "CCallback" => "'@CCallback' can only be used on static and top-level functions with a body",
             _ => $"'@{name}' can only be used on functions and methods without a body in an extern block",
         });
 
@@ -158,6 +159,32 @@ public static partial class Catalog
     public static Diagnostic VoidPointerAccess(Location at, string operation) =>
         Make(at, $"cannot {operation} a 'void*', which does not say what type it points to")
             .Help("cast it to a pointer to the type of the storage in 'unsafe' code");
+
+    [Error(521, "interop.callbacks")]
+    public static Diagnostic GenericCallback(Location at, string name) =>
+        Make(at, $"'@CCallback' function '{name}' cannot be generic")
+            .Note("a C function pointer calls one function with fixed parameter types");
+
+    [Error(522, "interop.callbacks")]
+    public static Diagnostic CallbackNotMarked(Location at, string name, string type) =>
+        Make(at, $"'{name}' cannot be converted to '{type}' because it is not marked '@CCallback'")
+            .Help($"write '@CCallback' before the declaration of '{name}'");
+
+    [Error(523, "interop.callbacks")]
+    public static Diagnostic CallbackMismatch(Location at, string name, string type, string? actual) =>
+        actual is null
+            ? Make(at, $"no function named '{name}' has the parameter and return types of '{type}'")
+            : Make(at, $"'{name}' has type '{actual}', which cannot be converted to '{type}'")
+                .Note("a '@CCallback' function converts only to the 'extern fn' type with its own parameter and return types");
+
+    [Error(524, "interop.callbacks")]
+    public static Diagnostic LambdaToExternFunction(Location at, string type) =>
+        Make(at, $"a lambda cannot be converted to '{type}'")
+            .Help("declare a static or top-level function marked '@CCallback', and pass its name");
+
+    [Error(525, "interop.callbacks")]
+    public static Diagnostic EscapingExternFunction(Location at, string type) =>
+        Make(at, $"'escaping' cannot be declared on '{type}'").Note("a C function pointer captures nothing, so it is always escaping");
 
     [Error(513, "interop.extern.names")]
     public static Diagnostic CppRejected(Location at, string what, string cppMessage) =>

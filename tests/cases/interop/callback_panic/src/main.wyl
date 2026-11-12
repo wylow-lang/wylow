@@ -1,0 +1,25 @@
+// native
+// A panic inside a callback ends the program while C++ is still in the middle of calling it, so the
+// C++ function never returns (spec interop.callbacks).
+@Include("visit.h")
+extern {
+    void visit_values(extern fn(void*, int) -> void visit, void* context, int count);
+}
+
+/// Prints `value`, and panics on the value 2.
+@CCallback
+void show(void* context, int value) {
+    std::print(value);                              // output: 0
+                                                    // output: 1
+                                                    // output: 2
+    if (value == 2) {
+        std::panic("stopped at 2");                 // panic-here: stopped at 2
+    }
+}
+
+void main() {
+    unsafe {
+        visit_values(show, null, 5);
+    }
+    std::print("not reached");
+}

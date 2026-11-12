@@ -201,6 +201,9 @@ public sealed record TypeSyntax(Location Location, string Name, IReadOnlyList<Ty
 
     public bool IsShared { get; init; }
 
+    /// <summary>Whether a function type is written <c>extern fn</c>, the type of a C function pointer.</summary>
+    public bool IsExtern { get; init; }
+
     /// <summary>Where <c>unsafe</c> is written before an interface in an <c>implements</c> list, if it is.</summary>
     public Location? Unsafe { get; init; }
 }

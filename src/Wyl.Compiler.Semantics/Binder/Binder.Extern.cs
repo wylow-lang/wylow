@@ -11,6 +11,7 @@ public sealed partial class Binder
     const string Include = "Include";
     const string CppNamespaceName = "CppNamespace";
     const string CppNameName = "CppName";
+    const string CCallbackName = "CCallback";
 
     /// <summary>The header of each extern block, each once, in the order the blocks name them.</summary>
     readonly List<ExternHeader> headers = [];
@@ -98,6 +99,14 @@ public sealed partial class Binder
     static bool IsUnsafeExtern(FunctionDecl decl, TypeSymbol? owner) =>
         IsExternFunction(decl, owner) && !decl.Annotations.Any(a => a.Name == "Safe");
 
+    /// <summary>
+    /// Whether the function is marked <c>@CCallback</c> where the annotation applies: on a static or
+    /// top-level function with a body (spec <c>interop.callbacks</c>).
+    /// </summary>
+    static bool IsCCallback(FunctionDecl decl, TypeSymbol? owner) =>
+        decl.Annotations.Any(a => a.Name == CCallbackName) && decl.Body is not null && !decl.IsConstructor
+        && (owner is null || (decl.Modifiers & Modifiers.Static) != 0);
+
     /// <summary>An extern function marked <c>@Pure</c>, which neither panics nor changes anything.</summary>
     static bool IsPure(FunctionDecl decl, TypeSymbol? owner) =>
         IsExternFunction(decl, owner) && decl.Annotations.Any(a => a.Name == "Pure");
@@ -165,9 +174,11 @@ public sealed partial class Binder
     /// </summary>
     void CheckBlittable(IEnumerable<FunctionSymbol> functions, IEnumerable<TypeSymbol> types)
     {
-        foreach (var function in functions.Where(f => f.IsProgramExtern))
+        foreach (var function in functions.Where(f => f.IsProgramExtern || f.IsCCallback))
         {
             var decl = function.Declaration!;
+            if (function.IsCCallback && (function.IsGeneric || function.ContainingType is { IsGeneric: true }))
+                Error(Catalog.GenericCallback(decl.NameLocation, function.Name));
             if (function.IsExternConstant)
             {
                 CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"constant '{function.Name}'", parameter: false);
@@ -180,7 +191,7 @@ public sealed partial class Binder
                 if (parameter.RefKind != RefKind.None)
                     Error(Catalog.NotBlittable(decl.Parameters[i].Location, what, $"{FunctionSymbol.RefPrefix(parameter.RefKind)}{parameter.Type}"));
                 else
-                    CheckBlittable(decl.Parameters[i].Type.Location, parameter.Type, what, parameter: true);
+                    CheckBlittable(decl.Parameters[i].Type.Location, parameter.Type, what, parameter: !function.IsCCallback);
             }
             if (function.ReturnType != WylType.Void)
                 CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"the result of '{function.Name}'", parameter: false);
@@ -190,6 +201,41 @@ public sealed partial class Binder
             foreach (var field in s.Fields)
                 CheckBlittable(field.Declaration.Type.Location, field.Type, $"field '{field.Name}'", parameter: false);
         }
+        var deferred = externFunctionTypes!;
+        externFunctionTypes = null;
+        foreach (var (syntax, type) in deferred)
+            CheckExternFunctionType(syntax, type);
+    }
+
+    /// <summary>
+    /// The <c>extern fn</c> types bound before every struct's fields were declared, which
+    /// <see cref="CheckBlittable(IEnumerable{FunctionSymbol}, IEnumerable{TypeSymbol})"/> checks
+    /// once they are; null after that, when each type is checked as it is bound.
+    /// </summary>
+    List<(TypeSyntax Syntax, FunctionType Type)>? externFunctionTypes = [];
+
+    /// <summary>
+    /// Reports each parameter type and the return type of an <c>extern fn</c> type that is not
+    /// blittable, and each parameter with a <c>ref</c> or <c>in</c> mode (spec <c>interop.callbacks</c>).
+    /// </summary>
+    void CheckExternFunctionType(TypeSyntax syntax, FunctionType type)
+    {
+        if (externFunctionTypes is not null)
+        {
+            externFunctionTypes.Add((syntax, type));
+            return;
+        }
+        var what = $"a parameter of '{type}'";
+        for (int i = 0; i < type.Parameters.Count && i < syntax.Parameters.Count; i++)
+        {
+            var parameter = type.Parameters[i];
+            if (parameter.RefKind != RefKind.None)
+                Error(Catalog.NotBlittable(syntax.Parameters[i].Type.Location, what, $"{FunctionSymbol.RefPrefix(parameter.RefKind)}{parameter.Type}"));
+            else
+                CheckBlittable(syntax.Parameters[i].Type.Location, parameter.Type, what, parameter: false);
+        }
+        if (type.ReturnType != WylType.Void)
+            CheckBlittable(syntax.Element!.Location, type.ReturnType, $"the result of '{type}'", parameter: false);
     }
 
     void CheckBlittable(Location at, WylType type, string what, bool parameter)

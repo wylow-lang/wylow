@@ -147,7 +147,7 @@ public sealed partial class CppEmitter
         var owner = function.ContainingType?.CppName;
         var address = instance ? $"wyl::interop::MemberAddress<D>(&{owner}::{cppName})" : $"wyl::interop::Address<D>({cppName})";
         var result = function.ReturnType == WylType.Void ? "void" : CppType(function.ReturnType);
-        var declared = function.Parameters.Select(p => CppType(BoundaryType(p.Type))).Prepend(result);
+        var declared = function.Parameters.Select(p => BoundaryCppType(BoundaryType(p.Type))).Prepend(function.ReturnType == WylType.Void ? "void" : BoundaryCppType(function.ReturnType));
 
         // A using-declaration names every declaration of a free function, so a name that C++ does not
         // declare is an error here with every compiler, whether or not anything calls it.
@@ -183,7 +183,7 @@ public sealed partial class CppEmitter
         Line("    {");
         if (values.Count > 0)
             Line($"        using F = decltype({address});");
-        Line($"        {Returned(result, $"{target}({string.Join(", ", values.Select((v, i) => $"wyl::interop::Convert<wyl::interop::Parameter<F, {i}>>({v})"))})")}");
+        Line($"        {Returned(result, $"{target}({string.Join(", ", values.Select((v, i) => ToCpp(function.Parameters[i].Type, $"wyl::interop::Parameter<F, {i}>", v)))})")}");
         Line("    }");
         Line("    else");
         Line("    {");
@@ -192,15 +192,75 @@ public sealed partial class CppEmitter
         Line("}");
     }
 
+    /// <summary>
+    /// An argument converted to the C++ parameter's type. An <c>extern fn</c> goes through
+    /// <c>wyl::interop::ToC</c>, given the address of each <c>@CCallback</c> function of its type, so
+    /// that C++ receives a function of its own type.
+    /// </summary>
+    string ToCpp(WylType type, string cppType, string value)
+    {
+        if (type.NonNull is not FunctionType { IsExtern: true } cFunction)
+            return $"wyl::interop::Convert<{cppType}>({value})";
+        var callbacks = callbackNames.Where(c => c.Key.ReturnType.FunctionReturning([.. c.Key.Parameters.Select(p => new FunctionParameterType(p.RefKind, p.Type))]).Extern == cFunction);
+        return $"wyl::interop::ToC<{string.Join(", ", callbacks.Select(c => "&" + c.Value).Prepend(cppType))}>({value})";
+    }
+
     /// <summary>A constant's type check and the wrapper that reads it (spec <c>interop.extern.constants</c>).</summary>
     void EmitExternConstant(FunctionSymbol constant)
     {
         var type = CppType(constant.ReturnType);
         var cppName = constant.BuiltinCppName!;
         var wrapper = externWrappers[constant] = $"wyl_extern_{interopRegions.Count}";
-        StaticAssert($"wyl::interop::Matches<{type}, decltype({cppName})>()",
+        StaticAssert($"wyl::interop::Matches<{BoundaryCppType(constant.ReturnType)}, decltype({cppName})>()",
             Catalog.ConstantMismatch(constant.Declaration!.NameLocation, constant.Name, constant.ReturnType.ToString(), cppName));
         Line($"inline {type} {wrapper}() noexcept {{ return wyl::interop::Convert<{type}>({cppName}); }}");
+    }
+
+    /// <summary>
+    /// The C++ type that C code sees for a Wylow type: a C function pointer for an <c>extern fn</c>,
+    /// nullable or not, also behind pointers, and otherwise the type's own C++ type.
+    /// </summary>
+    static string BoundaryCppType(WylType type) => type switch
+    {
+        _ when type.NonNull is FunctionType { IsExtern: true } cFunction => $"wyl::CPointer<{CSignature(cFunction)}>",
+        PointerType pointer => BoundaryCppType(pointer.Element) + "*",
+        _ => CppType(type),
+    };
+
+    /// <summary>The C function type of an <c>extern fn</c>, in the trailing form, which any return type can take.</summary>
+    static string CSignature(FunctionType type) =>
+        $"auto({string.Join(", ", type.Parameters.Select(p => BoundaryCppType(p.Type)))}) -> {(type.ReturnType == WylType.Void ? "void" : BoundaryCppType(type.ReturnType))}";
+
+    /// <summary>The C function that each <c>@CCallback</c> function's address is.</summary>
+    readonly Dictionary<FunctionSymbol, string> callbackNames = [];
+
+    /// <summary>
+    /// For each <c>@CCallback</c> function, a <c>noexcept</c> function with C's types, which converts
+    /// its arguments and result and calls the Wylow function (spec <c>interop.callbacks</c>). The
+    /// Wylow function keeps the C++ signature the emitter gives every function.
+    /// </summary>
+    void EmitCallbacks(BoundProgram program)
+    {
+        var callbacks = program.Functions.Select(f => f.Symbol).Concat(program.Types.SelectMany(s => s.Members))
+            .Where(f => f.IsCCallback && functions.Contains(f)).Distinct().ToList();
+        foreach (var callback in callbacks)
+        {
+            var name = callbackNames[callback] = $"wyl_callback_{callbackNames.Count}";
+            var parameters = callback.Parameters.Select((p, i) => $"{BoundaryCppType(p.Type)} a{i}");
+            IEnumerable<string> arguments = callback.Parameters.Select((p, i) => $"wyl::interop::Convert<{CppType(p.Type)}>(a{i})");
+            if (callback.PassesLocation)
+                arguments = arguments.Append(SourceLocation(callback.Declaration!.NameLocation));
+            var callee = callback.ContainingType is not { } owner ? FunctionName(callback)
+                : callback.IsExternStructBody ? ExternStructFunctionName(callback)
+                : $"{ObjectType(owner.Type)}::{MethodName(callback)}";
+            var call = $"{callee}({string.Join(", ", arguments)})";
+            var result = callback.ReturnType == WylType.Void ? "void" : BoundaryCppType(callback.ReturnType);
+            Line();
+            Line($"{result} {name}({string.Join(", ", parameters)}) noexcept");
+            Line("{");
+            Line(callback.ReturnType == WylType.Void ? $"    {call};" : $"    return wyl::interop::Convert<{result}>({call});");
+            Line("}");
+        }
     }
 
     /// <summary>The type that crosses the boundary for a value of a type: the integer type of a <c>@Repr</c> enum, and otherwise the type itself.</summary>
