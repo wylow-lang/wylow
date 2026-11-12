@@ -1,6 +1,7 @@
 // The C++ side of interop/calls: a header and source that the test defines itself.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #define SHAPES_LIMIT 64
