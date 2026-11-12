@@ -118,4 +118,4 @@ Step 5 is committed, and the slice is complete. These facts from step 5 matter l
 
 `docs/design/runtime.md`'s "Interop" section, `CLAUDE.md`, and `architecture.md` describe what the
 slice built. The roadmap's "Interop" list names what was proposed and is not queued yet. The next
-step is a hand-written binding of a real C library in a package of its own, outside the test suite.
+slice, `interop-slice-2.md`, binds SQLite by hand.
