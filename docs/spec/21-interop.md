@@ -176,12 +176,15 @@ function it names. It is a compile-time error if they do not match. Two types ma
   signedness;
 - both are pointers, and their pointed-to types match, differ only in `const`, or are both one-byte
   integer or character types;
-- a Wylow `@Repr` enum is a parameter, and the C++ parameter's type matches the enum's integer type;
+- a Wylow `@Repr` enum is a parameter or the return type, and the C++ type matches the enum's
+  integer type;
 - one is an `extern fn` type or its nullable form, and the other is a C++ function pointer whose
   return type and parameter types match the `extern fn` type's.
 
 The compiler converts an argument or a result between two types that match without being the same
-type, and the conversion keeps the value's bits.
+type, and the conversion keeps the value's bits. If the return type is a `@Repr` enum, the call
+converts the returned integer to the enum as a cast does, and the call panics if no variant of the
+enum has the integer's value ([Integer representations](09-enums.md#enums.repr)).
 
 The compiler does not compare the signature of a C++ name that has more than one declaration, such
 as an overloaded function. A call of such a name uses the declaration that the extern declaration's
@@ -206,7 +209,7 @@ of a struct or union declared in an extern block.
 | A copyable struct of the program whose fields are all blittable | A struct with the same fields in the same order | yes |
 | `T[N]` with a blittable `T` | `T[N]` | yes |
 | `extern fn(P) -> R`, and its nullable form | `R (*)(P)`, null for `null` | yes |
-| An enum with `@Repr` and no data | An integer type or a C++ enumeration | only as a parameter of an extern function |
+| An enum with `@Repr` and no data | An integer type or a C++ enumeration | only as a parameter or the return type of an extern function |
 | A class reference, `List<T>`, `T[]`, `Span<T>`, `ref T`, an enum with data, another nullable value, a function type without `extern`, `String` | — | no |
 
 It is a compile-time error to use a type that is not blittable in one of these places.

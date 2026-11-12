@@ -181,7 +181,7 @@ public sealed partial class Binder
                 Error(Catalog.GenericCallback(decl.NameLocation, function.Name));
             if (function.IsExternConstant)
             {
-                CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"constant '{function.Name}'", parameter: false);
+                CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"constant '{function.Name}'", allowsEnum: false);
                 continue;
             }
             for (int i = 0; i < function.Parameters.Count && i < decl.Parameters.Count; i++)
@@ -191,15 +191,15 @@ public sealed partial class Binder
                 if (parameter.RefKind != RefKind.None)
                     Error(Catalog.NotBlittable(decl.Parameters[i].Location, what, $"{FunctionSymbol.RefPrefix(parameter.RefKind)}{parameter.Type}"));
                 else
-                    CheckBlittable(decl.Parameters[i].Type.Location, parameter.Type, what, parameter: !function.IsCCallback);
+                    CheckBlittable(decl.Parameters[i].Type.Location, parameter.Type, what, allowsEnum: !function.IsCCallback);
             }
             if (function.ReturnType != WylType.Void)
-                CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"the result of '{function.Name}'", parameter: false);
+                CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"the result of '{function.Name}'", allowsEnum: !function.IsCCallback);
         }
         foreach (var s in types.Where(s => s.Declaration.Block is { IsStd: false }))
         {
             foreach (var field in s.Fields)
-                CheckBlittable(field.Declaration.Type.Location, field.Type, $"field '{field.Name}'", parameter: false);
+                CheckBlittable(field.Declaration.Type.Location, field.Type, $"field '{field.Name}'", allowsEnum: false);
         }
         var deferred = externFunctionTypes!;
         externFunctionTypes = null;
@@ -232,17 +232,21 @@ public sealed partial class Binder
             if (parameter.RefKind != RefKind.None)
                 Error(Catalog.NotBlittable(syntax.Parameters[i].Type.Location, what, $"{FunctionSymbol.RefPrefix(parameter.RefKind)}{parameter.Type}"));
             else
-                CheckBlittable(syntax.Parameters[i].Type.Location, parameter.Type, what, parameter: false);
+                CheckBlittable(syntax.Parameters[i].Type.Location, parameter.Type, what, allowsEnum: false);
         }
         if (type.ReturnType != WylType.Void)
-            CheckBlittable(syntax.Element!.Location, type.ReturnType, $"the result of '{type}'", parameter: false);
+            CheckBlittable(syntax.Element!.Location, type.ReturnType, $"the result of '{type}'", allowsEnum: false);
     }
 
-    void CheckBlittable(Location at, WylType type, string what, bool parameter)
+    /// <summary>
+    /// Reports a type that is not blittable. A <c>@Repr</c> enum crosses only where
+    /// <paramref name="allowsEnum"/> says, as a parameter or the result of an extern function.
+    /// </summary>
+    void CheckBlittable(Location at, WylType type, string what, bool allowsEnum)
     {
         if (type.Symbol is { HasRepr: true, HasData: false })
         {
-            if (!parameter)
+            if (!allowsEnum)
                 Error(Catalog.EnumNotParameter(at, what, type.ToString()));
         }
         else if (!type.IsBlittable)

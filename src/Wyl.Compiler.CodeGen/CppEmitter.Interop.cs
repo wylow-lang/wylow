@@ -146,8 +146,9 @@ public sealed partial class CppEmitter
         var cppName = function.BuiltinCppName!;
         var owner = function.ContainingType?.CppName;
         var address = instance ? $"wyl::interop::MemberAddress<D>(&{owner}::{cppName})" : $"wyl::interop::Address<D>({cppName})";
-        var result = function.ReturnType == WylType.Void ? "void" : CppType(function.ReturnType);
-        var declared = function.Parameters.Select(p => BoundaryCppType(BoundaryType(p.Type))).Prepend(function.ReturnType == WylType.Void ? "void" : BoundaryCppType(function.ReturnType));
+        var returned = function.ReturnedInteger ?? function.ReturnType;
+        var result = returned == WylType.Void ? "void" : CppType(returned);
+        var declared = function.Parameters.Select(p => BoundaryCppType(BoundaryType(p.Type))).Prepend(returned == WylType.Void ? "void" : BoundaryCppType(returned));
 
         // A using-declaration names every declaration of a free function, so a name that C++ does not
         // declare is an error here with every compiler, whether or not anything calls it.

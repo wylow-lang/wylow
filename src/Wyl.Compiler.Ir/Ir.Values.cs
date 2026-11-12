@@ -259,7 +259,7 @@ public sealed class IrCall(MethodReference method, IrArgument? receiver, IReadOn
     /// </summary>
     public IrLocal? Holder { get; init; }
 
-    public override WylType Type => Method.ReturnType;
+    public override WylType Type => Method.Symbol.ReturnedInteger ?? Method.ReturnType;
 }
 
 /// <summary>A call of a function value, whose parameters <see cref="Signature"/> describes as a method's.</summary>

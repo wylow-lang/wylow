@@ -1,6 +1,6 @@
 # 0085. Structs and unions in extern blocks are the C++ types, and enums cross only as parameters
 
-- Status: accepted (2026-11-10)
+- Status: accepted (2026-11-10); [0100](0100-repr-enum-results.md) allows a `@Repr` enum as the return type of an extern function
 - Spec: `interop.extern.c-structs`, `interop.blittable`, `interop.blittable.layout`, `unsafe.blocks`,
   `interop.strings`, `interop.buffers`
 

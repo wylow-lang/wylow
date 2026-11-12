@@ -188,7 +188,17 @@ public sealed partial class IrLowering
         _ => operand,
     };
 
-    IrCall Call(BoundCall call, IrArgument? receiver)
+    /// <summary>
+    /// A call. A call of an extern function that returns a <c>@Repr</c> enum gives the enum's
+    /// integer, which a cast's conversion turns into the enum (spec <c>interop.signatures</c>).
+    /// </summary>
+    IrRvalue Call(BoundCall call, IrArgument? receiver)
+    {
+        var made = CallOf(call, receiver);
+        return made.Method.Symbol.ReturnedInteger is null ? made : new IrConvert(call.Type, IrRead.Move(new IrPlace(Let(made))), Loc(call.Location));
+    }
+
+    IrCall CallOf(BoundCall call, IrArgument? receiver)
     {
         var method = call.Method;
         var arguments = new List<IrArgument>();

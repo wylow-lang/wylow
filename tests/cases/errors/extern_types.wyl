@@ -22,14 +22,14 @@ enum Mode {
 @Include("native.h")
 extern {
     static String NAME;                         // error[WYL0506]: constant 'NAME' has type 'String', which is not blittable
-    static Mode MODE;                           // error[WYL0507]: constant 'MODE' has enum type 'Mode', which only a parameter of an extern function can have
+    static Mode MODE;                           // error[WYL0507]: constant 'MODE' has enum type 'Mode', which only a parameter or the result of an extern function can have
     static int LIMIT;                           // error[WYL0034]: 'LIMIT' is already defined in this module
     static int COUNT;
 
     struct Record {
         pub int id;
         pub String label;                       // error[WYL0506]: field 'label' has type 'String', which is not blittable
-        pub Mode mode;                          // error[WYL0507]: field 'mode' has enum type 'Mode', which only a parameter of an extern function can have
+        pub Mode mode;                          // error[WYL0507]: field 'mode' has enum type 'Mode', which only a parameter or the result of an extern function can have
         pub Pair pair;
         pub int[4] values;
     }
@@ -45,7 +45,7 @@ extern {
     void named(Named named);                    // error[WYL0506]: parameter 'named' has type 'Named', which is not blittable
     void change(ref int value);                 // error[WYL0506]: parameter 'value' has type 'ref int', which is not blittable
     String label();                             // error[WYL0506]: the result of 'label' has type 'String', which is not blittable
-    Mode mode();                                // error[WYL0507]: the result of 'mode' has enum type 'Mode', which only a parameter of an extern function can have
+    Mode mode();
     void set(Mode mode, Pair pair, int* data);
 }
 

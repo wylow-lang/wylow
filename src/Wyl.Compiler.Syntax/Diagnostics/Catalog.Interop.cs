@@ -127,8 +127,8 @@ public static partial class Catalog
 
     [Error(507, "interop.blittable")]
     public static Diagnostic EnumNotParameter(Location at, string what, string type) =>
-        Make(at, $"{what} has enum type '{type}', which only a parameter of an extern function can have")
-            .Help("declare the integer type, and convert the value with 'as'");
+        Make(at, $"{what} has enum type '{type}', which only a parameter or the result of an extern function can have")
+            .Help($"declare the integer type, and convert the value with a cast, as in '({type})value'");
 
     [Error(508, "interop.extern.c-structs")]
     public static Diagnostic UnionRead(Location at, string union, string field) =>

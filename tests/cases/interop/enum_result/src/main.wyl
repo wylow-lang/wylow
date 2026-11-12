@@ -1,0 +1,21 @@
+// native
+// An extern function returns a @Repr enum. The call panics if C++ returns an integer that no
+// variant has (spec interop.signatures).
+@Include("codes.h")
+extern {
+    @Safe Status status_of(int code);
+}
+
+@Repr(int)
+enum Status {
+    Failed = -1,
+    Ok = 0,
+    Busy = 5,
+}
+
+void main() {
+    std::print(status_of(5) == Status.Busy);        // output: true
+    std::print((int)status_of(-1));                 // output: -1
+    var status = status_of(4);                      // panic-here: integer is not a value of enum 'Status'
+    std::print((int)status);
+}

@@ -1,6 +1,7 @@
 // native
 // Calls into C++ in each direction of each conversion, constants, an opaque struct, structs by
-// value and by pointer, unions, a @Repr enum, member functions, and an overloaded name (spec interop).
+// value and by pointer, unions, a @Repr enum as a parameter and as a result, member functions, and
+// an overloaded name (spec interop).
 import std::collections::List;
 
 @Include("shapes.h")
@@ -44,6 +45,7 @@ extern {
 
     @Safe uint color_code(Shade shade);
     @Safe uint color_next(uint color);
+    @Safe @CppName("color_next") Shade shade_next(Shade shade);
     nuint text_length(byte* text);
     byte* text_greeting();
 
@@ -111,6 +113,7 @@ void main() {
 
     std::print(color_code(Shade.Blue));             // output: 30
     std::print(color_next(3));                      // output: 1
+    std::print(shade_next(Shade.Green) == Shade.Blue);  // output: true
     String text = "four";
     unsafe {
         std::print(text_length(text.cstr()));       // output: 4

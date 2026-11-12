@@ -184,16 +184,23 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool IsExternConstant { get; init; }
 
     /// <summary>
-    /// An extern function or constant of a block outside the standard library. The compiler calls
-    /// it through a wrapper that checks and converts its signature (spec <c>interop.signatures</c>).
-    /// </summary>
-    /// <summary>
     /// A static or top-level function marked <c>@CCallback</c>, whose reference converts to an
     /// <c>extern fn</c> type (spec <c>interop.callbacks</c>).
     /// </summary>
     public bool IsCCallback { get; init; }
 
+    /// <summary>
+    /// An extern function or constant of a block outside the standard library. The compiler calls
+    /// it through a wrapper that checks and converts its signature (spec <c>interop.signatures</c>).
+    /// </summary>
     public bool IsProgramExtern => IsExtern && (Declaration!.Block ?? ContainingType?.Declaration.Block) is { IsStd: false };
+
+    /// <summary>
+    /// The integer type that a call gives, if the function is a program's extern function whose
+    /// return type is a <c>@Repr</c> enum. The caller converts the integer to the enum with the
+    /// check of a cast (spec <c>interop.signatures</c>).
+    /// </summary>
+    public WylType? ReturnedInteger => IsProgramExtern && !IsExternConstant && ReturnType.Symbol is { HasRepr: true } enumeration ? enumeration.UnderlyingType : null;
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingType is not null && !IsStatic && !IsConstructor && !IsDestructor;
 

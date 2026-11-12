@@ -35,7 +35,10 @@ void text(String text) { }                      // error[WYL0506]: parameter 'te
 String name() { return ""; }                    // error[WYL0506]: the result of 'name' has type 'String', which is not blittable
 
 @CCallback
-void mode(Mode mode) { }                        // error[WYL0507]: parameter 'mode' has enum type 'Mode', which only a parameter of an extern function can have
+void mode(Mode mode) { }                        // error[WYL0507]: parameter 'mode' has enum type 'Mode', which only a parameter or the result of an extern function can have
+
+@CCallback
+Mode current() { return Mode.Read; }            // error[WYL0507]: the result of 'current' has enum type 'Mode', which only a parameter or the result of an extern function can have
 
 @CCallback
 void change(ref int value) { }                  // error[WYL0506]: parameter 'value' has type 'ref int', which is not blittable
