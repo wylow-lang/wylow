@@ -1,0 +1,12 @@
+// native
+// A C source defines a function that its header declares without extern "C". The program looks for
+// a C++ function of that name, which nothing defines, and the error is reported at the declaration
+// (spec interop.native).
+@Include("checksum.h")
+extern {
+    @Safe int checksum_of(int value);           // error[WYL0519]: nothing that the program links defines 'checksum_of', which extern function 'checksum_of' names
+}
+
+void main() {
+    std::print(checksum_of(40));
+}

@@ -1,0 +1,41 @@
+// native
+// C sources under native/ compile as C17 and link with the program: a struct passes by pointer, a
+// Wylow function is called back from C, a manifest definition reaches C, and a C++ source calls into
+// C (spec interop.native).
+@Include("tally.h")
+extern {
+    struct Tally {
+        pub int count;
+        pub int sum;
+    }
+
+    @Safe int tally_standard();
+    @Safe int tally_start();
+    void tally_add(Tally* tally, int value);
+    int tally_each(extern fn(void*, int) -> int step, void* context, int count);
+    @Safe int tally_scaled(int value);
+    @Safe int tally_from_cpp(int value);
+}
+
+/// Returns `value` squared.
+@CCallback
+int square(void* context, int value) {
+    return value * value;
+}
+
+void main() {
+    std::print(tally_standard());                   // output: 201710
+    std::print(tally_start());                      // output: 5
+    mut Tally tally = Tally(0, 0);
+    unsafe {
+        tally_add(&tally, 4);
+        tally_add(&tally, 6);
+    }
+    std::print(tally.count);                        // output: 2
+    std::print(tally.sum);                          // output: 10
+    unsafe {
+        std::print(tally_each(square, null, 4));    // output: 14
+    }
+    std::print(tally_scaled(7));                    // output: 21
+    std::print(tally_from_cpp(7));                  // output: 22
+}

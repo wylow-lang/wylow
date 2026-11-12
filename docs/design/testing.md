@@ -98,7 +98,7 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   Reproduce with `wyl run <file> --cc tsan`.
 - **Linux through WSL.** On Windows, WSL 2 with Ubuntu runs the Linux modes locally: `--cc gcc`,
   `--cc tsan`, and `--interpret`. The distribution needs the .NET 10 SDK, g++, and clang, and
-  `libsqlite3-dev` for `examples/sqlite`. Build in a clone inside the Linux file system, made with
+  `examples/sqlite` needs `curl` and `python3` for its fetch script. Build in a clone inside the Linux file system, made with
   `git clone /mnt/<drive>/<path to the repository> ~/wylow`, and bring each new commit across with
   `git pull`. A build in the Windows checkout under `/mnt` would overwrite the Windows build's
   `bin/` and `obj/` directories, and the Windows file system is slow from Linux. An agent runs a

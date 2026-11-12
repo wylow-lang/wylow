@@ -400,10 +400,16 @@ compiler writes in the C++ type's namespace. A read of a union field is
 `wyl::interop::ReadUnion<T>(value)`, which copies the union's first bytes into a `T`, so that the
 C++ never reads an inactive member.
 
-The build compiles each `.cpp` file under the package's `native/` directory with the toolchain and
-the flags of the build, and puts the directory on the include path. With MSVC and clang-cl, each
-native source compiles in a call of its own, since the program's call uses the precompiled `wyl.h`,
-which a native source does not include.
+The build compiles each native source under the package's `native/` directory in a call of its
+own, and it links the objects with the program (`NativeCompiler.CompileNative`, decision 0099). A
+`.cpp` source gets the C++ flags of the build. A `.c` source gets C17, the sanitizers, and the
+optimization of the build mode, and none of the C++ flags. Every source gets the include
+directories and the definitions of the manifest. The objects are in the directory `native-objects`
+beside the executable. Each object has a `.key` file beside it, and the build compiles the source
+again only if the key changes. The key covers `NativeCompiler.Identity`, the compiler's arguments,
+the manifest's `native` lists, and every file of `NativeInputs.IncludableFiles`. The build deletes
+an object whose source no longer exists. A source's warnings appear only if that source fails to
+compile.
 
 `PackageSources.Load` reads the lists of the manifest's `native` block for the platform that the
 compiler runs on (`NativeInputs.Platform`) and makes each path absolute (`NativeInputs`). The build

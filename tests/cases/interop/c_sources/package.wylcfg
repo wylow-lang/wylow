@@ -1,0 +1,5 @@
+// A definition of the manifest reaches the C sources as it reaches the C++ ones.
+name = "c_sources";
+native {
+    defines = ["TALLY_START=5"];
+}

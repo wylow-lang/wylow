@@ -21,10 +21,16 @@ public sealed record NativeInputs(
     public static string Platform =>
         OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux";
 
-    /// <summary>Every <c>.cpp</c> file under <see cref="Directory"/>, by full path, in a stable order.</summary>
+    /// <summary>Every <c>.cpp</c> and <c>.c</c> file under <see cref="Directory"/>, by full path, in a stable order.</summary>
     public IReadOnlyList<string> Sources => Directory is null
         ? []
-        : [.. System.IO.Directory.GetFiles(Directory, "*.cpp", SearchOption.AllDirectories).Select(Path.GetFullPath).Order(StringComparer.Ordinal)];
+        : [.. System.IO.Directory.EnumerateFiles(Directory, "*", SearchOption.AllDirectories)
+            .Where(f => Path.GetExtension(f) is ".cpp" or ".c")
+            .Select(Path.GetFullPath)
+            .Order(StringComparer.Ordinal)];
+
+    /// <summary>Whether a native source is C, which compiles as C17, rather than C++, which compiles as C++20 (spec <c>interop.native</c>).</summary>
+    public static bool IsC(string source) => Path.GetExtension(source) == ".c";
 
     /// <summary>The directories on the include path besides the runtime's: <c>native/</c>, then each of <see cref="Include"/>.</summary>
     public IEnumerable<string> IncludeDirectories => Directory is null ? Include : Include.Prepend(Directory);
@@ -53,6 +59,20 @@ public sealed record NativeInputs(
     /// </summary>
     public IEnumerable<(string Path, byte[] Bytes)> Files()
     {
+        foreach (var file in IncludableFiles())
+            yield return file;
+        var libraries = LibraryPaths.SelectMany(directory => Link.SelectMany(LibraryFileNames).Select(name => Path.Combine(directory, name)));
+        foreach (var file in libraries.Concat(Copy).Where(File.Exists))
+            yield return (file, File.ReadAllBytes(file));
+    }
+
+    /// <summary>
+    /// Every file that a native source can include besides the runtime's and the toolchain's, with
+    /// its bytes, in a stable order: each file under <c>native/</c> and under each directory of
+    /// <see cref="Include"/>. The native sources are among them.
+    /// </summary>
+    public IEnumerable<(string Path, byte[] Bytes)> IncludableFiles()
+    {
         foreach (var directory in IncludeDirectories.Where(System.IO.Directory.Exists))
         {
             var files = System.IO.Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
@@ -61,9 +81,6 @@ public sealed record NativeInputs(
             foreach (var file in files)
                 yield return (file, File.ReadAllBytes(file));
         }
-        var libraries = LibraryPaths.SelectMany(directory => Link.SelectMany(LibraryFileNames).Select(name => Path.Combine(directory, name)));
-        foreach (var file in libraries.Concat(Copy).Where(File.Exists))
-            yield return (file, File.ReadAllBytes(file));
     }
 
     /// <summary>The names of the files that a toolchain may link for the library <paramref name="name"/>.</summary>

@@ -126,3 +126,4 @@ history and a reason can be found without searching the spec.
 | [0096](0096-void-pointers-and-byte-lengths.md) | `void*` converts from every pointer, and `byteLength()` is an `int` that panics on overflow |
 | [0097](0097-c-function-pointer-types.md) | A C function pointer is an `extern fn` type, and only a `@CCallback` function converts to it |
 | [0098](0098-supported-toolchains.md) | Each supported C++ compiler has an oldest version, and clang-cl comes from Visual Studio |
+| [0099](0099-c-native-sources.md) | A package's `native/` directory may hold C sources, which compile as C17 into kept objects |

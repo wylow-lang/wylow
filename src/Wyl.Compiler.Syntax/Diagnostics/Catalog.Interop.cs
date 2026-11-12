@@ -151,9 +151,15 @@ public static partial class Catalog
         Make(at, $"{part} of {kind} '{type}' does not match the C++ type '{cppName}'");
 
     [Error(519, "interop.extern")]
-    public static Diagnostic UndefinedExtern(Location at, string what, string cppName) =>
-        Make(at, $"nothing that the program links defines '{cppName}', which {what} names")
-            .Help("define it in a source file under 'native/', or name the library that defines it in the manifest's 'link' list");
+    public static Diagnostic UndefinedExtern(Location at, string what, string cppName, bool cppLinkageWithCSources = false)
+    {
+        var diagnostic = Make(at, $"nothing that the program links defines '{cppName}', which {what} names");
+        if (cppLinkageWithCSources)
+            diagnostic = diagnostic.Note($"the program looks for '{cppName}' as a C++ function, and a function that a C source defines is a C function");
+        return diagnostic.Help(cppLinkageWithCSources
+            ? "if a C source under 'native/' defines it, declare it in the header inside 'extern \"C\"', guarded by '#ifdef __cplusplus'"
+            : "define it in a source file under 'native/', or name the library that defines it in the manifest's 'link' list");
+    }
 
     [Error(520, "unsafe.pointers")]
     public static Diagnostic VoidPointerAccess(Location at, string operation) =>

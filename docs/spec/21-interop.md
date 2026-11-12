@@ -309,10 +309,16 @@ them and returns an error code ([Native source files](#interop.native)).
 <a id="interop.native"></a>
 ## 21.8 Native source files
 
-A package's `native/` directory, next to its `src/` directory, holds C++ source and header files.
-Each `.cpp` file in it, or in a directory below it, is compiled as C++20 and linked with the
-program. The `native/` directory is on the include path, so an extern block reaches its headers
-by their paths from it.
+A package's `native/` directory, next to its `src/` directory, holds C and C++ source and header
+files. Each `.cpp` file in it, or in a directory below it, is compiled as C++20, and each `.c` file
+is compiled as C17. Every source is compiled with the include directories and the definitions of
+the manifest's `native` block ([The manifest](03-programs.md#programs.manifest)), and it is linked
+with the program. The `native/` directory is on the include path, so an extern block reaches its
+headers by their paths from it.
+
+An extern block includes its header into C++. A function that a C source defines has C linkage, so
+the header declares the function inside `extern "C"` when C++ includes the header. If C sources
+include the header too, the header puts that block inside `#ifdef __cplusplus`.
 
 A native shim is a small C-style layer: it is the way to bind a C++ template, class, exception API,
 or function that takes a variable number of arguments.

@@ -84,7 +84,7 @@ static partial class BuildFailure
             if (index >= 0)
             {
                 var region = interop.Regions[index];
-                declared.TryAdd(index, Catalog.UndefinedExtern(region.Declaration, region.What, region.Symbol!));
+                declared.TryAdd(index, Catalog.UndefinedExtern(region.Declaration, region.What, region.Symbol!, IsCppName(symbol) && native.Sources.Any(NativeInputs.IsC)));
                 continue;
             }
             if (UserOf(user, cppPath, native) is not { } source)
@@ -127,6 +127,12 @@ static partial class BuildFailure
         }
     }
 
+    /// <summary>
+    /// Whether a symbol as the linker reports it has C++ linkage. Each linker prints a C++ name with
+    /// its parameter types, as <c>f(int)</c> or <c>int __cdecl f(int)</c>, and a C name without them.
+    /// </summary>
+    static bool IsCppName(string symbol) => symbol.Contains('(', StringComparison.Ordinal);
+
     /// <summary>Whether a symbol as the linker reports it is the C++ name <paramref name="name"/>, with or without its signature.</summary>
     static bool Names(string symbol, string name) =>
         Regex.IsMatch(symbol, $@"(?<![\w:]){Regex.Escape(name)}(?![\w:])");
@@ -143,7 +149,7 @@ static partial class BuildFailure
         if (Path.GetFileNameWithoutExtension(file).Equals(Path.GetFileNameWithoutExtension(FileName(cppPath)), StringComparison.OrdinalIgnoreCase))
             return null;
         var sources = native.Sources;
-        // An object that the build compiled from a native source is named '{index}_{name}.obj'.
+        // An object that the build compiled from a native source is named '{index}_{name}.obj', or '{index}_{name}.o' with g++.
         var match = NativeObject().Match(file);
         string? source = match.Success && int.Parse(match.Groups["index"].Value, CultureInfo.InvariantCulture) is var index && index < sources.Count
             ? sources[index]
@@ -171,7 +177,7 @@ static partial class BuildFailure
     /// </summary>
     static string FileName(string path) => path[(path.LastIndexOfAny(['/', '\\']) + 1)..];
 
-    [GeneratedRegex(@"^(?<index>\d+)_.+\.obj$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?<index>\d+)_.+\.(?:obj|o)$", RegexOptions.IgnoreCase)]
     private static partial Regex NativeObject();
 
     static bool IsUnder(string file, string directory)

@@ -404,43 +404,87 @@ public sealed class NativeCompiler
             ? null
             : PrecompiledHeaders.GetOrAdd($"{Toolchain}|{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
 
+    /// <summary>Whether the compiler takes MSVC's flags, as cl.exe and clang-cl do, rather than gcc's.</summary>
+    bool MsvcStyle => environment is not null;
+
     /// <summary>
-    /// Builds the executable from the generated C++ and every <c>.cpp</c> file under the package's
-    /// <c>native/</c> directory, with the include directories and definitions of <paramref name="native"/>,
-    /// and links the libraries it names (spec <c>interop.native</c>, <c>programs.manifest</c>). A
-    /// native source does not include <c>wyl.h</c>, so where the program uses the precompiled header,
-    /// the native sources compile in a call of their own first. A definition could change what
-    /// <c>wyl.h</c> means, so a program built with definitions does not use the precompiled header.
+    /// The flags that a C++ source of the program compiles with, before its include directories:
+    /// the language, the sanitizers, and the build mode.
     /// </summary>
-    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true, NativeInputs? native = null)
+    List<string> CppFlags(bool release)
     {
-        native ??= NativeInputs.None;
-        var nativeSources = native.Sources;
-        precompiledHeader &= native.Defines.Count == 0;
-        var nativeObjects = new List<string>();
-        var startInfo = new ProcessStartInfo(compilerPath)
+        List<string> args = Toolchain switch
         {
-            WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(exePath))!,
+            Toolchain.Msvc or Toolchain.Clang => ["/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3"],
+            Toolchain.ClangSanitized => [.. SanitizedFlags],
+            Toolchain.ThreadSanitized when MsvcStyle => [.. ThreadSanitizedClangFlags],
+            Toolchain.ThreadSanitized => [.. ThreadSanitizedGccFlags],
+            _ => ["-std=c++20", "-pthread"],
         };
+        args.Add(MsvcStyle ? (release ? "/O2" : "/Od") : (release ? "-O2" : "-O0"));
+        if (!release)
+            args.Add(MsvcStyle ? "/DWYL_DEBUG=1" : "-DWYL_DEBUG=1");
+        return args;
+    }
+
+    /// <summary>
+    /// The flags that a C source under <c>native/</c> compiles with, before its include directories:
+    /// C17, the sanitizers of the program, and the optimization of the build mode.
+    /// </summary>
+    List<string> CFlags(bool release)
+    {
+        List<string> args = Toolchain switch
+        {
+            Toolchain.Msvc or Toolchain.Clang => ["/nologo", "/std:c17", "/utf-8", "/W3"],
+            Toolchain.ClangSanitized => ["/nologo", "/std:c17", "/utf-8", "-fsanitize=address,undefined"],
+            Toolchain.ThreadSanitized when MsvcStyle => ["/nologo", "/std:c17", "/utf-8", "-fsanitize=thread", "-g"],
+            Toolchain.ThreadSanitized => ["-std=c17", "-fsanitize=thread", "-g", "-pthread"],
+            _ => ["-std=c17", "-pthread"],
+        };
+        args.Add(MsvcStyle ? (release ? "/O2" : "/Od") : (release ? "-O2" : "-O0"));
+        return args;
+    }
+
+    ProcessStartInfo StartInfo(string workingDirectory)
+    {
+        var startInfo = new ProcessStartInfo(compilerPath) { WorkingDirectory = workingDirectory };
         if (environment is not null)
         {
             startInfo.Environment.Clear();
             foreach (var (name, value) in environment)
                 startInfo.Environment[name] = value;
         }
+        return startInfo;
+    }
 
+    /// <summary>
+    /// Builds the executable from the generated C++ and every native source under the package's
+    /// <c>native/</c> directory, with the include directories and definitions of <paramref name="native"/>,
+    /// and links the libraries it names (spec <c>interop.native</c>, <c>programs.manifest</c>). Each
+    /// native source compiles to an object of its own first (<see cref="CompileNative"/>). A definition
+    /// could change what <c>wyl.h</c> means, so a program built with definitions does not use the
+    /// precompiled header.
+    /// </summary>
+    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true, NativeInputs? native = null)
+    {
+        native ??= NativeInputs.None;
+        precompiledHeader &= native.Defines.Count == 0;
+        var outputDirectory = Path.GetDirectoryName(Path.GetFullPath(exePath))!;
+        if (CompileNative(native, release, outputDirectory, out var nativeObjects) is { } failed)
+            return failed;
+
+        var startInfo = StartInfo(outputDirectory);
         var args = startInfo.ArgumentList;
-        if (Toolchain is Toolchain.Msvc or Toolchain.Clang)
+        foreach (var arg in CppFlags(release))
+            args.Add(arg);
+        if (MsvcStyle)
         {
-            foreach (var arg in new[] { "/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3" })
-                args.Add(arg);
-            args.Add(release ? "/O2" : "/Od");
-            if (!release)
-                args.Add("/DWYL_DEBUG=1");
+            // link.exe took over ten seconds per sanitized program, since every link writes its debug
+            // information through the one shared PDB server; lld-link has no such server.
+            if (Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized)
+                args.Add("-fuse-ld=lld");
             args.Add($"/I{RuntimeDirectory}");
             AddNativeFlags(args, native, msvc: true);
-            if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
-                return failed;
             var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
             if (precompiled is not null)
             {
@@ -449,42 +493,8 @@ public sealed class NativeCompiler
             }
             args.Add($"/Fe{exePath}");
             // clang-cl refuses an object file's name in /Fo when the call has more than one input.
-            if (Toolchain == Toolchain.Clang && (precompiled is not null || nativeObjects.Count > 0))
-                args.Add($"/Fo{Path.GetDirectoryName(Path.GetFullPath(exePath))}{Path.DirectorySeparatorChar}");
-            else
-                args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
-            args.Add(cppPath);
-            if (precompiled is not null)
-                args.Add(Path.Combine(precompiled, "wyl.obj"));
-            foreach (var obj in nativeObjects)
-                args.Add(obj);
-            AddLibraries(args, native, msvc: true);
-        }
-        else if ((Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized) && environment is not null)
-        {
-            foreach (var arg in Toolchain == Toolchain.ThreadSanitized ? ThreadSanitizedClangFlags : SanitizedFlags)
-                args.Add(arg);
-            // link.exe took over ten seconds per sanitized program, since every link writes its debug
-            // information through the one shared PDB server; lld-link has no such server.
-            args.Add("-fuse-ld=lld");
-            args.Add(release ? "/O2" : "/Od");
-            if (!release)
-                args.Add("/DWYL_DEBUG=1");
-            args.Add($"/I{RuntimeDirectory}");
-            AddNativeFlags(args, native, msvc: true);
-            if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
-                return failed;
-            args.Add($"/Fe{exePath}");
-            var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
-            if (precompiled is not null)
-            {
-                args.Add("/Yuwyl.h");
-                args.Add($"/Fp{Path.Combine(precompiled, "wyl.pch")}");
-            }
-            // As for MSVC, the program, the precompiled object, and the native objects link in one
-            // call, and /Fo names a directory if that call has more than one input.
             if (precompiled is not null || nativeObjects.Count > 0)
-                args.Add($"/Fo{Path.GetDirectoryName(Path.GetFullPath(exePath))}{Path.DirectorySeparatorChar}");
+                args.Add($"/Fo{outputDirectory}{Path.DirectorySeparatorChar}");
             else
                 args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
             args.Add(cppPath);
@@ -496,17 +506,6 @@ public sealed class NativeCompiler
         }
         else
         {
-            if (Toolchain == Toolchain.ThreadSanitized)
-                foreach (var arg in ThreadSanitizedGccFlags)
-                    args.Add(arg);
-            else
-            {
-                args.Add("-std=c++20");
-                args.Add("-pthread");
-            }
-            args.Add(release ? "-O2" : "-O0");
-            if (!release)
-                args.Add("-DWYL_DEBUG=1");
             // Avoids depending on MinGW's runtime DLLs being on PATH when the program runs.
             if (OperatingSystem.IsWindows())
                 args.Add("-static");
@@ -518,8 +517,8 @@ public sealed class NativeCompiler
             args.Add("-o");
             args.Add(exePath);
             args.Add(cppPath);
-            foreach (var source in nativeSources)
-                args.Add(source);
+            foreach (var obj in nativeObjects)
+                args.Add(obj);
             AddLibraries(args, native, msvc: false);
         }
 
@@ -527,7 +526,7 @@ public sealed class NativeCompiler
         return new NativeBuildResult(result.ExitCode == 0, (result.StandardOutput + result.StandardError).Trim());
     }
 
-    /// <summary>The include directories and the definitions that every C++ source of the program is compiled with.</summary>
+    /// <summary>The include directories and the definitions that every native source and the generated program compile with.</summary>
     static void AddNativeFlags(Collection<string> args, NativeInputs native, bool msvc)
     {
         foreach (var directory in native.IncludeDirectories)
@@ -561,34 +560,81 @@ public sealed class NativeCompiler
     }
 
     /// <summary>
-    /// Compiles the native sources to objects in a directory beside the executable, with the flags
-    /// that <paramref name="program"/> has so far, which are the program's own up to its outputs and
-    /// inputs. Returns the failure, or null after adding the objects to <paramref name="objects"/>.
+    /// Compiles each native source of <paramref name="native"/> to an object in the directory
+    /// <c>native-objects</c> of <paramref name="outputDirectory"/>: a C source as C17 and a C++
+    /// source as C++20, with the flags of the program's toolchain and mode (decision 0099). An object
+    /// whose key file matches is kept from an earlier build. Its key covers the toolchain, the mode,
+    /// the compiler's arguments, and every file that the source can include, which is every file of
+    /// <see cref="NativeInputs.IncludableFiles"/>. A source's warnings appear only if it fails to
+    /// compile. Returns the failure of the first source in order that fails, or null.
     /// </summary>
-    static NativeBuildResult? CompileNative(ProcessStartInfo program, IReadOnlyList<string> sources, string exePath, List<string> objects)
+    NativeBuildResult? CompileNative(NativeInputs native, bool release, string outputDirectory, out List<string> objects)
     {
+        var sources = native.Sources;
+        objects = [];
         if (sources.Count == 0)
             return null;
-        var directory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(exePath))!, "native-objects");
+        var directory = Path.Combine(outputDirectory, "native-objects");
         Directory.CreateDirectory(directory);
-        // Each source compiles on its own, so that two of one name in different directories get two objects.
-        for (int i = 0; i < sources.Count; i++)
+
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{native.Text}"));
+        foreach (var (path, bytes) in native.IncludableFiles())
         {
-            var startInfo = new ProcessStartInfo(program.FileName) { WorkingDirectory = program.WorkingDirectory };
-            startInfo.Environment.Clear();
-            foreach (var (name, value) in program.Environment)
-                startInfo.Environment[name] = value;
-            foreach (var arg in program.ArgumentList.Where(a => a != "-fuse-ld=lld"))
-                startInfo.ArgumentList.Add(arg);
-            var obj = Path.Combine(directory, $"{i}_{Path.GetFileNameWithoutExtension(sources[i])}.obj");
-            startInfo.ArgumentList.Add("/c");
-            startInfo.ArgumentList.Add($"/Fo{obj}");
-            startInfo.ArgumentList.Add(sources[i]);
-            var result = ProcessRunner.Run(startInfo);
-            if (result.ExitCode != 0)
-                return new NativeBuildResult(false, (result.StandardOutput + result.StandardError).Trim());
-            objects.Add(obj);
+            hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));
+            hash.AppendData(bytes);
         }
+        var inputs = Convert.ToHexString(hash.GetHashAndReset());
+
+        var extension = MsvcStyle ? ".obj" : ".o";
+        // Each source has an object of its own, so that two of one name in different directories get two objects.
+        var paths = sources.Select((source, i) => Path.Combine(directory, $"{i}_{Path.GetFileNameWithoutExtension(source)}{extension}")).ToList();
+        // An object of a source that was removed or renamed would otherwise stay in the directory for good.
+        var current = paths.Concat(paths.Select(p => p + ".key")).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var stale in Directory.EnumerateFiles(directory).Select(Path.GetFullPath).Where(f => !current.Contains(f)).ToList())
+            File.Delete(stale);
+        var failures = new NativeBuildResult?[sources.Count];
+        Parallel.For(0, sources.Count, i => failures[i] = CompileSource(sources[i], paths[i], native, release, outputDirectory, inputs));
+        objects = paths;
+        return failures.FirstOrDefault(f => f is not null);
+    }
+
+    /// <summary>Compiles one native source to <paramref name="obj"/>, unless the object that an earlier build left has the same key.</summary>
+    NativeBuildResult? CompileSource(string source, string obj, NativeInputs native, bool release, string outputDirectory, string inputs)
+    {
+        var startInfo = StartInfo(outputDirectory);
+        var args = startInfo.ArgumentList;
+        bool c = NativeInputs.IsC(source);
+        foreach (var arg in c ? CFlags(release) : CppFlags(release))
+            args.Add(arg);
+        if (!c)
+            args.Add((MsvcStyle ? "/I" : "-I") + RuntimeDirectory);
+        AddNativeFlags(args, native, MsvcStyle);
+        if (MsvcStyle)
+        {
+            args.Add("/c");
+            args.Add($"/Fo{obj}");
+            args.Add(c ? "/Tc" + source : "/Tp" + source);
+        }
+        else
+        {
+            args.Add("-c");
+            args.Add("-x");
+            args.Add(c ? "c" : "c++");
+            args.Add(source);
+            args.Add("-o");
+            args.Add(obj);
+        }
+
+        var keyPath = obj + ".key";
+        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{inputs}\n{string.Join('\n', args)}")));
+        if (File.Exists(obj) && File.Exists(keyPath) && File.ReadAllText(keyPath) == key)
+            return null;
+        File.Delete(keyPath);
+        var result = ProcessRunner.Run(startInfo);
+        if (result.ExitCode != 0)
+            return new NativeBuildResult(false, (result.StandardOutput + result.StandardError).Trim());
+        File.WriteAllText(keyPath, key);
         return null;
     }
 
