@@ -35,6 +35,8 @@ its Linux build (`interop-slice-2.md`, step 4).
 - GNU ld on Linux prints its missing symbols, which the MSYS2 `ld` of the development machine does
   not. `interop/undefined_extern` passes in the gcc mode there.
 - The `interop` tests pass with `--cc gcc`, and `examples/sqlite` prints the same rows as on
-  Windows. The whole suite has not been run on Linux yet.
+  Windows.
+- The whole suite passes on Linux with `--interpret`, `--cc gcc`, and `--cc tsan`. The TSan mode
+  there builds with clang++ 18, which needs `-fsized-deallocation` for the runtime's pools.
 - A `// native` test that includes a Windows header, such as `interop/manifest_native`, guards it
   with `#ifdef _WIN32`, and the Linux run checks that guard.
