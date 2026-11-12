@@ -9,7 +9,8 @@ its Linux build (`interop-slice-2.md`, step 4).
 
 - Ubuntu 24.04 is the default distribution, and the repository is visible at
   `/mnt/e/Repos/Wylow/wylow`.
-- g++ 13.3 and GNU ld are installed. clang, the .NET SDK, and `libsqlite3-dev` are not.
+- g++ 13.3, GNU ld, clang, the .NET 10 SDK, and `libsqlite3-dev` are installed.
+- The clone that the steps below describe is at `~/wylow`.
 - An agent runs a command in it from Windows with `wsl -d Ubuntu -- bash -lc "<command>"`. A command
   that needs `sudo` asks for the user's password, so the user runs the installation.
 
@@ -32,6 +33,8 @@ its Linux build (`interop-slice-2.md`, step 4).
   only on Windows. A mode that builds with `clang++` on Linux would be a new toolchain, with its own
   flags and precompiled header.
 - GNU ld on Linux prints its missing symbols, which the MSYS2 `ld` of the development machine does
-  not. `interop/undefined_extern` in the gcc mode is the first test to run there.
+  not. `interop/undefined_extern` passes in the gcc mode there.
+- The `interop` tests pass with `--cc gcc`, and `examples/sqlite` prints the same rows as on
+  Windows. The whole suite has not been run on Linux yet.
 - A `// native` test that includes a Windows header, such as `interop/manifest_native`, guards it
   with `#ifdef _WIN32`, and the Linux run checks that guard.

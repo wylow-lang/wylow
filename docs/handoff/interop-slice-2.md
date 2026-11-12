@@ -50,7 +50,8 @@ each archive's SHA3-256 hash, copies `sqlite3.dll`, `sqlite3.def`, and `sqlite3.
 `vendor/windows`, and makes `sqlite3.lib` with `lib.exe`. The repository ignores `vendor/`. On Linux,
 the package links the system's `sqlite3`. `main` opens an in-memory database, inserts rows with
 bound text, integers, doubles, blobs, and nulls, and prints each row of two queries. The output is
-the same with clang, MSVC, and ASan, and in a release build. The Linux build has not been run.
+the same with clang, MSVC, and ASan on Windows, with g++ on Linux through WSL, and in a release
+build on each.
 
 What the binding needed:
 
