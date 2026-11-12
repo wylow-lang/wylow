@@ -100,7 +100,7 @@ static class MatrixTests
                     continue;
                 lines.Add(line.Length == 0 ? "err" : "err " + line);
             }
-            lines.Add("exit " + run.ExitCode);
+            lines.Add(ExitLine(run.ExitCode, standardError.Contains("panic: ", StringComparison.Ordinal)));
             return new(cell.Name, lines, null);
         }
         catch (Exception e)
@@ -140,7 +140,7 @@ static class MatrixTests
                 lines.Add(line.Length == 0 ? "out" : "out " + line);
             foreach (var line in SuffixLines(result.Error))
                 lines.Add(line.Length == 0 ? "err" : "err " + line);
-            lines.Add("exit " + result.ExitCode);
+            lines.Add(ExitLine(result.ExitCode, result.Status == InterpretationStatus.Panicked));
             return new(cell.Name, lines, null);
         }
         catch (Exception e)
@@ -148,6 +148,13 @@ static class MatrixTests
             return new(cell.Name, [], $"exception: {e.GetType().Name}: {e.Message}");
         }
     }
+
+    /// <summary>
+    /// The snapshot line of a run's exit status. The status of a program that panics is
+    /// implementation-defined and only never 0 (spec <c>introduction.implementation-defined</c>): it
+    /// is 3 on Windows and 134 on Linux. The line therefore records only that it is not 0.
+    /// </summary>
+    static string ExitLine(int status, bool panicked) => panicked && status != 0 ? "exit nonzero" : $"exit {status}";
 
     static List<string> DiagnosticLines(IReadOnlyList<Diagnostic> diagnostics)
     {

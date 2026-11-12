@@ -10,7 +10,7 @@ out 0
 out 0
 err panic: division by zero
 err     at arithmetic.wyl:23:9
-exit 3
+exit nonzero
 
 === zero/comparison
 out true
@@ -122,7 +122,7 @@ exit 0
 === minus-one/indexing
 err panic: index -1 is out of bounds for length 3
 err     at indexing.wyl:18:7
-exit 3
+exit nonzero
 
 === minus-one/conversion
 out -1
@@ -153,7 +153,7 @@ out 1
 out 1073741823
 err panic: integer overflow
 err     at arithmetic.wyl:21:13
-exit 3
+exit nonzero
 
 === max/comparison
 out false
@@ -169,7 +169,7 @@ exit 0
 === max/indexing
 err panic: index 2147483647 is out of bounds for length 3
 err     at indexing.wyl:18:7
-exit 3
+exit nonzero
 
 === max/conversion
 out 2147483647
@@ -200,7 +200,7 @@ out -2
 out -1073741824
 err panic: integer overflow
 err     at arithmetic.wyl:21:7
-exit 3
+exit nonzero
 
 === min/comparison
 out false
@@ -216,7 +216,7 @@ exit 0
 === min/indexing
 err panic: index -2147483648 is out of bounds for length 3
 err     at indexing.wyl:18:7
-exit 3
+exit nonzero
 
 === min/conversion
 out -2147483648
@@ -251,7 +251,7 @@ out 1073741824
 out -2147483648
 err panic: integer overflow
 err     at arithmetic.wyl:25:21
-exit 3
+exit nonzero
 
 === long-past-int/comparison
 out true
@@ -352,7 +352,7 @@ exit 0
 out 0
 err panic: index 0 is out of bounds for length 0
 err     at indexing.wyl:18:7
-exit 3
+exit nonzero
 
 === empty-array/iteration
 out 0
@@ -373,7 +373,7 @@ out 4
 out 4
 err panic: index 1 is out of bounds for length 1
 err     at indexing.wyl:20:7
-exit 3
+exit nonzero
 
 === one-list/iteration
 out 1
@@ -410,14 +410,14 @@ exit 0
 out false
 err panic: the map has no entry for the key
 err     at indexing.wyl:18:7
-exit 3
+exit nonzero
 
 === empty-hash-map/iteration
 out 0
 out false
 err panic: cannot read the current element of an iterator before 'moveNext' or after the last element
 err     at collections/hash_map.wyl:445:9
-exit 3
+exit nonzero
 
 === one-hash-map/indexing
 out 4
@@ -441,14 +441,14 @@ exit 0
 out false
 err panic: cannot read the current element of an iterator before 'moveNext' or after the last element
 err     at array.wyl:149:13
-exit 3
+exit nonzero
 
 === empty-ref-iterator/iteration
 out 0
 out false
 err panic: null value unwrapped with '!'
 err     at iteration.wyl:54:20
-exit 3
+exit nonzero
 
 === one-ref-iterator/iteration
 out 0
