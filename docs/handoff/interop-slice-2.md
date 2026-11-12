@@ -42,24 +42,48 @@ already has (`Interpreter.Exchange`), so a pointer to a field reads the new valu
 (`unsafe/field_pointers`). Decision 0095 records why each path of the `native` block must exist,
 and decision 0096 records the choices of step 2.
 
-## 4. The SQLite binding
+## 4. The SQLite binding (done)
 
-The binding is a program package outside the test suite, with its extern block and a `main` that
-uses it. A library package would need the manifest's `dependencies`, which is not built, and the
-binding should show what `dependencies` needs before anyone designs it.
+The binding is `examples/sqlite`, a program package outside the test suite. On Windows,
+`fetch-sqlite.ps1` downloads SQLite 3.54.1's x64 DLL and its amalgamation from sqlite.org, checks
+each archive's SHA3-256 hash, copies `sqlite3.dll`, `sqlite3.def`, and `sqlite3.h` to
+`vendor/windows`, and makes `sqlite3.lib` with `lib.exe`. The repository ignores `vendor/`. On Linux,
+the package links the system's `sqlite3`. `main` opens an in-memory database, inserts rows with
+bound text, integers, doubles, blobs, and nulls, and prints each row of two queries. The output is
+the same with clang, MSVC, and ASan, and in a release build. The Linux build has not been run.
 
-- On Windows, the package uses the x64 DLL from sqlite.org: `sqlite3.dll`, `sqlite3.def`, and
-  `sqlite3.h`. `lib /def:sqlite3.def /machine:x64` makes the import library. On Linux, the package
-  links the system's `sqlite3` (`libsqlite3-dev`). The manifest names the include directory, the
-  library directory, `link = ["sqlite3"]`, and on Windows `copy` for the DLL.
-- Bind `sqlite3_open`, `sqlite3_close`, `sqlite3_prepare_v2`, the `bind`, `step`, `column`, `reset`,
-  and `finalize` functions, `sqlite3_errmsg`, and the result codes as extern constants.
-- `SQLITE_TRANSIENT` casts `-1` to a function pointer, which Wylow cannot express. A native shim
-  binds each function that takes it.
-- `main` opens an in-memory database, creates a table, inserts rows with bound text, integers,
-  doubles, and a blob, queries them, and prints each row. The output is the same on every run.
-- Write down what the binding needed and lacked: each declaration that was hard to write, each
-  shim, and what a library package would need from `dependencies`.
+What the binding needed:
+
+- `void*` (step 2) carries a blob to `sqlite3_bind_blob` and back from `sqlite3_column_blob`, and
+  `byteLength()` gives the blob's size.
+- An extern constant reads a C macro, so each result code is a `static int` in the extern block.
+- `const char*` and `const unsigned char*` both match `byte*`, so `cstr()` passes SQL text and
+  `String.fromCString` reads `sqlite3_errmsg` and `sqlite3_column_text`.
+- `&` of a `mut` local of type `Database*` gives the `sqlite3**` out-parameter of `sqlite3_open`.
+- One native shim each for `sqlite3_bind_text` and `sqlite3_bind_blob`, because
+  `SQLITE_TRANSIENT` casts `-1` to a function pointer type, which an extern block cannot express.
+
+What the binding lacked:
+
+- Every call is unsafe, and the example wraps none of them. A safe layer, such as a class whose
+  destructor closes the database and finalizes its statements, is the next thing a library package
+  would add.
+- A result code is an `int` compared with constants. A `@Repr` enum crosses only as a parameter, so
+  a function cannot return one.
+- An array literal is a fixed array, so the rows are an `Order[3]` that the insert takes as a
+  `ReadOnlySpan<Order>`. An array literal also cannot end with a comma.
+- A Windows build needs an import library, which the build cannot make from a `.def` file. The
+  fetch script makes it with `lib.exe`.
+
+What a library package would need from `dependencies`:
+
+- The dependency's `native` block applies to the program that depends on it: its include
+  directories, library directories, `link` libraries, `copy` files, and definitions.
+- The dependency's `native/` sources are compiled into the program, and its `native/` directory is
+  on the program's include path.
+- Each relative path in the dependency's manifest resolves against the dependency's own directory.
+- A prebuilt library has to be on disk before the build. The manifest has no step that fetches it,
+  so a package that ships a prebuilt library also ships a script like `fetch-sqlite.ps1`.
 
 ## After this slice
 
