@@ -86,6 +86,12 @@ public static partial class RunComparison
         unsafeCode || text.Contains("// mode: optimized", StringComparison.Ordinal);
 
     /// <summary>
+    /// A program marked <c>// native</c>, which calls C++ code, so the interpreter does not run it
+    /// (decision 0087), and it is compared only among native builds.
+    /// </summary>
+    public static bool IsNative(string text) => text.Contains("// native", StringComparison.Ordinal);
+
+    /// <summary>
     /// Compares two runs: stdout, the panic's message and location, the exit code, and, where the
     /// caller asks, the performance warnings. A program with a budgeted collector may legitimately
     /// reach other cycles when an optimization is off, and one reading `cycleStats` counts what an optimization

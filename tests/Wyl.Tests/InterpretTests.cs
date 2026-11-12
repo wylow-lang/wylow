@@ -7,7 +7,7 @@ using Wyl.Harness;
 // The interpret mode runs the program's meaning (lowering and the mandatory passes, no
 // optimization) and checks a test's expectations as a native mode does, except that it skips
 // `// mode: optimized` tests and the `// stack:` and `// in-place:` markers, which count
-// optimizations. Every program that runs is then interpreted in its optimized form too, and the
+// optimizations, and `// native` tests, which call C++ code (decision 0087). Every program that runs is then interpreted in its optimized form too, and the
 // two must mean the same thing, which checks the passes without the emitter or a C++ compiler.
 
 static partial class TestCase
@@ -32,7 +32,7 @@ static partial class TestCase
             return test.Problem;
         var expected = test.Expected;
         // A test that observes an optimization isn't compared without one.
-        if (expected.Optimized)
+        if (expected.Optimized || RunComparison.IsNative(test.Text))
             return null;
         var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release, Arguments: expected.Arguments));
         if (CompareDiagnostics(expected, interpreted.Diagnostics) is { } diagnosticProblems)
@@ -47,6 +47,8 @@ static partial class TestCase
             return null;
         if (result.Status == InterpretationStatus.Unsupported)
             return "unsupported: " + result.Error.Trim();
+        if (result.Status == InterpretationStatus.Native)
+            return "the program calls C++ code, so it needs the '// native' marker: " + result.Error.Trim();
 
         var problems = new List<string>();
         var actualOutput = result.OutputText.Replace("\r\n", "\n").Split('\n').ToList();

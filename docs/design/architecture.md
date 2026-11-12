@@ -98,6 +98,8 @@ file past ~600 lines is split.
   rule per statement and rvalue kind, one `Values` definition of copy, release, default, and
   equality, `RuntimeText`/`RuntimeArithmetic` reproducing `runtime/wyl/*.h`, intrinsics keyed on
   `BuiltinCppName`, and the cycle collector (`Interpreter.Cycles.cs` mirrors `runtime/wyl/cycles.h`).
+  Before a program runs, `Interpreter.NativeCall` finds any call of an extern function without an
+  intrinsic, and the interpreter then refuses the program (decision 0087).
 - **Runtime**: `runtime/wyl.h` includes one header per topic from `runtime/wyl/` (`arithmetic.h`,
   `pools.h`, `object.h`, `cycles.h`, `functions.h`, ...), each compiling on its own
   ([runtime.md](runtime.md)).

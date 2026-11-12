@@ -152,7 +152,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
     Finding? CheckInterpretation(LowerResult optimized, LowerResult meaning, SourceText source, bool unsafeCode)
     {
         var text = source.Text;
-        if (RunComparison.SkipsComparison(text, unsafeCode))
+        if (RunComparison.SkipsComparison(text, unsafeCode) || RunComparison.IsNative(text))
             return null;
         var scope = new CheckScope(DefaultCompile: true, NoOptCompile: true, Interpretation: true);
         Interpretation optimizedRun, meaningRun;
@@ -187,6 +187,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
         {
             InterpretationStatus.Completed or InterpretationStatus.Panicked or InterpretationStatus.BudgetExceeded => null,
             InterpretationStatus.Unsupported => "unsupported",
+            InterpretationStatus.Native => "native",
             // Undefined behavior is the program's in `unsafe` code, which is skipped above; in safe
             // code it is the interpreter's or a pass's.
             _ => text.Contains("unsafe", StringComparison.Ordinal) ? null : "undefined-behavior",
@@ -355,7 +356,8 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
         // A mode the program is not compared in: its mutation edited `unsafe` code, or the test
         // observes an optimization that --no-opt (and the meaning) turns off.
         bool Skipped(Mode mode) => unsafeCode || (!mode.Options.Optimize && text.Contains("// mode: optimized", StringComparison.Ordinal))
-            || (mode.Toolchain == Toolchain.ThreadSanitized && !text.Contains("// tsan", StringComparison.Ordinal));
+            || (mode.Toolchain == Toolchain.ThreadSanitized && !text.Contains("// tsan", StringComparison.Ordinal))
+            || (mode.Interpret && RunComparison.IsNative(text));
     }
 
     int IndexOfMode(string name) => Modes.Select((mode, index) => (mode, index)).First(pair => pair.mode.Name == name).index;

@@ -1365,6 +1365,7 @@ static class InterpreterSelfTests
         results.Add(Registry());
         results.Add(Budget());
         results.Add(AllocationBudget());
+        results.Add(NativeCall());
         return results;
     }
 
@@ -1412,6 +1413,35 @@ static class InterpreterSelfTests
         return new(name, result.Status == InterpretationStatus.BudgetExceeded
             ? null
             : $"expected the allocation to run out of budget, got {result.Status}: {result.Error.Trim()}");
+    }
+
+    /// <summary>
+    /// A program that calls an extern function of its own is C++ code that the interpreter refuses to
+    /// run, and the message names the call's location (decision 0087). Nothing of the program runs,
+    /// not even what comes before the call.
+    /// </summary>
+    static TestResult NativeCall()
+    {
+        const string name = "interpreter/native_call";
+        var source = new SourceText("native.wyl", """
+            @Include("version.h")
+            extern {
+                @Safe
+                int version();
+            }
+
+            void main() {
+                std::print(1);
+                std::print(version());
+            }
+            """);
+        var interpreted = Compilation.Interpret(source, new CompileOptions(Optimize: false));
+        if (interpreted.Interpretation is not { } result)
+            return new(name, "the pipeline produced no IR");
+        const string expected = "native.wyl:9:16: cannot interpret a call of 'version', which C++ code provides";
+        return new(name, result is { Status: InterpretationStatus.Native, Output.Length: 0 } && result.Error.Trim() == expected
+            ? null
+            : $"expected the call of 'version' to be refused, got {result.Status}: {result.Error.Trim()}");
     }
 
     /// <summary>

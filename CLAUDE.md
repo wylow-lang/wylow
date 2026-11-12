@@ -39,8 +39,9 @@ erroring line; list every error, with its code and exact message), `// warning[W
 for every compile-time warning: one no marker lists fails the test), `// warning: <text>` (a runtime
 performance warning), `// panic:` or `// panic-here:` (also checks the line),
 `// args:` (the program's arguments, split at spaces), `// exit:` (its exit status, otherwise 0),
-`// mode: release` comments, and `// tsan` on a test that starts a thread, which is the only kind
-`--cc tsan` runs. Outputs match in file order, so put a called function's output at the
+`// mode: release` comments, `// tsan` on a test that starts a thread, which is the only kind
+`--cc tsan` runs, and `// native` on a test that calls an extern function of its own, which the
+interpreted mode skips (decision 0087). Outputs match in file order, so put a called function's output at the
 call. Binder errors and flow errors go in separate files (flow analysis runs only on a program that
 binds). A test imports the types it uses and calls functions through their module (decision 0072):
 `import std::collections::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A

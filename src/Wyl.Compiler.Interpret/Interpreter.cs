@@ -50,6 +50,8 @@ public sealed partial class Interpreter : IObjectLifetime
     /// </summary>
     public static Interpretation Run(IrProgram program, Callees callees, InterpreterOptions? options = null)
     {
+        if (NativeCall(program) is { } native)
+            return Interpretation.Native(native);
         var interpreter = new Interpreter(program, callees, options ?? new InterpreterOptions());
         Interpretation? outcome = null;
         Exception? failure = null;
@@ -88,6 +90,33 @@ public sealed partial class Interpreter : IObjectLifetime
     }
 
     const int StackSize = 64 * 1024 * 1024;
+
+    /// <summary>
+    /// Where the program first calls an extern function that the interpreter does not implement, as
+    /// a message at the call, or null if it calls none. The interpreter implements the standard
+    /// library's extern functions, and every other extern function is C++ code (decision 0087).
+    /// </summary>
+    static string? NativeCall(IrProgram program)
+    {
+        foreach (var function in program.Functions)
+        {
+            foreach (var statement in IrWalk.Descendants(function.Body))
+            {
+                var call = statement switch
+                {
+                    IrLet { Value: IrCall value } => value,
+                    IrDo { Value: IrCall value } => value,
+                    _ => null,
+                };
+                if (call?.Method.Symbol is { IsExtern: true } symbol && !Handles(RuntimeKey(symbol)))
+                {
+                    var at = statement.Origin?.PanicText ?? function.Symbol.Name;
+                    return $"{at}: cannot interpret a call of '{symbol.Name}', which C++ code provides";
+                }
+            }
+        }
+        return null;
+    }
 
     byte[] Output
     {

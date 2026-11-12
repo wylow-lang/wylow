@@ -9,7 +9,7 @@ Commit each step on its own once it passes. Each step names the tests it needs.
 
 ## 1. Extern blocks, with `std` moved into them (done)
 
-Step 1 is committed. The next session starts at step 2. These facts from step 1 matter later:
+Step 1 is committed. The next session starts at step 3. These facts from step 1 matter later:
 
 - The parser keeps each member of a block among the file's declarations, with the block as its
   `Declaration.Block`, and lists the blocks in `CompilationUnit.ExternBlocks`.
@@ -25,13 +25,12 @@ Step 1 is committed. The next session starts at step 2. These facts from step 1 
 - `String.copyOf` is now the top-level `package` function `copyOf` in the standard library's root
   module, with `@CppName("wyl::string::copyOf")`.
 
-## 2. The interpreter refuses user externs
+## 2. The interpreter refuses user externs (done)
 
-- The interpreter refuses a program that calls an extern function it does not implement, with a
-  diagnostic at the call (decision 0087).
-- Add the test marker `// native`. A test with the marker skips the interpreted mode, and the fuzzer
-  does not compare it with the interpreter. Document the marker in `CLAUDE.md` ("Writing tests") and
-  in `docs/design/testing.md`.
+Step 2 is committed. `Interpreter.NativeCall` refuses a program that calls an extern function
+without an intrinsic, with the status `InterpretationStatus.Native`. A test marked `// native`
+skips the interpreted mode, and `RunComparison.IsNative` keeps the fuzzer from comparing it with
+the interpreter. Every test of step 3 that calls C++ code needs the marker.
 
 ## 3. Calls, constants, structs, and the checks
 

@@ -101,6 +101,11 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   synchronizes before each line it prints, with a `join` or a `receive`, and expects a property of
   the run rather than an order. The fuzzer's corpus leaves out every test marked `// tsan`, which
   is every test that starts a thread, because a mutant's output is then not stable enough to compare.
+- **Native code.** A test that calls an extern function of its own calls C++ code, which the
+  interpreter does not run (decision 0087). The interpreter refuses such a program before it runs
+  anything, and names the first call. The test is marked `// native`, so `--interpret` skips it,
+  and the fuzzer compares its mutants only among the native modes (`RunComparison.IsNative`). A
+  test that calls C++ code without the marker fails in the interpreted mode.
 - **Sanitizers.** `--cc asan` uses clang-cl from PATH; any report fails the test, and the runner
   checks both sanitizers still report a deliberate bug (`sanitizers/live`). It finds a use after
   free whose freed memory still holds the old bytes. UBSan reports and continues, so a report is

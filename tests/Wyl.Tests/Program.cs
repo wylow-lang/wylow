@@ -27,6 +27,7 @@ using Wyl.Harness;
 //   // mode: optimized    skip under --no-opt: the test observes an optimization, through diagnostics
 //   // stack: <n>         <n> objects made on this line are on the stack; a file using this checks every line
 //   // in-place: <n>      <n> loop elements declared on this line refer to their elements in place; likewise
+//   // native             the program calls C++ code, so the interpreted mode skips it
 // Usage: Wyl.Tests [--cc clang|msvc|gcc|asan|interpret] [--interpret] [--no-nest] [--no-opt] [--all-modes]
 //                  [--out <dir>] [--jobs <n>] [--update-snapshots] [filter]
 // With --cc asan, programs are built with AddressSanitizer and UBSan, and any report fails the test.

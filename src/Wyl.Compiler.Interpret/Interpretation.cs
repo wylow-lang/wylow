@@ -18,6 +18,11 @@ public enum InterpretationStatus
     /// differential comparison has no behavior to expect.
     /// </summary>
     UndefinedBehavior,
+    /// <summary>
+    /// It was not run, because it calls an extern function that only C++ code provides, and only a
+    /// native build runs C++ code (decision 0087).
+    /// </summary>
+    Native,
 }
 
 /// <summary>What interpreting a program produced.</summary>
@@ -48,6 +53,10 @@ public sealed record Interpretation(byte[] Output, string Error, int ExitCode, I
 
     public static Interpretation Undefined(byte[] output, string what, string before = "") =>
         new(output, $"{before}undefined behavior: {what}\n", 0, InterpretationStatus.UndefinedBehavior);
+
+    /// <summary>The program was refused, and <paramref name="call"/> says where it calls C++ code.</summary>
+    public static Interpretation Native(string call) =>
+        new([], call + "\n", 0, InterpretationStatus.Native);
 }
 
 /// <summary>
