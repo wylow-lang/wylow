@@ -9,14 +9,15 @@ Commit each step on its own once it passes.
 
 ## 1. A failed link names its cause (done)
 
-Step 1 is committed. These facts from step 1 matter later:
+Step 1 is committed. The next session starts at step 2. These facts from step 1 matter later:
 
 - `BuildFailure.MissingSymbols` reads the missing symbols of link.exe, lld-link, and GNU ld. A symbol
   that an extern declaration names is `WYL0519` at the declaration. A symbol that a native source
   uses is the package's error, which names the symbol and the source.
 - The MSYS2 `ld` of the development machine exits with status 5 and prints nothing when a symbol is
   missing, so `interop/undefined_extern` fails there in the gcc mode. The `build-failure/`
-  self-tests read GNU ld's format from a copy of its output.
+  self-tests read GNU ld's format from a copy of its output. `wsl-testing.md` describes how to run
+  the suite with a working GNU ld on Linux.
 - The wrapper of an extern function without parameters no longer declares the alias `F`, which
   clang reported as unused.
 
