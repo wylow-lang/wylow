@@ -50,9 +50,28 @@ public static partial class Catalog
     public static Diagnostic UnusableManifestKey(Location at, string key) =>
         Make(at, $"manifest key '{key}' cannot be used");
 
+    [Error(526, "programs.manifest")]
+    public static Diagnostic UnknownPackageKind(Location at, string kind) =>
+        Make(at, $"package kind '{kind}' is neither 'program' nor 'library'");
+
+    [Error(527, "programs.manifest")]
+    public static Diagnostic LibraryWithoutVersion(Location at) =>
+        Make(at, "library does not give its 'version'").Help("add 'version = \"0.1.0\";'");
+
+    [Error(528, "programs.manifest.versions")]
+    public static Diagnostic MalformedVersion(Location at, string version, string form) =>
+        Make(at, $"version '{version}' does not have the form {form}")
+            .Note("each number is written in decimal digits, with no leading zero except in '0' itself");
+
     [Error(518, "programs.manifest")]
     public static Diagnostic MissingNativePath(Location at, string key, string path, string kind) =>
         Make(at, $"'{key}' names '{path}', which is not a {kind}");
+
+    [Error(530, "programs.packages")]
+    public static Diagnostic LibraryNotRunnable(Location at, string package) =>
+        Make(at, $"cannot build or run library '{package}'")
+            .Note("a library has no entry point, and its code runs only as part of a program that depends on it")
+            .Help("check the library with 'wyl check'");
 
     [Error(19, "programs.packages")]
     public static Diagnostic MissingSourceDirectory(Location at) =>
@@ -185,7 +204,14 @@ public static partial class Catalog
 
     [Error(58, "programs.entry")]
     public static Diagnostic NoMain(Location at, string? package) =>
-        Make(at, package is null ? "program has no 'main' function" : $"package '{package}' has no 'main' function in its root module");
+        package is null
+            ? Make(at, "program has no 'main' function")
+            : Make(at, $"package '{package}' has no 'main' function in its root module")
+                .Help("if the package is a library, add 'kind = \"library\";' to its manifest");
+
+    [Error(529, "programs.entry")]
+    public static Diagnostic LibraryMain(Location at, string package) =>
+        Make(at, $"library '{package}' has a 'main' function in its root module").Note("a library has no entry point");
 
     [Error(59, "programs.entry")]
     public static Diagnostic MainParameters(Location at, bool typeParameters) => typeParameters

@@ -1,0 +1,4 @@
+// A library binds and lowers like a program, but no command builds or runs it.
+name = "library_check";
+kind = "library";                       // error[WYL0530]: cannot build or run library 'library_check'
+version = "0.1.0";

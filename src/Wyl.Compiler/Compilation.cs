@@ -120,6 +120,8 @@ public static class Compilation
         var lowered = Lower(sources, options);
         if (lowered is not { Ir: { } ir, Optimized: { } optimized })
             return new InterpretResult(lowered.Diagnostics, null);
+        if (RefuseLibrary(sources, lowered) is { } refused)
+            return new InterpretResult(refused, null);
         return new InterpretResult(lowered.Diagnostics, Interpreter.Run(ir, optimized.Callees, interpreterOptions));
     }
 
@@ -147,6 +149,23 @@ public static class Compilation
     public static CompilationResult Compile(PackageSources sources, CompileOptions? options = null)
     {
         options ??= new CompileOptions();
-        return Emit(Lower(sources, options), options.Nest) with { Native = sources.Native };
+        var lowered = Lower(sources, options);
+        if (RefuseLibrary(sources, lowered) is { } refused)
+            return new CompilationResult(refused, null) { Native = sources.Native };
+        return Emit(lowered, options.Nest) with { Native = sources.Native };
+    }
+
+    /// <summary>
+    /// The diagnostics of a library that the pipeline accepted, with the error that a library cannot
+    /// be built or run, or null for a program. A library has no entry point (spec programs.packages).
+    /// </summary>
+    static IReadOnlyList<Diagnostic>? RefuseLibrary(PackageSources sources, LowerResult lowered)
+    {
+        if (sources.Package.Kind != PackageKind.Library || !lowered.Success)
+            return null;
+        var diagnostics = new DiagnosticBag();
+        diagnostics.AddRange(lowered.Diagnostics);
+        diagnostics.Add(Catalog.LibraryNotRunnable(sources.Manifest!.KindLocation!.Value, sources.Package.Name!));
+        return diagnostics.Sorted();
     }
 }

@@ -11,6 +11,9 @@ namespace Wyl.Compiler;
 /// </summary>
 public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> Files, IReadOnlyList<Diagnostic> Diagnostics)
 {
+    /// <summary>The package's manifest, or null for a file compiled on its own.</summary>
+    public Manifest? Manifest { get; init; }
+
     /// <summary>The package's <c>native/</c> directory and the manifest's <c>native</c> lists for this platform.</summary>
     public NativeInputs Native { get; init; } = NativeInputs.None;
 
@@ -32,19 +35,19 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
         if (Manifest.Read(manifestText, diagnostics) is not { } manifest)
             return new PackageSources(Package.Unnamed(), [], diagnostics.Sorted());
 
-        var package = Package.Named(manifest.Name);
+        var package = Package.Named(manifest.Name, manifest.Kind);
         var src = Path.Combine(directory, "src");
         if (!Directory.Exists(src))
         {
             diagnostics.Add(Catalog.MissingSourceDirectory(manifest.NameLocation));
-            return new PackageSources(package, [], diagnostics.Sorted());
+            return new PackageSources(package, [], diagnostics.Sorted()) { Manifest = manifest };
         }
         var files = new List<SourceText>();
         AddModule(src, package.Root, files, diagnostics);
         if (files.Count == 0)
             diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
         var native = ReadNative(directory, manifest, diagnostics);
-        return new PackageSources(package, files, diagnostics.Sorted()) { Native = native };
+        return new PackageSources(package, files, diagnostics.Sorted()) { Manifest = manifest, Native = native };
 
         void AddModule(string path, Module module, List<SourceText> into, DiagnosticBag bag)
         {

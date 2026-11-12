@@ -3,7 +3,8 @@
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
 binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
 smaller gaps that the binding found. Step 4 wrote a safe layer over the binding, and step 5 designed
-the manifest's `dependencies` with the user. Steps 6 to 9 build that design.
+the manifest's `dependencies` with the user. Step 6 built the manifest's new keys and libraries, and
+steps 7 to 9 build the rest of that design.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -131,13 +132,28 @@ WSL").
 - Later, and not designed: code that reads its own package's version, such as for a `--version`
   flag. The user suggested a preprocessor definition that a function of `std` reads.
 
-## 6. The manifest's new keys and libraries
+## Facts from step 6
 
-Read `kind`, `version`, and the `version` of a dependency entry (`Manifest.cs`), with the errors of
-`programs.manifest` and `programs.manifest.versions`. A library with `main` is an error, and a
-program without `main` keeps its error. `wyl check` checks a library on its own, and `wyl build` and
-`wyl run` refuse a library with an error that says why. `dependencies` still draws `WYL0031`, so
-this step adds no way to use a library yet.
+- `Manifest.Read` reads `kind`, `version`, and the `version` of a dependency entry.
+  `Manifest.Kind`, `Manifest.KindLocation`, and `Manifest.Version` hold what it read, and
+  `PackageSources.Manifest` keeps the manifest. The compiler does not keep a dependency entry's
+  version yet, because `dependencies` still draws `WYL0031`. Step 7 keeps it.
+- `PackageVersion.Parse` reads a version. Each number is a `BigInteger`, so a version has no largest
+  number. `PackageVersion` has no comparison yet, and step 7 adds the rule of satisfaction to it.
+- `Package.Kind` is `PackageKind.Program` or `PackageKind.Library`. `std` is a library, and a file
+  compiled on its own is a program.
+- The new errors are `WYL0526` (a `kind` that is neither kind), `WYL0527` (a library without a
+  `version`, at the `kind` entry), `WYL0528` (a version of the wrong form), `WYL0529` (a `main` in a
+  library's root module), and `WYL0530` (a library given to a command that builds or runs it).
+  `WYL0058` has a help line that names `kind = "library";`.
+- `wyl check` stops after `Compilation.Lower`, so it takes a library. `Compilation.Compile` and
+  `Compilation.Interpret` add `WYL0530` after a library passes every other check, so `wyl build`,
+  `wyl run`, `wyl interpret`, `wyl emit`, and `wyl ir` refuse a library. The catalog test compiles a
+  library's page example with `Compilation.Compile` for that reason.
+- The test runner needs no change for a library. `packages/library_check` lists `WYL0530` at its
+  `kind` line, which shows that the library has no other error. The other new tests are
+  `manifest_kind`, `manifest_versions`, `library_no_version`, `library_main`, and `program_kind`.
+  `manifest_keys` now lists `WYL0528` for its `version` line.
 
 ## 7. Loading and naming dependencies
 

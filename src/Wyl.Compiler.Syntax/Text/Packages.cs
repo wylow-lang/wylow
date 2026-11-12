@@ -1,29 +1,35 @@
 namespace Wyl.Compiler.Text;
 
+/// <summary>What a package is built into (spec programs.packages).</summary>
+public enum PackageKind { Program, Library }
+
 /// <summary>
 /// A package (spec programs.packages): the unit of compilation, whose modules are its directories.
 /// A file compiled on its own is an unnamed package of one module.
 /// </summary>
 public sealed class Package
 {
-    Package(string? name)
+    Package(string? name, PackageKind kind)
     {
         Name = name;
+        Kind = kind;
         Root = new Module(this, null, "");
     }
 
     /// <summary>The standard library, which every program is compiled with.</summary>
-    public static Package Std { get; } = new("std");
+    public static Package Std { get; } = new("std", PackageKind.Library);
 
     /// <summary>A lone file's package, which no other package can name.</summary>
-    public static Package Unnamed() => new(null);
+    public static Package Unnamed() => new(null, PackageKind.Program);
 
     /// <summary>A package with a manifest; its name was checked against the manifest's rules (spec programs.manifest).</summary>
-    public static Package Named(string name) =>
-        name == Std.Name ? throw new ArgumentException("only the standard library is 'std'", nameof(name)) : new(name);
+    public static Package Named(string name, PackageKind kind) =>
+        name == Std.Name ? throw new ArgumentException("only the standard library is 'std'", nameof(name)) : new(name, kind);
 
     /// <summary>The name other packages write it by, or null for a lone file.</summary>
     public string? Name { get; }
+
+    public PackageKind Kind { get; }
 
     public bool IsStd => this == Std;
 

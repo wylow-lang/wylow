@@ -13,6 +13,15 @@ public sealed record Manifest(string Name, Location NameLocation)
 {
     public const string FileName = "package.wylcfg";
 
+    /// <summary>The package's kind, a program if the manifest has no <c>kind</c> entry.</summary>
+    public PackageKind Kind { get; init; } = PackageKind.Program;
+
+    /// <summary>The key of the <c>kind</c> entry, or null if the manifest has none.</summary>
+    public Location? KindLocation { get; init; }
+
+    /// <summary>The package's version, or null if the manifest gives none.</summary>
+    public PackageVersion? Version { get; init; }
+
     /// <summary>The platforms that a <c>native</c> block may hold a block for.</summary>
     public static readonly string[] Platforms = ["windows", "linux", "macos"];
 
@@ -38,7 +47,7 @@ public sealed record Manifest(string Name, Location NameLocation)
 
     sealed record BlockEntry(string Key, Location KeyLocation, IReadOnlyList<Entry> Entries) : Entry(Key, KeyLocation);
 
-    enum Kind { String, List, Block }
+    enum ValueKind { String, List, Block }
 
     /// <summary>The manifest, or null with the errors reported if it doesn't give a usable name.</summary>
     public static Manifest? Read(SourceText source, DiagnosticBag diagnostics)
@@ -46,23 +55,40 @@ public sealed record Manifest(string Name, Location NameLocation)
         int errors = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
         var reader = new Reader(source, diagnostics, new Lexer(source, diagnostics).Lex());
         var entries = reader.ReadEntries(nested: false);
-        var keys = Check(entries, [("name", Kind.String), ("dependencies", Kind.Block), ("native", Kind.Block)], diagnostics);
+        var keys = Check(entries, [("name", ValueKind.String), ("kind", ValueKind.String), ("version", ValueKind.String), ("dependencies", ValueKind.Block), ("native", ValueKind.Block)], diagnostics);
+
+        var kind = PackageKind.Program;
+        if (keys.GetValueOrDefault("kind") is ValueEntry { Text: { } kindText } kindEntry)
+        {
+            if (kindText == "library")
+                kind = PackageKind.Library;
+            else if (kindText != "program")
+                diagnostics.Add(Catalog.UnknownPackageKind(kindEntry.KeyLocation, kindText));
+        }
+        var version = ReadVersion(keys.GetValueOrDefault("version"), patchOptional: false, diagnostics);
+        if (kind == PackageKind.Library && !keys.ContainsKey("version"))
+            diagnostics.Add(Catalog.LibraryWithoutVersion(keys["kind"].KeyLocation));
 
         if (keys.GetValueOrDefault("dependencies") is BlockEntry dependencies)
         {
             foreach (var dependency in dependencies.Entries)
             {
                 if (dependency is not BlockEntry block)
+                {
                     diagnostics.Add(Catalog.DependencyNotBlock(dependency.KeyLocation, dependency.Key));
-                else if (Check(block.Entries, [("path", Kind.String)], diagnostics).Count == 0 && !block.Entries.Any(e => e.Key == "path"))
+                    continue;
+                }
+                var given = Check(block.Entries, [("path", ValueKind.String), ("version", ValueKind.String)], diagnostics);
+                if (!block.Entries.Any(e => e.Key == "path"))
                     diagnostics.Add(Catalog.DependencyWithoutPath(block.KeyLocation, block.Key));
+                ReadVersion(given.GetValueOrDefault("version"), patchOptional: true, diagnostics);
             }
             diagnostics.Add(Catalog.UnusableManifestKey(dependencies.KeyLocation, "dependencies"));
         }
         List<NativeList> nativeLists = [];
         if (keys.GetValueOrDefault("native") is BlockEntry native)
         {
-            var given = Check(native.Entries, [.. NativeListKeys, .. Platforms.Select(p => (p, Kind.Block))], diagnostics);
+            var given = Check(native.Entries, [.. NativeListKeys, .. Platforms.Select(p => (p, ValueKind.Block))], diagnostics);
             nativeLists.AddRange(Lists(null, given.Values));
             foreach (var platform in Platforms)
             {
@@ -82,22 +108,39 @@ public sealed record Manifest(string Name, Location NameLocation)
         else if (!Lexer.IsIdentifier(name))
             diagnostics.Add(Catalog.PackageNameNotIdentifier(entry.KeyLocation, name));
         bool failed = diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error) > errors;
-        return failed ? null : new Manifest(name, entry.KeyLocation) { Native = nativeLists };
+        return failed ? null : new Manifest(name, entry.KeyLocation)
+        {
+            Kind = kind,
+            KindLocation = keys.GetValueOrDefault("kind")?.KeyLocation,
+            Version = version,
+            Native = nativeLists,
+        };
 
         static IEnumerable<NativeList> Lists(string? platform, IEnumerable<Entry> entries) =>
             entries.OfType<ValueEntry>().Where(e => e.List is not null).Select(e => new NativeList(platform, e.Key, e.List!, e.KeyLocation));
     }
 
-    static readonly (string Key, Kind Kind)[] NativeListKeys =
-        [("include", Kind.List), ("libraryPaths", Kind.List), ("link", Kind.List), ("copy", Kind.List), ("defines", Kind.List)];
+    /// <summary>The version that a <c>version</c> entry gives, or null with the error reported if its text is not a version.</summary>
+    static PackageVersion? ReadVersion(Entry? entry, bool patchOptional, DiagnosticBag diagnostics)
+    {
+        if (entry is not ValueEntry { Text: { } text })
+            return null;
+        if (PackageVersion.Parse(text, patchOptional) is { } version)
+            return version;
+        diagnostics.Add(Catalog.MalformedVersion(entry.KeyLocation, text, patchOptional ? "'major.minor' or 'major.minor.patch'" : "'major.minor.patch'"));
+        return null;
+    }
+
+    static readonly (string Key, ValueKind Kind)[] NativeListKeys =
+        [("include", ValueKind.List), ("libraryPaths", ValueKind.List), ("link", ValueKind.List), ("copy", ValueKind.List), ("defines", ValueKind.List)];
 
     /// <summary>Checks a list of entries against its keys and their kinds, and returns each one given, by key.</summary>
-    static Dictionary<string, Entry> Check(IReadOnlyList<Entry> entries, (string Key, Kind Kind)[] schema, DiagnosticBag diagnostics)
+    static Dictionary<string, Entry> Check(IReadOnlyList<Entry> entries, (string Key, ValueKind Kind)[] schema, DiagnosticBag diagnostics)
     {
         var given = new Dictionary<string, Entry>(StringComparer.Ordinal);
         foreach (var entry in entries)
         {
-            var kind = Array.FindIndex(schema, s => s.Key == entry.Key) is >= 0 and var index ? schema[index].Kind : (Kind?)null;
+            var kind = Array.FindIndex(schema, s => s.Key == entry.Key) is >= 0 and var index ? schema[index].Kind : (ValueKind?)null;
             if (kind is null)
             {
                 var keys = string.Join(", ", schema.Select(s => $"'{s.Key}'"));
@@ -111,13 +154,13 @@ public sealed record Manifest(string Name, Location NameLocation)
             }
             var actual = entry switch
             {
-                BlockEntry => Kind.Block,
-                ValueEntry { Text: not null } => Kind.String,
-                _ => Kind.List,
+                BlockEntry => ValueKind.Block,
+                ValueEntry { Text: not null } => ValueKind.String,
+                _ => ValueKind.List,
             };
             if (actual != kind)
             {
-                diagnostics.Add(kind switch { Kind.String => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a string", $"{entry.Key} = \"...\";"), Kind.List => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a list of strings", $"{entry.Key} = [\"...\"];"), _ => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a block of entries", $"{entry.Key} {{ ... }}"), });
+                diagnostics.Add(kind switch { ValueKind.String => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a string", $"{entry.Key} = \"...\";"), ValueKind.List => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a list of strings", $"{entry.Key} = [\"...\"];"), _ => Catalog.ManifestValueKind(entry.KeyLocation, entry.Key, "a block of entries", $"{entry.Key} {{ ... }}"), });
                 continue;
             }
             given[entry.Key] = entry;

@@ -128,6 +128,9 @@ static partial class CatalogSelfTests
         }
         var result = Compilation.Lower(sources, DiagnosticsOnly.Options);
         IEnumerable<Diagnostic> diagnostics = result.Diagnostics;
+        // A library that checks cleanly is an error only when a command builds or runs it.
+        if (result.Success && sources.Package.Kind == PackageKind.Library)
+            diagnostics = Compilation.Compile(sources, DiagnosticsOnly.Options).Diagnostics;
         // A header that does not match an extern block is an error that only the C++ build finds.
         if (result.Success && sources.Native.Directory is not null)
         {

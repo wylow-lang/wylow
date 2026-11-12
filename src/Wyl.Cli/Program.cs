@@ -12,7 +12,7 @@ const string Usage = """
     commands:
       run      build and run the program
       build    build an executable
-      check    report errors without building
+      check    report errors without building; the one command that takes a library
       emit     print the generated C++
       ir       print the mid-level IR of the program's functions
       interpret
@@ -103,16 +103,21 @@ if (command == "interpret")
     return result.Status is InterpretationStatus.Completed or InterpretationStatus.Panicked ? result.ExitCode : 1;
 }
 
-if (command is "check" or "emit" or "ir")
+// A library is checked like a program, but it has no entry point to emit or run.
+if (command == "check")
+{
+    var checkedProgram = Compilation.Lower(source, options);
+    ReportDiagnostics(checkedProgram.Diagnostics);
+    return checkedProgram.Success ? 0 : 1;
+}
+
+if (command is "emit" or "ir")
 {
     var compilation = Compilation.Compile(source, options);
     ReportDiagnostics(compilation.Diagnostics);
     if (!compilation.Success)
         return 1;
-    if (command == "emit")
-        Console.Write(compilation.Cpp);
-    else if (command == "ir")
-        Console.Write(compilation.IrText());
+    Console.Write(command == "emit" ? compilation.Cpp : compilation.IrText());
     return 0;
 }
 

@@ -1,0 +1,3 @@
+void main() {
+    std::print("ran");                  // output: ran
+}

@@ -1,0 +1,2 @@
+// A library has no entry point, so its root module must not declare 'main'.
+void main() { }                         // error[WYL0529]: library 'library_main' has a 'main' function in its root module

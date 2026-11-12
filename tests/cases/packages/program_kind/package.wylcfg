@@ -1,0 +1,4 @@
+// A program may say that it is one, and may give its version.
+name = "program_kind";
+kind = "program";
+version = "2.0.0";

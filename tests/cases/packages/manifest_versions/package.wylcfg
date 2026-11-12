@@ -1,0 +1,20 @@
+// A package's version has three numbers. A dependency entry may leave out the patch number.
+name = "manifest_versions";
+kind = "program";
+version = "0.10.2";
+
+dependencies {                                  // error[WYL0031]: manifest key 'dependencies' cannot be used
+    a { path = "../a"; version = "1.4"; }
+    b { path = "../b"; version = "0.0.0"; }
+    c { path = "../c"; version = "123456789012345678901234567890.0"; }
+    d { path = "../d"; version = "1"; }         // error[WYL0528]: version '1' does not have the form 'major.minor' or 'major.minor.patch'
+    e { path = "../e"; version = "1.4.2.0"; }   // error[WYL0528]: version '1.4.2.0' does not have the form 'major.minor' or 'major.minor.patch'
+    f { path = "../f"; version = "01.4"; }      // error[WYL0528]: version '01.4' does not have the form 'major.minor' or 'major.minor.patch'
+    g { path = "../g"; version = "1.4.x"; }     // error[WYL0528]: version '1.4.x' does not have the form 'major.minor' or 'major.minor.patch'
+    h { path = "../h"; version = "1.-4"; }      // error[WYL0528]: version '1.-4' does not have the form 'major.minor' or 'major.minor.patch'
+    i { path = "../i"; version = "1..4"; }      // error[WYL0528]: version '1..4' does not have the form 'major.minor' or 'major.minor.patch'
+    j { path = "../j"; version = " 1.4"; }      // error[WYL0528]: version ' 1.4' does not have the form 'major.minor' or 'major.minor.patch'
+    k { path = "../k"; version = "1.4.0-beta"; } // error[WYL0528]: version '1.4.0-beta' does not have the form 'major.minor' or 'major.minor.patch'
+    l { version = "2.0"; }                      // error[WYL0030]: dependency 'l' has no 'path'
+    m { path = "../m"; version = ["1.4"]; }     // error[WYL0025]: 'version' takes a string
+}

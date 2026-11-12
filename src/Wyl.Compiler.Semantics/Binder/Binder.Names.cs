@@ -288,13 +288,22 @@ public sealed partial class Binder
         }
     }
 
-    /// <summary>The program's entry point: the one <c>main</c> of the package's root module (spec programs.entry).</summary>
+    /// <summary>
+    /// The program's entry point: the one <c>main</c> of the package's root module, or null for a
+    /// library, which must have none (spec programs.entry).
+    /// </summary>
     FunctionSymbol? FindMain(Package package)
     {
         var root = package.Root;
         var candidates = root.Files.SelectMany(f => FileNames(f).Functions.GetValueOrDefault("main") ?? [])
             .Concat(ModuleNames(root).Functions.GetValueOrDefault("main") ?? [])
             .ToList();
+        if (package.Kind == PackageKind.Library)
+        {
+            foreach (var candidate in candidates)
+                Error(Catalog.LibraryMain(candidate.Declaration!.NameLocation, package.Name!));
+            return null;
+        }
         if (candidates.Count == 0)
         {
             if (root.Files.FirstOrDefault() is { } first)

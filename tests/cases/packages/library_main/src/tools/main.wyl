@@ -1,0 +1,2 @@
+// A 'main' outside the root module is an ordinary function.
+pub void main() { }

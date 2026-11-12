@@ -1,0 +1,2 @@
+name = "library_no_version";
+kind = "library";                       // error[WYL0527]: library does not give its 'version'
