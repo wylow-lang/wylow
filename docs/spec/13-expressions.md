@@ -85,7 +85,7 @@ void main() {
 
 ```ebnf
 New          = "new" Type ( ArgumentList | "[" Expression "]" ) .
-ArrayLiteral = "[" [ Expression { "," Expression } ] "]" .
+ArrayLiteral = "[" [ Expression { "," Expression } [ "," ] ] "]" .
 ```
 
 `new` appears only where memory is allocated: for a class object or a heap array. A struct value is
@@ -107,7 +107,7 @@ var d = Direction.North;            // an enum value
 - `new T[n]` is an array of `n` elements, each the default value of `T`
   ([Arrays](04-types.md#types.arrays)). `new T[n]` panics if `n` is negative.
 - An array literal `[e1, e2, ...]` makes a fixed array
-  ([Fixed arrays](04-types.md#types.fixed-arrays)).
+  ([Fixed arrays](04-types.md#types.fixed-arrays)). A comma may follow the last element.
 - `T()` is the default value of a defaultable struct ([The default value](07-structs.md#structs.constructors.default)).
 - It is a compile-time error to construct a type parameter, as `T()` or `new T()`.
 

@@ -30,10 +30,21 @@ int[3] makeArray() {
     return [7, 8, 9];
 }
 
+/// Returns rows written one per line, with a comma after the last.
+int[3][2] makeRows() {
+    return [
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ];
+}
+
 void main() {
     mut int[4] a = [1, 2, 3, 4];
     std::print(a.length);       // output: 4
     std::print(makeArray().length); // output: 3
+    std::print(makeRows()[2][1]);   // output: 6
+    std::print([4,].length);        // output: 1
     std::print(a[0] + a[3]);    // output: 5
     a[1] = 20;
     a[2] += 10;

@@ -1,0 +1,6 @@
+// An array literal allows one comma after its last element, and no other empty element
+// (spec expressions.construction).
+void main() {
+    int[1] empty = [,];                 // error[WYL0001]: expected an expression
+    int[2] doubled = [1,, 2];           // error[WYL0001]: expected an expression
+}

@@ -255,7 +255,7 @@ public sealed partial class Parser
 
     List<Expr> ParseArgumentList() => ParseDelimitedExpressions(TokenKind.OpenParen, TokenKind.CloseParen, "')'", ParseArgument);
 
-    List<Expr> ParseDelimitedExpressions(TokenKind open, TokenKind close, string closeDescription, Func<Expr> parse)
+    List<Expr> ParseDelimitedExpressions(TokenKind open, TokenKind close, string closeDescription, Func<Expr> parse, bool trailingComma = false)
     {
         Expect(open, open == TokenKind.OpenParen ? "'('" : "'['");
         var expressions = new List<Expr>();
@@ -263,7 +263,7 @@ public sealed partial class Parser
         {
             do
                 expressions.Add(parse());
-            while (Accept(TokenKind.Comma));
+            while (Accept(TokenKind.Comma) && !(trailingComma && At(close)));
         }
         Expect(close, closeDescription);
         return expressions;
@@ -413,7 +413,7 @@ public sealed partial class Parser
             case TokenKind.OpenBracket:
             {
                 int start = position;
-                var elements = ParseDelimitedExpressions(TokenKind.OpenBracket, TokenKind.CloseBracket, "']'", ParseExpression);
+                var elements = ParseDelimitedExpressions(TokenKind.OpenBracket, TokenKind.CloseBracket, "']'", ParseExpression, trailingComma: true);
                 return new ArrayLiteralExpr(LocationFrom(start), elements);
             }
             case TokenKind.SwitchKeyword:
