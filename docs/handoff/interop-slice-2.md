@@ -35,13 +35,12 @@ Step 2 is committed. These facts from step 2 matter later:
 - `interop/buffers` passes a byte buffer's `data()` and `byteLength()` to a C++ function that
   takes `const void*`.
 
-## 3. Loose ends of slice 1
+## 3. Loose ends of slice 1 (done)
 
-- The interpreter gives a pointer to a field the field's cell. If the whole struct is assigned
-  later, the pointer still reads the old cell, while C++ reads the new value. Add a test that prints
-  the difference, and fix the interpreter.
-- Write a decision record for `WYL0518`, the rule that each directory and file that the manifest's
-  `native` block names must exist.
+Step 3 is committed. The interpreter now assigns a struct or a fixed array into the cells it
+already has (`Interpreter.Exchange`), so a pointer to a field reads the new value, as in C++
+(`unsafe/field_pointers`). Decision 0095 records why each path of the `native` block must exist,
+and decision 0096 records the choices of step 2.
 
 ## 4. The SQLite binding
 

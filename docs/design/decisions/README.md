@@ -122,3 +122,5 @@ history and a reason can be found without searching the spec.
 | [0092](0092-unsafe-interfaces-and-element-owners.md) | Unsafe interfaces, and `memory::ElementOwner` reports the values a class keeps in raw memory to the cycle collector |
 | [0093](0093-hash-map-and-hash-set.md) | `HashMap` and `HashSet`: concrete classes, open addressing with linear probing, and `HashMap` in the unsafe floor |
 | [0094](0094-unique-structs-backed-by-cpp-classes.md) | The standard library may declare a struct backed by a C++ class `unique` |
+| [0095](0095-native-paths-must-exist.md) | Each path that the manifest's `native` block names must exist |
+| [0096](0096-void-pointers-and-byte-lengths.md) | `void*` converts from every pointer, and `byteLength()` is an `int` that panics on overflow |
