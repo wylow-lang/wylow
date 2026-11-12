@@ -12,21 +12,35 @@ public sealed partial class Parser
         public DestructorDecl? Destructor;
     }
 
-    TypeDecl ParseTypeDecl(int start, ModifierList modifiers, TypeKind kind)
+    /// <summary>
+    /// A type declaration, from its keyword on. In an extern block, a struct may be opaque, and
+    /// <paramref name="isUnion"/> says that the keyword was <c>union</c>.
+    /// </summary>
+    TypeDecl ParseTypeDecl(int start, ModifierList modifiers, TypeKind kind, bool isUnion = false)
     {
         Advance();
-        // The standard library declares a primitive type's members in an extern struct of its name;
-        // the binder rejects one outside it.
-        var name = kind == TypeKind.Struct && (modifiers.Flags & Modifiers.Extern) != 0 && SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) && !At(TokenKind.VoidKeyword)
+        // The standard library declares a primitive type's members in a struct of its name in an
+        // extern block; the binder rejects one outside it.
+        var name = kind == TypeKind.Struct && inExternBlock && !isUnion && SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) && !At(TokenKind.VoidKeyword)
             ? Advance()
             : Expect(TokenKind.Identifier, kind switch
         {
-            TypeKind.Struct => "a struct name",
+            TypeKind.Struct => isUnion ? "a union name" : "a struct name",
             TypeKind.Class => "a class name",
             TypeKind.Enum => "an enum name",
             _ => "an interface name",
         });
         var typeParameters = ParseTypeParameters();
+
+        if (inExternBlock && !isUnion && Accept(TokenKind.Semicolon))
+        {
+            return new TypeDecl(LocationFrom(start), modifiers.Flags, kind, name.Text, Loc(name.Span), typeParameters,
+                null, [], [], [], null, [])
+            {
+                Visibility = modifiers.Visibility,
+                IsOpaque = true,
+            };
+        }
 
         if (kind == TypeKind.Enum && At(TokenKind.Colon))
         {
@@ -77,6 +91,7 @@ public sealed partial class Parser
             kind == TypeKind.Enum ? null : baseType, interfaces, members.Fields, members.Methods, members.Destructor, variants)
         {
             Visibility = modifiers.Visibility,
+            IsUnion = isUnion,
         };
     }
 
@@ -200,7 +215,7 @@ public sealed partial class Parser
 
         if (At(TokenKind.Identifier) && Current.Text == typeName && Peek(1).Kind == TokenKind.OpenParen)
         {
-            Disallow(modifiers, Modifiers.Static | Modifiers.Mut | Modifiers.Extern | InheritanceModifiers, token => Catalog.ModifierOnConstructor(Loc(token.Span), token.Text));
+            Disallow(modifiers, Modifiers.Static | Modifiers.Mut | InheritanceModifiers, token => Catalog.ModifierOnConstructor(Loc(token.Span), token.Text));
             var constructorName = Advance();
             if (kind == TypeKind.Interface)
                 Report(Catalog.InterfaceConstructor(Loc(constructorName.Span)));
@@ -280,7 +295,7 @@ public sealed partial class Parser
             Report(Catalog.EnumField(Loc(name.Span)));
         if (kind == TypeKind.Struct)
             Disallow(modifiers, Modifiers.Mut, token => Catalog.MutStructField(Loc(token.Span)));
-        Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe | Modifiers.Extern, token => Catalog.ModifierOnField(Loc(token.Span), token.Text));
+        Disallow(modifiers, InheritanceModifiers | Modifiers.Unsafe, token => Catalog.ModifierOnField(Loc(token.Span), token.Text));
         int errors = diagnostics.ErrorCount;
         while (true)
         {
@@ -306,7 +321,9 @@ public sealed partial class Parser
             if (method.Body is not null)
                 Report(Catalog.AbstractMethodBody(method.NameLocation, what));
         }
-        else
+        // A method of a struct in an extern block has a body if Wylow code implements it, and none
+        // if C++ does.
+        else if (!inExternBlock)
         {
             RequireBody(method);
         }

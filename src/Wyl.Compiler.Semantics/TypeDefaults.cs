@@ -30,7 +30,7 @@ public static class TypeDefaults
         /// </summary>
         public bool HasDefaultCode =>
             type is FixedArrayType array ? array.Element.HasDefaultCode
-            : type.IsTypeParameter || (type.IsStruct && !type.Symbol!.IsExtern
+            : type.IsTypeParameter || (type.IsStruct && !type.Symbol!.IsCppClass
                 && (type.Symbol.IsGeneric || type.Symbol.Fields.Any(f => f.Initializer is not null || f.Type.HasDefaultCode) || !type.HasInitialValue));
 
         /// <summary>
@@ -41,7 +41,7 @@ public static class TypeDefaults
         public bool DefaultRunsCode =>
             type.IsTypeParameter
             || (type is FixedArrayType array && array.Element.DefaultRunsCode)
-            || (type.IsStruct && !type.Symbol!.IsExtern && type.Symbol.Fields.Any(f =>
+            || (type.IsStruct && !type.Symbol!.IsCppClass && type.Symbol.Fields.Any(f =>
                 f.Initializer is not (null or BoundLiteral or BoundNullLiteral) || (f.Initializer is null && TypeMap.For(type).Apply(f.Type).DefaultRunsCode)));
     }
 
@@ -86,7 +86,7 @@ public static class TypeDefaults
             return true;
         if (type is FixedArrayType array)
             return HasInitialValue(array.Element, visiting);
-        if (!type.IsStructOrEnum || type.Symbol!.IsExtern || !visiting.Add(type))
+        if (!type.IsStructOrEnum || type.Symbol!.IsCppClass || !visiting.Add(type))
             return true;
         if (type.Symbol.Destructor is not null)
             return false;

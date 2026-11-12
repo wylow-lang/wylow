@@ -2,567 +2,660 @@
 // declaration only gives its type members: `int` still names the built-in type. The runtime
 // implements the extern methods, and the others are written here.
 
-/// The members of `bool`.
-pub extern struct bool implements Hashable<bool>, Printable {
-    /// Returns `"true"` or `"false"`.
-    @Pure
-    pub extern String toString();
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in bool other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add(this ? 1L : 0L);
-    }
-}
-
-/// The members of `char`.
-pub extern struct char implements Comparable<char>, Hashable<char>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, by code
-    /// point.
-    @Pure
-    pub extern int compareTo(in char other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in char other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `sbyte`.
-pub extern struct sbyte implements Comparable<sbyte>, Hashable<sbyte>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in sbyte other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `sbyte`.
-    @Pure
-    pub extern sbyte wrappingAdd(sbyte other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `sbyte`.
-    @Pure
-    pub extern sbyte wrappingSub(sbyte other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `sbyte`.
-    @Pure
-    pub extern sbyte wrappingMul(sbyte other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `sbyte`.
-    @Pure
-    pub extern sbyte? checkedAdd(sbyte other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `sbyte`.
-    @Pure
-    pub extern sbyte? checkedSub(sbyte other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `sbyte`.
-    @Pure
-    pub extern sbyte? checkedMul(sbyte other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in sbyte other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `byte`.
-pub extern struct byte implements Comparable<byte>, Hashable<byte>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in byte other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `byte`.
-    @Pure
-    pub extern byte wrappingAdd(byte other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `byte`.
-    @Pure
-    pub extern byte wrappingSub(byte other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `byte`.
-    @Pure
-    pub extern byte wrappingMul(byte other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `byte`.
-    @Pure
-    pub extern byte? checkedAdd(byte other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `byte`.
-    @Pure
-    pub extern byte? checkedSub(byte other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `byte`.
-    @Pure
-    pub extern byte? checkedMul(byte other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in byte other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `short`.
-pub extern struct short implements Comparable<short>, Hashable<short>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in short other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `short`.
-    @Pure
-    pub extern short wrappingAdd(short other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `short`.
-    @Pure
-    pub extern short wrappingSub(short other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `short`.
-    @Pure
-    pub extern short wrappingMul(short other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `short`.
-    @Pure
-    pub extern short? checkedAdd(short other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `short`.
-    @Pure
-    pub extern short? checkedSub(short other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `short`.
-    @Pure
-    pub extern short? checkedMul(short other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in short other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `ushort`.
-pub extern struct ushort implements Comparable<ushort>, Hashable<ushort>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in ushort other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `ushort`.
-    @Pure
-    pub extern ushort wrappingAdd(ushort other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `ushort`.
-    @Pure
-    pub extern ushort wrappingSub(ushort other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `ushort`.
-    @Pure
-    pub extern ushort wrappingMul(ushort other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `ushort`.
-    @Pure
-    pub extern ushort? checkedAdd(ushort other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `ushort`.
-    @Pure
-    pub extern ushort? checkedSub(ushort other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `ushort`.
-    @Pure
-    pub extern ushort? checkedMul(ushort other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in ushort other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `int`.
-pub extern struct int implements Comparable<int>, Hashable<int>, Printable {
-
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in int other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `int`.
-    @Pure
-    pub extern int wrappingAdd(int other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `int`.
-    @Pure
-    pub extern int wrappingSub(int other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `int`.
-    @Pure
-    pub extern int wrappingMul(int other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `int`.
-    @Pure
-    pub extern int? checkedAdd(int other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `int`.
-    @Pure
-    pub extern int? checkedSub(int other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `int`.
-    @Pure
-    pub extern int? checkedMul(int other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in int other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `uint`.
-pub extern struct uint implements Comparable<uint>, Hashable<uint>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in uint other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `uint`.
-    @Pure
-    pub extern uint wrappingAdd(uint other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `uint`.
-    @Pure
-    pub extern uint wrappingSub(uint other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `uint`.
-    @Pure
-    pub extern uint wrappingMul(uint other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `uint`.
-    @Pure
-    pub extern uint? checkedAdd(uint other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `uint`.
-    @Pure
-    pub extern uint? checkedSub(uint other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `uint`.
-    @Pure
-    pub extern uint? checkedMul(uint other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in uint other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `long`.
-pub extern struct long implements Comparable<long>, Hashable<long>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in long other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `long`.
-    @Pure
-    pub extern long wrappingAdd(long other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `long`.
-    @Pure
-    pub extern long wrappingSub(long other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `long`.
-    @Pure
-    pub extern long wrappingMul(long other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `long`.
-    @Pure
-    pub extern long? checkedAdd(long other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `long`.
-    @Pure
-    pub extern long? checkedSub(long other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `long`.
-    @Pure
-    pub extern long? checkedMul(long other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in long other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `ulong`.
-pub extern struct ulong implements Comparable<ulong>, Hashable<ulong>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in ulong other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `ulong`.
-    @Pure
-    pub extern ulong wrappingAdd(ulong other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `ulong`.
-    @Pure
-    pub extern ulong wrappingSub(ulong other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `ulong`.
-    @Pure
-    pub extern ulong wrappingMul(ulong other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `ulong`.
-    @Pure
-    pub extern ulong? checkedAdd(ulong other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `ulong`.
-    @Pure
-    pub extern ulong? checkedSub(ulong other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `ulong`.
-    @Pure
-    pub extern ulong? checkedMul(ulong other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in ulong other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `nint`.
-pub extern struct nint implements Comparable<nint>, Hashable<nint>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in nint other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `nint`.
-    @Pure
-    pub extern nint wrappingAdd(nint other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `nint`.
-    @Pure
-    pub extern nint wrappingSub(nint other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `nint`.
-    @Pure
-    pub extern nint wrappingMul(nint other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `nint`.
-    @Pure
-    pub extern nint? checkedAdd(nint other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `nint`.
-    @Pure
-    pub extern nint? checkedSub(nint other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `nint`.
-    @Pure
-    pub extern nint? checkedMul(nint other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in nint other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `nuint`.
-pub extern struct nuint implements Comparable<nuint>, Hashable<nuint>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
-    @Pure
-    pub extern int compareTo(in nuint other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `nuint`.
-    @Pure
-    pub extern nuint wrappingAdd(nuint other);
-
-    /// Returns this value minus `other`, modulo 2^n for the width `n` of `nuint`.
-    @Pure
-    pub extern nuint wrappingSub(nuint other);
-
-    /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `nuint`.
-    @Pure
-    pub extern nuint wrappingMul(nuint other);
-
-    /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `nuint`.
-    @Pure
-    pub extern nuint? checkedAdd(nuint other);
-
-    /// Returns this value minus `other`, or `null` if the difference is not a value of `nuint`.
-    @Pure
-    pub extern nuint? checkedSub(nuint other);
-
-    /// Returns the product of this value and `other`, or `null` if the product is not a value of
-    /// `nuint`.
-    @Pure
-    pub extern nuint? checkedMul(nuint other);
-
-    /// Returns whether this value equals `other`.
-    pub bool equals(in nuint other) {
-        return this == other;
-    }
-
-    /// Adds this value to `hasher`.
-    pub void hash(ref Hasher hasher) {
-        hasher.add((long)this);
-    }
-}
-
-/// The members of `float`.
-pub extern struct float implements Comparable<float>, Hashable<float>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in a
-    /// total order: -0 sorts before 0, and NaN after every other value, infinity included, and the
-    /// same as any other NaN.
-    @Pure
-    pub extern int compareTo(in float other);
-
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
-
-    /// Returns whether this value equals `other` in the order of `compareTo`: every NaN equals
-    /// every other NaN, and `-0` does not equal `0`, unlike `==`.
-    pub bool equals(in float other) {
-        return compareTo(other) == 0;
-    }
-
-    /// Adds this value's bits to `hasher`, with every NaN as one NaN, so that values that `equals`
-    /// finds equal hash alike.
-    pub void hash(ref Hasher hasher) {
-        if (this != this) {
-            hasher.add(0x7FC0_0000);
-        } else {
-            hasher.add(toBits());
+@Include("wyl.h")
+@CppNamespace("wyl")
+extern {
+    /// The members of `bool`.
+    pub struct bool implements Hashable<bool>, Printable {
+        /// Returns `"true"` or `"false"`.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in bool other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add(this ? 1L : 0L);
         }
     }
 
-    // The IEEE 754 bits of the value.
-    @Pure
-    package extern int toBits();
-}
+    /// The members of `char`.
+    pub struct char implements Comparable<char>, Hashable<char>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, by code
+        /// point.
+        @Safe
+        @Pure
+        pub int compareTo(in char other);
 
-/// The members of `double`.
-pub extern struct double implements Comparable<double>, Hashable<double>, Printable {
-    /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in the
-    /// same total order as `float`'s.
-    @Pure
-    pub extern int compareTo(in double other);
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
 
-    /// Returns the value as text, as interpolation writes it.
-    @Pure
-    pub extern String toString();
+        /// Returns whether this value equals `other`.
+        pub bool equals(in char other) {
+            return this == other;
+        }
 
-    /// Returns whether this value equals `other` in the order of `compareTo`: every NaN equals
-    /// every other NaN, and `-0` does not equal `0`, unlike `==`.
-    pub bool equals(in double other) {
-        return compareTo(other) == 0;
-    }
-
-    /// Adds this value's bits to `hasher`, with every NaN as one NaN, so that values that `equals`
-    /// finds equal hash alike.
-    pub void hash(ref Hasher hasher) {
-        if (this != this) {
-            hasher.add(0x7FF8_0000_0000_0000L);
-        } else {
-            hasher.add(toBits());
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
         }
     }
 
-    // The IEEE 754 bits of the value.
-    @Pure
-    package extern long toBits();
+    /// The members of `sbyte`.
+    pub struct sbyte implements Comparable<sbyte>, Hashable<sbyte>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in sbyte other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `sbyte`.
+        @Safe
+        @Pure
+        pub sbyte wrappingAdd(sbyte other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `sbyte`.
+        @Safe
+        @Pure
+        pub sbyte wrappingSub(sbyte other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `sbyte`.
+        @Safe
+        @Pure
+        pub sbyte wrappingMul(sbyte other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `sbyte`.
+        @Safe
+        @Pure
+        pub sbyte? checkedAdd(sbyte other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `sbyte`.
+        @Safe
+        @Pure
+        pub sbyte? checkedSub(sbyte other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `sbyte`.
+        @Safe
+        @Pure
+        pub sbyte? checkedMul(sbyte other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in sbyte other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `byte`.
+    pub struct byte implements Comparable<byte>, Hashable<byte>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in byte other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `byte`.
+        @Safe
+        @Pure
+        pub byte wrappingAdd(byte other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `byte`.
+        @Safe
+        @Pure
+        pub byte wrappingSub(byte other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `byte`.
+        @Safe
+        @Pure
+        pub byte wrappingMul(byte other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `byte`.
+        @Safe
+        @Pure
+        pub byte? checkedAdd(byte other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `byte`.
+        @Safe
+        @Pure
+        pub byte? checkedSub(byte other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `byte`.
+        @Safe
+        @Pure
+        pub byte? checkedMul(byte other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in byte other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `short`.
+    pub struct short implements Comparable<short>, Hashable<short>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in short other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `short`.
+        @Safe
+        @Pure
+        pub short wrappingAdd(short other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `short`.
+        @Safe
+        @Pure
+        pub short wrappingSub(short other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `short`.
+        @Safe
+        @Pure
+        pub short wrappingMul(short other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `short`.
+        @Safe
+        @Pure
+        pub short? checkedAdd(short other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `short`.
+        @Safe
+        @Pure
+        pub short? checkedSub(short other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `short`.
+        @Safe
+        @Pure
+        pub short? checkedMul(short other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in short other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `ushort`.
+    pub struct ushort implements Comparable<ushort>, Hashable<ushort>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in ushort other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `ushort`.
+        @Safe
+        @Pure
+        pub ushort wrappingAdd(ushort other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `ushort`.
+        @Safe
+        @Pure
+        pub ushort wrappingSub(ushort other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `ushort`.
+        @Safe
+        @Pure
+        pub ushort wrappingMul(ushort other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `ushort`.
+        @Safe
+        @Pure
+        pub ushort? checkedAdd(ushort other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `ushort`.
+        @Safe
+        @Pure
+        pub ushort? checkedSub(ushort other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `ushort`.
+        @Safe
+        @Pure
+        pub ushort? checkedMul(ushort other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in ushort other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `int`.
+    pub struct int implements Comparable<int>, Hashable<int>, Printable {
+
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in int other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `int`.
+        @Safe
+        @Pure
+        pub int wrappingAdd(int other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `int`.
+        @Safe
+        @Pure
+        pub int wrappingSub(int other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `int`.
+        @Safe
+        @Pure
+        pub int wrappingMul(int other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `int`.
+        @Safe
+        @Pure
+        pub int? checkedAdd(int other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `int`.
+        @Safe
+        @Pure
+        pub int? checkedSub(int other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `int`.
+        @Safe
+        @Pure
+        pub int? checkedMul(int other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in int other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `uint`.
+    pub struct uint implements Comparable<uint>, Hashable<uint>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in uint other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `uint`.
+        @Safe
+        @Pure
+        pub uint wrappingAdd(uint other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `uint`.
+        @Safe
+        @Pure
+        pub uint wrappingSub(uint other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `uint`.
+        @Safe
+        @Pure
+        pub uint wrappingMul(uint other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `uint`.
+        @Safe
+        @Pure
+        pub uint? checkedAdd(uint other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `uint`.
+        @Safe
+        @Pure
+        pub uint? checkedSub(uint other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `uint`.
+        @Safe
+        @Pure
+        pub uint? checkedMul(uint other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in uint other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `long`.
+    pub struct long implements Comparable<long>, Hashable<long>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in long other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `long`.
+        @Safe
+        @Pure
+        pub long wrappingAdd(long other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `long`.
+        @Safe
+        @Pure
+        pub long wrappingSub(long other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `long`.
+        @Safe
+        @Pure
+        pub long wrappingMul(long other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `long`.
+        @Safe
+        @Pure
+        pub long? checkedAdd(long other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `long`.
+        @Safe
+        @Pure
+        pub long? checkedSub(long other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `long`.
+        @Safe
+        @Pure
+        pub long? checkedMul(long other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in long other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `ulong`.
+    pub struct ulong implements Comparable<ulong>, Hashable<ulong>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in ulong other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `ulong`.
+        @Safe
+        @Pure
+        pub ulong wrappingAdd(ulong other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `ulong`.
+        @Safe
+        @Pure
+        pub ulong wrappingSub(ulong other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `ulong`.
+        @Safe
+        @Pure
+        pub ulong wrappingMul(ulong other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `ulong`.
+        @Safe
+        @Pure
+        pub ulong? checkedAdd(ulong other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `ulong`.
+        @Safe
+        @Pure
+        pub ulong? checkedSub(ulong other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `ulong`.
+        @Safe
+        @Pure
+        pub ulong? checkedMul(ulong other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in ulong other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `nint`.
+    pub struct nint implements Comparable<nint>, Hashable<nint>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in nint other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `nint`.
+        @Safe
+        @Pure
+        pub nint wrappingAdd(nint other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `nint`.
+        @Safe
+        @Pure
+        pub nint wrappingSub(nint other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `nint`.
+        @Safe
+        @Pure
+        pub nint wrappingMul(nint other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `nint`.
+        @Safe
+        @Pure
+        pub nint? checkedAdd(nint other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `nint`.
+        @Safe
+        @Pure
+        pub nint? checkedSub(nint other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `nint`.
+        @Safe
+        @Pure
+        pub nint? checkedMul(nint other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in nint other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `nuint`.
+    pub struct nuint implements Comparable<nuint>, Hashable<nuint>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`.
+        @Safe
+        @Pure
+        pub int compareTo(in nuint other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns the sum of this value and `other`, modulo 2^n for the width `n` of `nuint`.
+        @Safe
+        @Pure
+        pub nuint wrappingAdd(nuint other);
+
+        /// Returns this value minus `other`, modulo 2^n for the width `n` of `nuint`.
+        @Safe
+        @Pure
+        pub nuint wrappingSub(nuint other);
+
+        /// Returns the product of this value and `other`, modulo 2^n for the width `n` of `nuint`.
+        @Safe
+        @Pure
+        pub nuint wrappingMul(nuint other);
+
+        /// Returns the sum of this value and `other`, or `null` if the sum is not a value of `nuint`.
+        @Safe
+        @Pure
+        pub nuint? checkedAdd(nuint other);
+
+        /// Returns this value minus `other`, or `null` if the difference is not a value of `nuint`.
+        @Safe
+        @Pure
+        pub nuint? checkedSub(nuint other);
+
+        /// Returns the product of this value and `other`, or `null` if the product is not a value of
+        /// `nuint`.
+        @Safe
+        @Pure
+        pub nuint? checkedMul(nuint other);
+
+        /// Returns whether this value equals `other`.
+        pub bool equals(in nuint other) {
+            return this == other;
+        }
+
+        /// Adds this value to `hasher`.
+        pub void hash(ref Hasher hasher) {
+            hasher.add((long)this);
+        }
+    }
+
+    /// The members of `float`.
+    pub struct float implements Comparable<float>, Hashable<float>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in a
+        /// total order: -0 sorts before 0, and NaN after every other value, infinity included, and the
+        /// same as any other NaN.
+        @Safe
+        @Pure
+        pub int compareTo(in float other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns whether this value equals `other` in the order of `compareTo`: every NaN equals
+        /// every other NaN, and `-0` does not equal `0`, unlike `==`.
+        pub bool equals(in float other) {
+            return compareTo(other) == 0;
+        }
+
+        /// Adds this value's bits to `hasher`, with every NaN as one NaN, so that values that `equals`
+        /// finds equal hash alike.
+        pub void hash(ref Hasher hasher) {
+            if (this != this) {
+                hasher.add(0x7FC0_0000);
+            } else {
+                hasher.add(toBits());
+            }
+        }
+
+        // The IEEE 754 bits of the value.
+        @Safe
+        @Pure
+        package int toBits();
+    }
+
+    /// The members of `double`.
+    pub struct double implements Comparable<double>, Hashable<double>, Printable {
+        /// Returns -1, 0, or 1 as this value is less than, equal to, or greater than `other`, in the
+        /// same total order as `float`'s.
+        @Safe
+        @Pure
+        pub int compareTo(in double other);
+
+        /// Returns the value as text, as interpolation writes it.
+        @Safe
+        @Pure
+        pub String toString();
+
+        /// Returns whether this value equals `other` in the order of `compareTo`: every NaN equals
+        /// every other NaN, and `-0` does not equal `0`, unlike `==`.
+        pub bool equals(in double other) {
+            return compareTo(other) == 0;
+        }
+
+        /// Adds this value's bits to `hasher`, with every NaN as one NaN, so that values that `equals`
+        /// finds equal hash alike.
+        pub void hash(ref Hasher hasher) {
+            if (this != this) {
+                hasher.add(0x7FF8_0000_0000_0000L);
+            } else {
+                hasher.add(toBits());
+            }
+        }
+
+        // The IEEE 754 bits of the value.
+        @Safe
+        @Pure
+        package long toBits();
+    }
 }

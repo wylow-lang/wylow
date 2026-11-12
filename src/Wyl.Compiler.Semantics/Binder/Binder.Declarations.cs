@@ -9,7 +9,7 @@ public sealed partial class Binder
     TypeSymbol? DeclareType(TypeDecl decl)
     {
         // Only declares a built-in type's members and interfaces, so its name keeps naming the built-in type.
-        if (decl is { Kind: TypeKind.Struct } && StdlibSymbols.IsHostedTypeName(decl.Name) && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd)
+        if (decl is { Kind: TypeKind.Struct, Block.IsStd: true } && StdlibSymbols.IsHostedTypeName(decl.Name))
             return new TypeSymbol(decl, []);
         if (TakesLanguageName(decl.Name, decl.NameLocation))
             return null;
@@ -23,10 +23,11 @@ public sealed partial class Binder
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, OwnType(decl.Name, decl.Location.Source)?.Declaration.NameLocation, null, null));
             return null;
         }
-        if ((decl.Modifiers & Modifiers.Extern) != 0 && !decl.Location.Source.Module.Package.IsStd)
-            Error(Catalog.ExternStructOutsideStd(decl.NameLocation));
         HasCallerLocation(decl);
         var symbol = new TypeSymbol(decl, DeclareTypeParameters(decl.TypeParameters, []));
+        if (decl.Block is { } block)
+            symbol.CppName = BlockMemberCppName(decl, decl.Name, block);
+        CheckExternType(symbol);
         TableOf(decl).Types[decl.Name] = symbol;
         return symbol;
     }
@@ -161,12 +162,13 @@ public sealed partial class Binder
             Body = decl.Body,
             TypeParameters = ownTypeParameters,
             Reach = Reach.Of(decl),
-            IsUnsafe = (decl.Modifiers & Modifiers.Unsafe) != 0,
+            IsUnsafe = (decl.Modifiers & Modifiers.Unsafe) != 0 || IsUnsafeExtern(decl, null),
             PassesLocation = HasCallerLocation(decl),
-            BuiltinCppName = ExternName(decl, null),
-            IsPure = IsPure(decl),
+            BuiltinCppName = ExternFunctionName(decl, null),
+            IsPure = IsPure(decl, null),
         };
         typeParameters = [];
+        CheckExternFunction(function, null);
         CheckReturnsView(function);
 
         if (TakesLanguageName(decl.Name, decl.NameLocation))
@@ -278,12 +280,16 @@ public sealed partial class Binder
             DeclareVariants(s);
         foreach (var decl in s.Declaration.Fields)
         {
-            HasCallerLocation(decl);
+            HasCallerLocation(decl, s);
             var type = BindType(decl.Type, allowVoid: false);
             CheckStorable(type, decl.Type.Location, "the type of a field");
             var field = new FieldSymbol(decl.Name, type, s, decl);
             if (s.IsExtern)
-                Error(Catalog.ExternStructField(decl.NameLocation));
+            {
+                field.CppName = WrittenCppName(decl) ?? decl.Name;
+                if (decl.Initializer is not null)
+                    Error(Catalog.ExternFieldInitializer(decl.NameLocation, decl.Name, s.IsUnion ? "union" : "struct"));
+            }
             var previous = s.FindField(decl.Name) ?? s.FindStaticField(decl.Name);
             if (previous is not null)
             {
@@ -327,7 +333,7 @@ public sealed partial class Binder
             {
                 if (s.IsExtern)
                 {
-                    Error(Catalog.ExternStructConstructor(decl.NameLocation));
+                    Error(Catalog.ExternStructConstructor(decl.NameLocation, s.IsUnion ? "union" : "struct"));
                     continue;
                 }
                 if (parameters.Count == 0 && !writesReceiver && s.Kind == TypeKind.Struct)
@@ -343,7 +349,7 @@ public sealed partial class Binder
                     IsConstructor = true,
                     Reach = reach,
                     IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
-                    PassesLocation = HasCallerLocation(decl),
+                    PassesLocation = HasCallerLocation(decl, s),
                 };
                 BindWhere(decl, constructor, s);
                 CheckSignatureIn(constructor, signatureChecks);
@@ -373,11 +379,12 @@ public sealed partial class Binder
                 IsAbstract = isInterface || (modifiers & Modifiers.Abstract) != 0,
                 IsFinal = (modifiers & Modifiers.Final) != 0,
                 ReturnRefKind = decl.ReturnRefKind,
-                IsUnsafe = (modifiers & Modifiers.Unsafe) != 0,
-                PassesLocation = HasCallerLocation(decl),
-                BuiltinCppName = ExternName(decl, s),
-                IsPure = IsPure(decl),
+                IsUnsafe = (modifiers & Modifiers.Unsafe) != 0 || IsUnsafeExtern(decl, s),
+                PassesLocation = HasCallerLocation(decl, s),
+                BuiltinCppName = ExternFunctionName(decl, s),
+                IsPure = IsPure(decl, s),
             };
+            CheckExternFunction(method, s);
             BindWhere(decl, method, s);
             CheckSignatureIn(method, signatureChecks);
             if (receiver is not null)
@@ -390,8 +397,6 @@ public sealed partial class Binder
             }
             if (method.PassesLocation && method.IsDispatched)
                 Error(Catalog.CallerLocationOnDispatched(decl.NameLocation));
-            if (method.IsBuiltin && !method.IsStatic && !s.IsExtern)
-                Error(Catalog.InstanceExternMethod(decl.NameLocation));
             // C++ templates cannot be virtual.
             if (method.IsGeneric && isInterface)
                 Error(Catalog.GenericInterfaceMethod(decl.NameLocation));
@@ -451,24 +456,35 @@ public sealed partial class Binder
         s.Members.Add(constructor);
     }
 
-    /// <summary>Reports annotations that don't apply to the declaration, and returns whether it has <c>@CallerLocation</c>.</summary>
-    bool HasCallerLocation(Declaration decl)
+    /// <summary>
+    /// Reports annotations that don't apply to the declaration, and returns whether it has
+    /// <c>@CallerLocation</c>. A member of a type gives its type as <paramref name="owner"/>.
+    /// </summary>
+    bool HasCallerLocation(Declaration decl, TypeSymbol? owner = null)
     {
         bool found = false;
+        bool isExtern = decl is FunctionDecl function && IsExternFunction(function, owner);
         foreach (var annotation in decl.Annotations)
         {
-            if (annotation.Name == "CallerLocation" && decl is FunctionDecl)
+            if (annotation.Name == "CallerLocation" && decl is FunctionDecl located)
             {
                 found = true;
                 CheckNoArguments(annotation);
+                if (isExtern && BlockOf(located, owner) is { IsStd: false })
+                    Error(Catalog.CallerLocationOnExtern(annotation.Location));
             }
             else if (annotation.Name == "Acyclic" && decl is TypeDecl { Kind: TypeKind.Class })
             {
                 CheckNoArguments(annotation);
             }
-            else if (annotation.Name == "Pure" && decl is FunctionDecl function && IsPure(function))
+            else if (annotation.Name is "Pure" or "Safe" && isExtern)
             {
                 CheckNoArguments(annotation);
+            }
+            // On a member of a block, or on a field of a block's struct or union (spec interop.extern.names).
+            else if (annotation.Name == CppNameName && (decl.Block is not null || decl is FieldDecl && owner is { IsExtern: true }))
+            {
+                StringArgument(annotation, "name");
             }
             else if (annotation.Name == SuppressWarnings)
             {
@@ -481,28 +497,6 @@ public sealed partial class Binder
             }
         }
         return found;
-    }
-
-    /// <summary>An extern function marked <c>@Pure</c>, which the standard library uses for what can't panic or change anything.</summary>
-    static bool IsPure(FunctionDecl decl) =>
-        decl.Annotations.Any(a => a.Name == "Pure") && (decl.Modifiers & Modifiers.Extern) != 0 && decl.Location.Source.Module.Package.IsStd;
-
-    /// <summary>
-    /// The C++ function an extern function calls: <c>wyl::name</c>, or for a method of a standard
-    /// library type, <c>wyl::type::name</c> with the type's name in lower camel case.
-    /// </summary>
-    string? ExternName(FunctionDecl decl, TypeSymbol? owner)
-    {
-        if ((decl.Modifiers & Modifiers.Extern) == 0)
-            return null;
-        if (!decl.Location.Source.Module.Package.IsStd)
-            Error(Catalog.ExternFunctionOutsideStd(decl.NameLocation));
-        if (owner is { IsExtern: true } && (decl.Modifiers & Modifiers.Static) == 0)
-            return decl.Name;
-        if (owner is not null)
-            return $"wyl::{char.ToLowerInvariant(owner.Name[0])}{owner.Name[1..]}::{decl.Name}";
-        // A function of std::memory is wyl::memory::allocate, as the runtime declares it.
-        return $"wyl::{string.Concat(decl.Location.Source.Module.Path.Select(name => name + "::"))}{decl.Name}";
     }
 
     /// <summary>A returned span views the receiver, so only instance methods may return one.</summary>

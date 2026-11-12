@@ -1,6 +1,5 @@
 pub pub void twoAccess() { }            // error[WYL0048]: declaration already has a visibility
 unsafe unsafe void twice() { }          // error[WYL0050]: modifier 'unsafe' is repeated
-extern void withBody() { }              // error[WYL0424]: extern function 'withBody' cannot have a body
 );                                      // error[WYL0001]: expected a function or type declaration
 class Untyped extends { }               // error[WYL0001]: expected a type
 

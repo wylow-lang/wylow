@@ -132,7 +132,7 @@ public sealed class StdlibSymbols
 
     public void Register(TypeSymbol symbol)
     {
-        if (symbol.IsExtern && HostedTypes.TryGetValue(symbol.Name, out var hosted))
+        if (symbol.IsCppClass && HostedTypes.TryGetValue(symbol.Name, out var hosted))
         {
             hosts[hosted] = symbol;
             this.hosted[symbol] = hosted;

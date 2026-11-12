@@ -121,3 +121,4 @@ history and a reason can be found without searching the spec.
 | [0091](0091-written-equality.md) | The compiler writes `equals` and `hash` for a struct or enum that implements `Equatable` or `Hashable` without them |
 | [0092](0092-unsafe-interfaces-and-element-owners.md) | Unsafe interfaces, and `memory::ElementOwner` reports the values a class keeps in raw memory to the cycle collector |
 | [0093](0093-hash-map-and-hash-set.md) | `HashMap` and `HashSet`: concrete classes, open addressing with linear probing, and `HashMap` in the unsafe floor |
+| [0094](0094-unique-structs-backed-by-cpp-classes.md) | The standard library may declare a struct backed by a C++ class `unique` |

@@ -27,7 +27,7 @@ public sealed partial class Binder
     /// <summary>The methods to write for the type, after its fields and variants are declared.</summary>
     List<FunctionDecl> WrittenEquality(TypeSymbol s)
     {
-        if (s.Kind is not (TypeKind.Struct or TypeKind.Enum) || s.IsExtern
+        if (s.Kind is not (TypeKind.Struct or TypeKind.Enum) || s.IsCppClass || s.IsUnion
             || stdlib.Equatable is not { } equatable || stdlib.Hashable is not { } hashable)
             return [];
         var supertypes = Conversions.Supertypes(s.Type, function: null).ToList();

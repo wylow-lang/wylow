@@ -19,8 +19,6 @@ struct Raw {
 void fast() {
 }
 
-extern void native();                   // error[WYL0426]: extern functions can only be declared in the standard library
-
 class Base {
     @CallerLocation
     virtual void check() {              // error[WYL0434]: '@CallerLocation' cannot be used on virtual, abstract, or interface methods

@@ -9,8 +9,14 @@ String[] programArguments() {
     return arguments;
 }
 
-/// The number of arguments the program was started with, not counting its name.
-extern int argumentCount();
+@Include("wyl.h")
+@CppNamespace("wyl")
+extern {
+    /// The number of arguments the program was started with, not counting its name.
+    @Safe
+    int argumentCount();
 
-/// The argument at `index`, from 0, as UTF-8 text with each ill-formed part replaced by U+FFFD.
-extern String argument(int index);
+    /// The argument at `index`, from 0, as UTF-8 text with each ill-formed part replaced by U+FFFD.
+    @Safe
+    String argument(int index);
+}

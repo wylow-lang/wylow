@@ -1,0 +1,37 @@
+// A program may declare extern blocks without calling their members, and `union` is an ordinary
+// identifier outside an extern block (spec interop.extern).
+@Include("parser.h")
+@CppNamespace("parser")
+extern {
+    pub static int MAX_TOKENS;
+
+    pub struct Parser;
+
+    pub struct Range {
+        @CppName("first") pub int start;
+        pub int length;
+    }
+
+    union Value {
+        pub int asInt;
+        pub float asFloat;
+    }
+
+    @CppName("parser_create")
+    pub Parser* create(int capacity);
+
+    @Safe
+    @Pure
+    pub ulong version();
+}
+
+struct union {
+    int union;
+}
+
+void main() {
+    var tagged = union(4);
+    std::print(tagged.union);           // output: 4
+    int union = 3;
+    std::print(union);                  // output: 3
+}

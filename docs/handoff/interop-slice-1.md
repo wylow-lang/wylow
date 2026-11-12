@@ -7,28 +7,23 @@ library by hand, with a few dozen declarations, and calls the library from Wylow
 
 Commit each step on its own once it passes. Each step names the tests it needs.
 
-## 1. Extern blocks, with `std` moved into them
+## 1. Extern blocks, with `std` moved into them (done)
 
-- Parse `ExternBlock`, `ExternConstant`, `OpaqueStruct`, and `UnionDeclaration`. `union` is a word
-  with this meaning only as the first word of a member of an extern block (`lexical.keywords` has
-  the same kind of rule for `as`). Remove `extern` from the modifiers of functions, methods, and
-  structs.
-- Bind `@Include`, `@CppNamespace`, `@CppName` (on members and on fields), `@Safe`, and `@Pure`. A
-  member's C++ name comes from its declaration and its block, and nothing else derives it. Delete
-  `Binder.ExternName`, and update the runtime naming rule in `CLAUDE.md` that cites it.
-- Put the test "is this block in `std`" in one predicate, and use it for every exemption that
-  `interop.extern.std` lists.
-- Move every extern declaration of `std` into blocks in the same change, as "replace, don't layer"
-  requires. That includes `primitives.wyl`, `string.wyl`, `weak.wyl`, `memory`, `panic`, `replace.wyl`,
-  `arguments.wyl`, and `threading`. A native function that was safe to call gets `@Safe`, and one that
-  was `@Pure` keeps `@Pure`. A static extern method of an ordinary struct becomes a `package` member
-  of a block in its module.
-- Diagnostics: give each new error a catalog entry, a test, and a page or a line in
-  `without-pages.txt`, written as `docs/diagnostics/README.md` says. Retire `WYL0425` and `WYL0426`,
-  and reword `WYL0427` to say that only the standard library declares a struct backed by a C++ class.
-  Decision 0003 says how to retire a code.
-- Tests: a block in `std` and the exemptions, and each error outside `std`. Nothing outside `std`
-  can call a user extern yet, so the user-side tests start in step 3.
+Step 1 is committed. The next session starts at step 2. These facts from step 1 matter later:
+
+- The parser keeps each member of a block among the file's declarations, with the block as its
+  `Declaration.Block`, and lists the blocks in `CompilationUnit.ExternBlocks`.
+  `TypeSymbol.IsExtern` says that a struct or union is declared in a block, and
+  `TypeSymbol.IsCppClass` says that a C++ class backs it.
+- The binder checks an extern constant's type and annotations, but declares no symbol for it, so
+  no code can read a constant yet. Step 3 declares the symbol.
+- The emitter writes nothing for a struct, union, or function of a program's block, so a program
+  that uses one fails to compile in C++ until step 3.
+- `WYL0428` is retired along with `WYL0425` and `WYL0426`, because a struct with fields in a block is
+  now a C struct. Decision 0094 lets the standard library declare a struct backed by a C++ class
+  `unique`, which `ElementVisitor<T>` needs.
+- `String.copyOf` is now the top-level `package` function `copyOf` in the standard library's root
+  module, with `@CppName("wyl::string::copyOf")`.
 
 ## 2. The interpreter refuses user externs
 

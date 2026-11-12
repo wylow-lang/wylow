@@ -153,9 +153,9 @@ any of these. How the current compiler decides is in
 The first time an object is referred to weakly, it allocates a small weak
 block `{ target, count, buffer slot }` and points its header at it. A `Weak<T>` is a pointer to the block and
 one to the target (C++ can't cast the block's `wyl::Object*` back down to `T`), and copying one adds
-to the block's count. `Weak<T>` is an `extern struct`
-([Extern structs](../spec/21-interop.md#interop.extern.extern-structs)) implemented
-by `wyl::Weak` in the runtime. A weak block's count is atomic and the block comes from the global
+to the block's count. `Weak<T>` is a struct of an extern block that a C++ class backs
+([Structs backed by a C++ class](../spec/21-interop.md#interop.extern.extern-structs)), and the
+class is `wyl::Weak` in the runtime. A weak block's count is atomic and the block comes from the global
 heap, since a shared object's weak references may live on several threads. A shared object's block is
 made with an atomic exchange, so two threads referring to it weakly at once agree on one. The block
 of a shared object has a small guard, a spin lock. `get()` reads the target and adds to the count under
@@ -352,17 +352,22 @@ when the channel closes, or when the run ends. A panic on any thread wakes every
 
 ## Interop
 
-So far only the standard library declares extern functions, one at a time: `static extern void
-check(int index, int length);` in a struct, or a free `extern` function. The C++ runtime
-(`runtime/wyl/intrinsics.h`) implements them, as `wyl::name`, or `wyl::type::name` for a method of a
-type (the type's name in lower camel case). An `extern struct` of the standard library is the C++
-class `wyl::Name` (`wyl::Weak`, `wyl::String`), except one named for a primitive type
-(`Stdlib/primitives.wyl`): a C++ arithmetic type has no members, so its extern methods are members
-of `wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::Bound<I>` gives a primitive or a
+The standard library declares its extern functions and types in extern blocks, as every package
+does ([Extern blocks](../spec/21-interop.md#interop.extern)). Each block of `std` includes `wyl.h`,
+and its `@CppNamespace` is `wyl` followed by the module's path, such as `wyl::memory` for
+`std::memory`. The binder gives each member its C++ name from the block and the declaration
+(`Binder.BlockMemberCppName`), and nothing else derives a C++ name. The runtime declares a struct
+backed by a C++ class in `wyl` itself, so the struct's `@CppName` names that class when the block's
+namespace is another, as `@CppName("wyl::AtomicState")` does in `std::threading`. Each primitive
+type has a struct of its name (`Stdlib/primitives.wyl`), and no C++ class of that name exists. A C++
+arithmetic type has no members, so the methods without a body of such a struct are members of
+`wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::Bound<I>` gives a primitive or a
 `String` as its `Builtin`, whose `m_`-named members are what a call through a generic bound names.
 
-Nothing else of [Interop](../spec/21-interop.md#interop) is built yet. The compiler emits no layout
-checks, and it calls the standard library's extern functions directly, without a `noexcept` wrapper.
+A program may declare extern blocks, and the binder checks them. Nothing else of
+[Interop](../spec/21-interop.md#interop) is built yet. The compiler emits no call of a member of a
+program's extern block, and no layout checks. It calls the standard library's extern functions
+directly, without a `noexcept` wrapper.
 
 ## Panics
 

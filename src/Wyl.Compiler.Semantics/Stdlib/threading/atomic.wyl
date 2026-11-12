@@ -1,7 +1,3 @@
-/// The runtime's storage for one atomic value.
-package extern struct AtomicState<T> {
-}
-
 /// An integer that several threads read and change without a lock (spec `concurrency.atomic`).
 ///
 /// Every operation is sequentially consistent: all threads observe the operations on every atomic
@@ -95,20 +91,37 @@ pub shared class AtomicBool {
     }
 }
 
-extern AtomicState<T> createAtomic<T>(T value);
+@Include("wyl.h")
+@CppNamespace("wyl::threading")
+extern {
+    /// The runtime's storage for one atomic value.
+    @CppName("wyl::AtomicState")
+    package struct AtomicState<T> {
+    }
 
-extern void releaseAtomic<T>(AtomicState<T> state);
+    @Safe
+    AtomicState<T> createAtomic<T>(T value);
 
-extern T atomicGet<T>(AtomicState<T> state);
+    @Safe
+    void releaseAtomic<T>(AtomicState<T> state);
 
-extern void atomicSet<T>(AtomicState<T> state, T value);
+    @Safe
+    T atomicGet<T>(AtomicState<T> state);
 
-extern T atomicExchange<T>(AtomicState<T> state, T value);
+    @Safe
+    void atomicSet<T>(AtomicState<T> state, T value);
 
-extern T atomicCompareExchange<T>(AtomicState<T> state, T expected, T value);
+    @Safe
+    T atomicExchange<T>(AtomicState<T> state, T value);
 
-@CallerLocation
-extern T atomicAdd<T>(AtomicState<T> state, T delta);
+    @Safe
+    T atomicCompareExchange<T>(AtomicState<T> state, T expected, T value);
 
-@CallerLocation
-extern T atomicSubtract<T>(AtomicState<T> state, T delta);
+    @Safe
+    @CallerLocation
+    T atomicAdd<T>(AtomicState<T> state, T delta);
+
+    @Safe
+    @CallerLocation
+    T atomicSubtract<T>(AtomicState<T> state, T delta);
+}

@@ -140,7 +140,8 @@ chapter. These extern blocks may also do what no other package's may:
 
 - declare a generic function, method, or struct;
 - use a type that is not blittable in a signature, including a `ref` or `in` parameter;
-- declare a struct backed by a C++ class ([Structs backed by a C++ class](#interop.extern.extern-structs));
+- declare a struct backed by a C++ class ([Structs backed by a C++ class](#interop.extern.extern-structs)),
+  and declare such a struct `unique`;
 - declare a struct named by a primitive type's keyword
   ([Methods of primitive types](04-types.md#types.primitives.methods));
 - mark a function or method without a body `@CallerLocation`

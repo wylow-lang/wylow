@@ -1,23 +1,30 @@
-/// Returns what `place` held and stores `value` there. It runs no destructor.
-///
-/// # Panics
-///
-/// If the value in `place`, or one in its fields, is in use.
-@CallerLocation
-pub extern T replace<T>(ref T place, T value);
+@Include("wyl.h")
+@CppNamespace("wyl")
+extern {
+    /// Returns what `place` held and stores `value` there. It runs no destructor.
+    ///
+    /// # Panics
+    ///
+    /// If the value in `place`, or one in its fields, is in use.
+    @Safe
+    @CallerLocation
+    pub T replace<T>(ref T place, T value);
 
-/// Exchanges what `a` and `b` hold. It runs no destructor.
-///
-/// # Panics
-///
-/// If either value, or one in its fields, is in use.
-@CallerLocation
-pub extern void swap<T>(ref T a, ref T b);
+    /// Exchanges what `a` and `b` hold. It runs no destructor.
+    ///
+    /// # Panics
+    ///
+    /// If either value, or one in its fields, is in use.
+    @Safe
+    @CallerLocation
+    pub void swap<T>(ref T a, ref T b);
 
-/// Returns what `place` held and leaves null in it. It runs no destructor.
-///
-/// # Panics
-///
-/// If the value in `place`, or one in its fields, is in use.
-@CallerLocation
-pub extern T? take<T>(ref T? place);
+    /// Returns what `place` held and leaves null in it. It runs no destructor.
+    ///
+    /// # Panics
+    ///
+    /// If the value in `place`, or one in its fields, is in use.
+    @Safe
+    @CallerLocation
+    pub T? take<T>(ref T? place);
+}

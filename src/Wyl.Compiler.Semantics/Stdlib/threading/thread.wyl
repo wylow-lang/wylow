@@ -38,10 +38,17 @@ pub Thread<T> spawn<T extends sendable>(escaping shared fn() -> T body) {
     }
 }
 
-@CallerLocation
-extern byte* spawnThread<T>(escaping shared fn() -> T body);
+@Include("wyl.h")
+@CppNamespace("wyl::threading")
+extern {
+    @Safe
+    @CallerLocation
+    byte* spawnThread<T>(escaping shared fn() -> T body);
 
-@CallerLocation
-extern T joinThread<T>(byte* handle);
+    @Safe
+    @CallerLocation
+    T joinThread<T>(byte* handle);
 
-extern void releaseThread<T>(byte* handle);
+    @Safe
+    void releaseThread<T>(byte* handle);
+}

@@ -74,11 +74,21 @@ public sealed partial class Parser
     {
         var imports = new List<ImportDecl>();
         var declarations = new List<Declaration>();
+        var blocks = new List<ExternBlock>();
         while (!At(TokenKind.EndOfFile))
         {
             int start = position;
             var annotations = ParseAnnotations();
             var modifiers = ParseModifiers();
+            if (At(TokenKind.ExternKeyword))
+            {
+                if (modifiers.VisibilitySpan is { } visibility)
+                    Report(Catalog.ModifierOnExternBlock(Loc(visibility), source.Text[visibility.Start..visibility.End]));
+                Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnExternBlock(Loc(token.Span), token.Text));
+                DisallowShared(modifiers);
+                blocks.Add(ParseExternBlock(annotations, declarations));
+                continue;
+            }
             if (At(TokenKind.ImportKeyword))
             {
                 Disallow(modifiers, ~Modifiers.None, token => Catalog.ModifierOnImport(Loc(token.Span), token.Text));
@@ -99,7 +109,7 @@ public sealed partial class Parser
                 var allowed = kind switch
                 {
                     TypeKind.Class => Modifiers.Abstract | Modifiers.Final | Modifiers.Shared,
-                    TypeKind.Struct => Modifiers.Ref | Modifiers.Extern | Modifiers.Unique,
+                    TypeKind.Struct => Modifiers.Ref | Modifiers.Unique,
                     TypeKind.Enum => Modifiers.Ref | Modifiers.Unique,
                     _ => Modifiers.Ref | Modifiers.Unsafe,
                 };
@@ -114,7 +124,7 @@ public sealed partial class Parser
             // A '(' is a grouped function type, or the old spelling, which ParseType reports.
             if (StartsType(position) || At(TokenKind.OpenParen))
             {
-                Disallow(modifiers, ~(Modifiers.Unsafe | Modifiers.Extern), token => Catalog.ModifierOnFunction(Loc(token.Span), token.Text));
+                Disallow(modifiers, ~Modifiers.Unsafe, token => Catalog.ModifierOnFunction(Loc(token.Span), token.Text));
                 DisallowShared(modifiers);
                 var returnType = ParseType();
                 var name = Expect(TokenKind.Identifier, "a function name");
@@ -141,7 +151,7 @@ public sealed partial class Parser
             if (position == start)
                 Advance();
         }
-        return new CompilationUnit(source, imports, declarations);
+        return new CompilationUnit(source, imports, declarations) { ExternBlocks = blocks };
     }
 
     /// <summary>
@@ -246,11 +256,8 @@ public sealed partial class Parser
 
     void RequireBody(FunctionDecl function)
     {
-        bool isExtern = (function.Modifiers & Modifiers.Extern) != 0;
-        if (function.Body is null && !isExtern)
+        if (function.Body is null)
             Report(Catalog.MissingBody(function.NameLocation, function.Name));
-        else if (function.Body is not null && isExtern)
-            Report(Catalog.ExternBody(function.NameLocation, function.Name));
     }
 
     List<AnnotationSyntax> ParseAnnotations()
@@ -320,6 +327,15 @@ public sealed partial class Parser
                 Advance();
                 continue;
             }
+            // `extern` begins a block at the top level, which the caller parses, and nothing else.
+            if (At(TokenKind.ExternKeyword))
+            {
+                if (Peek(1).Kind == TokenKind.OpenBrace)
+                    return new ModifierList(flags, tokens, visibility, visibilitySpan);
+                Report(Catalog.ExternOutsideBlock(Loc(Current.Span)));
+                Advance();
+                continue;
+            }
             var flag = Current.Kind switch
             {
                 TokenKind.StaticKeyword => Modifiers.Static,
@@ -331,7 +347,6 @@ public sealed partial class Parser
                 TokenKind.AbstractKeyword => Modifiers.Abstract,
                 TokenKind.FinalKeyword => Modifiers.Final,
                 TokenKind.UnsafeKeyword => Modifiers.Unsafe,
-                TokenKind.ExternKeyword => Modifiers.Extern,
                 _ => Modifiers.None,
             };
             if (flag == Modifiers.None)

@@ -1,6 +1,6 @@
-extern struct String { }            // error[WYL0057]: 'String' cannot be declared
+struct String { }                   // error[WYL0057]: 'String' cannot be declared
 
-@Pure                               // error[WYL0432]: '@Pure' can only be used on extern functions of the standard library
+@Pure                               // error[WYL0432]: '@Pure' can only be used on functions and methods without a body in an extern block
 int twice(int x) {
     return x * 2;
 }
@@ -24,7 +24,7 @@ void main() {
     std::print(s.cstr()[0]);        // error[WYL0304]: 'cstr' is unsafe and can only be called in 'unsafe' code
     String.fromCString(null);       // error[WYL0304]: 'fromCString' is unsafe and can only be called in 'unsafe' code
     unsafe {
-        String.copyOf(s.bytes());   // error[WYL0054]: method 'String.copyOf' is not visible here
+        std::copyOf(s.bytes());     // error[WYL0054]: function 'copyOf' is not visible here
     }
     std::print(maybe().byteLength); // error[WYL0065]: 'maybe()' might be null
 }

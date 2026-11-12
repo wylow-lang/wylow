@@ -110,11 +110,12 @@ with `@SuppressWarnings("unqualified-call")` on the import or the declaration (d
   `lower_case` namespaces, `PascalCase` types, functions, methods, and public data members,
   `camelCase` locals and parameters, `m_PascalCase` private and protected data members,
   `s_PascalCase` static data members and namespace-scope state, and `UPPER_SNAKE_CASE` constants
-  and variable templates. A name the emitter derives from a Wylow declaration keeps the derived
-  spelling: the binder names an `extern` member from its Wylow name (`Binder.ExternName`), so
-  `String.byteLength`, `wyl::memory.allocate`, `wyl::replace`, and `wyl::print` stay `camelCase`, and
-  an interface implementation keeps the emitter's `m_` prefix (`Builtin::m_compareTo`). A name the
-  runtime and the emitter's generated C++ share is renamed on both sides in the same change.
+  and variable templates. A name that a Wylow declaration gives keeps the Wylow spelling: a member
+  of an extern block of `std` names its C++ declaration by its own name in the block's
+  `@CppNamespace` (spec `interop.extern.names`), so `String.byteLength`, `wyl::memory::allocate`,
+  `wyl::replace`, and `wyl::print` stay `camelCase`. An interface implementation keeps the emitter's
+  `m_` prefix (`Builtin::m_compareTo`). A name that the runtime and the emitter's generated C++
+  share is renamed on both sides in the same change.
 - **Comments are concise and explain why, never what.** A comment that would go stale when other
   code changes (a list of callers or users, what something is for, a count, which file does
   something else) is cut: say what a thing is, not who uses it ("Raw memory and the cycle

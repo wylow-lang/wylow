@@ -1,70 +1,108 @@
 // Raw memory and the cycle collector (spec `library.memory`). The compiler can't check how raw
 // memory is used, so its functions are `unsafe`.
 
-/// Allocates uninitialized storage for `count` values of `T`.
-///
-/// # Panics
-///
-/// If `count` is negative, or `count` values of `T` are too large to address.
-///
-/// # Safety
-///
-/// The storage must be freed with `free`, once, after its values are dropped.
-@CallerLocation
-pub unsafe extern T* allocate<T>(int count);
+@Include("wyl.h")
+@CppNamespace("wyl::memory")
+extern {
+    /// Allocates uninitialized storage for `count` values of `T`.
+    ///
+    /// # Panics
+    ///
+    /// If `count` is negative, or `count` values of `T` are too large to address.
+    ///
+    /// # Safety
+    ///
+    /// The storage must be freed with `free`, once, after its values are dropped.
+    @CallerLocation
+    pub T* allocate<T>(int count);
 
-/// Frees storage that `allocate` returned.
-///
-/// # Safety
-///
-/// `data` must come from `allocate`, not be freed already, and hold no value that isn't dropped.
-pub unsafe extern void free<T>(T* data);
+    /// Frees storage that `allocate` returned.
+    ///
+    /// # Safety
+    ///
+    /// `data` must come from `allocate`, not be freed already, and hold no value that isn't dropped.
+    pub void free<T>(T* data);
 
-/// Stores `value` in uninitialized storage.
-///
-/// # Safety
-///
-/// `place` must be allocated storage that holds no value.
-pub unsafe extern void initialize<T>(T* place, T value);
+    /// Stores `value` in uninitialized storage.
+    ///
+    /// # Safety
+    ///
+    /// `place` must be allocated storage that holds no value.
+    pub void initialize<T>(T* place, T value);
 
-/// Stores `T`'s default value in each of the `count` places at `data`.
-///
-/// # Safety
-///
-/// `T` must have a default value, and the places must hold no value. The compiler can't check
-/// that a generic `T` has one, so the function is the package's own.
-package unsafe extern void initializeDefault<T>(T* data, int count);
+    /// Stores `T`'s default value in each of the `count` places at `data`.
+    ///
+    /// # Safety
+    ///
+    /// `T` must have a default value, and the places must hold no value. The compiler can't check
+    /// that a generic `T` has one, so the function is the package's own.
+    package void initializeDefault<T>(T* data, int count);
 
-/// Destroys the value at `place`, leaving its storage uninitialized.
-///
-/// # Safety
-///
-/// `place` must hold a value.
-pub unsafe extern void drop<T>(T* place);
+    /// Destroys the value at `place`, leaving its storage uninitialized.
+    ///
+    /// # Safety
+    ///
+    /// `place` must hold a value.
+    pub void drop<T>(T* place);
 
-/// Moves the value at `place` out, leaving its storage uninitialized.
-///
-/// # Safety
-///
-/// `place` must hold a value.
-pub unsafe extern T moveOut<T>(T* place);
+    /// Moves the value at `place` out, leaving its storage uninitialized.
+    ///
+    /// # Safety
+    ///
+    /// `place` must hold a value.
+    pub T moveOut<T>(T* place);
 
-/// Moves the `count` values at `from` into the uninitialized storage at `to`, leaving the source
-/// uninitialized. The two ranges may overlap.
-///
-/// # Safety
-///
-/// The `count` places at `from` must hold values, and those at `to` that aren't among them must not.
-pub unsafe extern void moveTo<T>(T* from, T* to, int count);
+    /// Moves the `count` values at `from` into the uninitialized storage at `to`, leaving the source
+    /// uninitialized. The two ranges may overlap.
+    ///
+    /// # Safety
+    ///
+    /// The `count` places at `from` must hold values, and those at `to` that aren't among them must not.
+    pub void moveTo<T>(T* from, T* to, int count);
 
-/// Returns -1, 0, or 1 as `a` sorts before, the same as, or after `b`. The spans are compared byte
-/// by byte, each byte as an unsigned number, and a span that is a prefix of the other sorts first.
-@Pure
-pub extern int compare(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b);
+    /// Returns -1, 0, or 1 as `a` sorts before, the same as, or after `b`. The spans are compared byte
+    /// by byte, each byte as an unsigned number, and a span that is a prefix of the other sorts first.
+    @Safe
+    @Pure
+    pub int compare(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b);
 
-/// Returns whether `a` and `b` have the same length and the same bytes.
-@Pure
-pub extern bool equal(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b);
+    /// Returns whether `a` and `b` have the same length and the same bytes.
+    @Safe
+    @Pure
+    pub bool equal(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b);
+
+    /// The cycle collector's view of the values that an `ElementOwner` reports. Only the collector makes
+    /// a visitor that reports anything: a default value reports nothing.
+    @CppName("wyl::ElementVisitor")
+    pub unique struct ElementVisitor<T> {
+        /// Reports `element` to the cycle collector.
+        @Safe
+        pub mut void visit(ref T element);
+    }
+
+    /// Frees every cycle of objects that nothing outside the cycle refers to, which reference counting
+    /// alone never frees. It runs only when called (spec `memory.cycles`).
+    ///
+    /// # Panics
+    ///
+    /// If it is called from a destructor.
+    @Safe
+    @CallerLocation
+    pub void collectCycles();
+
+    /// Frees cycles as `collectCycles()` does, but stops after visiting about `maxVisits` objects; the
+    /// rest wait for the next call.
+    ///
+    /// # Panics
+    ///
+    /// If it is called from a destructor.
+    @Safe
+    @CallerLocation
+    pub void collectCycles(int maxVisits);
+
+    @Safe
+    void takeCycleStats(ref int buffered, ref int visited, ref int freed);
+}
 
 /// A class that keeps values in raw memory and reports them to the cycle collector, which looks at
 /// a class through its fields otherwise (spec `library.memory`).
@@ -78,31 +116,6 @@ pub unsafe interface ElementOwner<T> {
     /// Passes each value that the class keeps in raw memory to `visitor`.
     void visitElements(ref ElementVisitor<T> visitor);
 }
-
-/// The cycle collector's view of the values that an `ElementOwner` reports. Only the collector makes
-/// a visitor that reports anything: a default value reports nothing.
-pub unique extern struct ElementVisitor<T> {
-    /// Reports `element` to the cycle collector.
-    pub mut extern void visit(ref T element);
-}
-
-/// Frees every cycle of objects that nothing outside the cycle refers to, which reference counting
-/// alone never frees. It runs only when called (spec `memory.cycles`).
-///
-/// # Panics
-///
-/// If it is called from a destructor.
-@CallerLocation
-pub extern void collectCycles();
-
-/// Frees cycles as `collectCycles()` does, but stops after visiting about `maxVisits` objects; the
-/// rest wait for the next call.
-///
-/// # Panics
-///
-/// If it is called from a destructor.
-@CallerLocation
-pub extern void collectCycles(int maxVisits);
 
 /// What the cycle collector did since the last call of `cycleStats`.
 pub struct CycleStats {
@@ -120,5 +133,3 @@ pub CycleStats cycleStats() {
     takeCycleStats(ref stats.buffered, ref stats.visited, ref stats.freed);
     return stats;
 }
-
-extern void takeCycleStats(ref int buffered, ref int visited, ref int freed);

@@ -19,7 +19,7 @@ public static class TypeEquality
         type.IsNullableValue ? SupportsEquality(type.NonNull, visiting)
         : type is FixedArrayType array ? SupportsEquality(array.Element, visiting)
         : !type.IsStructOrEnum ? type != WylType.Void && !type.IsTypeParameter && !type.IsFunction && !type.IsNullableReference
-        : !type.Symbol!.IsExtern && FindNonEquatableField(type, visiting) is null;
+        : !type.Symbol!.IsCppClass && !type.Symbol.IsUnion && FindNonEquatableField(type, visiting) is null;
 
     static FieldSymbol? FindNonEquatableField(WylType structType, HashSet<WylType> visiting)
     {

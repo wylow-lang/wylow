@@ -1,0 +1,19 @@
+// The forms of extern blocks that the parser rejects (spec interop.extern).
+extern void native();                   // error[WYL0496]: 'extern' can only begin an extern block // error[WYL0211]: 'native' has no body
+
+class Host {
+    extern void run() { }               // error[WYL0496]: 'extern' can only begin an extern block
+}
+
+@Include("native.h")
+pub extern { }                          // error[WYL0497]: 'pub' cannot be used on an extern block
+
+@Include("native.h")
+extern {
+    unsafe static int LIMIT;            // error[WYL0498]: 'unsafe' cannot be used on an extern constant
+    int run() { }                       // error[WYL0424]: extern function 'run' cannot have a body
+    enum Color { Red }                  // error[WYL0001]: expected a constant, struct, union, or function in an extern block
+    static int start(int at);           // error[WYL0209]: 'static' cannot be used on a function
+}
+
+void main() { }

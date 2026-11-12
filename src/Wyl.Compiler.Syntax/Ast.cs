@@ -13,7 +13,6 @@ public enum Modifiers
     Abstract = 128,
     Final = 256,
     Unsafe = 1024,
-    Extern = 2048,
 
     /// <summary>On a struct: <c>ref struct</c>, a second-class type.</summary>
     Ref = 4096,
@@ -46,7 +45,28 @@ public enum TypeKind { Struct, Class, Interface, Enum }
 
 public abstract record Node(Location Location);
 
-public sealed record CompilationUnit(SourceText Source, IReadOnlyList<ImportDecl> Imports, IReadOnlyList<Declaration> Declarations);
+/// <summary>
+/// A file's imports and declarations. The members of an extern block are among
+/// <see cref="Declarations"/>, each with its <see cref="Declaration.Block"/>, and
+/// <see cref="ExternBlocks"/> lists the blocks themselves, including any without members.
+/// </summary>
+public sealed record CompilationUnit(SourceText Source, IReadOnlyList<ImportDecl> Imports, IReadOnlyList<Declaration> Declarations)
+{
+    public IReadOnlyList<ExternBlock> ExternBlocks { get; init; } = [];
+}
+
+/// <summary>
+/// <c>@Include("path") extern { ... }</c> (spec <c>interop.extern</c>): <see cref="Location"/> is the
+/// <c>extern</c> keyword, and <see cref="Annotations"/> are the block's own.
+/// </summary>
+public sealed record ExternBlock(Location Location, IReadOnlyList<AnnotationSyntax> Annotations) : Node(Location)
+{
+    /// <summary>
+    /// Whether the block is the standard library's, which may do what no other package's block may
+    /// (spec <c>interop.extern.std</c>). Every such exemption asks this property.
+    /// </summary>
+    public bool IsStd => Location.Source.Module.Package.IsStd;
+}
 
 /// <summary>One name of a <c>::</c> path, where it is written.</summary>
 public sealed record PathName(string Name, Location Location);
@@ -74,6 +94,9 @@ public abstract record Declaration(Location Location, Modifiers Modifiers) : Nod
 
     /// <summary>As written; an interface method writes none, and is as visible as its interface.</summary>
     public Visibility Visibility { get; init; }
+
+    /// <summary>The extern block that a top-level declaration is a member of, if it is one.</summary>
+    public ExternBlock? Block { get; init; }
 }
 
 /// <summary>
@@ -102,7 +125,18 @@ public sealed record TypeDecl(
     IReadOnlyList<FieldDecl> Fields,
     IReadOnlyList<FunctionDecl> Methods,
     DestructorDecl? Destructor,
-    IReadOnlyList<VariantDecl> Variants) : Declaration(Location, Modifiers);
+    IReadOnlyList<VariantDecl> Variants) : Declaration(Location, Modifiers)
+{
+    /// <summary><c>struct Name;</c> in an extern block, which has no body (spec <c>interop.extern</c>).</summary>
+    public bool IsOpaque { get; init; }
+
+    /// <summary><c>union Name { ... }</c> in an extern block (spec <c>interop.extern.c-structs</c>), whose <see cref="Kind"/> is a struct's.</summary>
+    public bool IsUnion { get; init; }
+}
+
+/// <summary><c>static T NAME;</c> in an extern block: a C++ constant read as a value of the type (spec <c>interop.extern.constants</c>).</summary>
+public sealed record ExternConstantDecl(Location Location, Modifiers Modifiers, TypeSyntax Type, string Name, Location NameLocation)
+    : Declaration(Location, Modifiers);
 
 /// <summary>An enum variant. <see cref="Fields"/> is null when the variant carries no data.</summary>
 public sealed record VariantDecl(Location Location, string Name, Location NameLocation, IReadOnlyList<ParameterSyntax>? Fields, Expr? Value)

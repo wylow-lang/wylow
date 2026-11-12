@@ -53,7 +53,7 @@ public sealed partial class Binder
     static (string Detail, Location? At) SendableProblem(WylType type)
     {
         var value = type.NonNull;
-        if (value.IsStructOrEnum && !value.Symbol!.IsExtern)
+        if (value.IsStructOrEnum && !value.Symbol!.IsCppClass)
         {
             var map = TypeMap.For(value);
             foreach (var field in value.Symbol.ValueFields)
@@ -76,7 +76,7 @@ public sealed partial class Binder
     /// </summary>
     void CheckUniqueFields(TypeSymbol s, HashSet<TypeSymbol> cyclic)
     {
-        if (s.IsUnique || s.IsExtern || cyclic.Contains(s) || s.Kind is not (TypeKind.Struct or TypeKind.Enum))
+        if (s.IsUnique || s.IsCppClass || cyclic.Contains(s) || s.Kind is not (TypeKind.Struct or TypeKind.Enum))
             return;
         var what = s.Kind == TypeKind.Enum ? "variant field" : "field";
         foreach (var field in s.ValueFields)

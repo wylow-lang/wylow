@@ -1,8 +1,3 @@
-/// The runtime's storage for one mutex: the lock, the value, and the value's graph and its cycle
-/// buffer.
-package extern struct MutexState<T> {
-}
-
 /// A lock that guards a value and the isolated graph the value is (spec `concurrency.mutex`).
 ///
 /// A thread holds at most one lock, and waits for nothing while it holds one. A mutex is sendable
@@ -38,10 +33,23 @@ pub shared class Mutex<T> {
     }
 }
 
-@CallerLocation
-extern MutexState<T> createMutex<T>(T value, ref IsolatedState graph);
+@Include("wyl.h")
+@CppNamespace("wyl::threading")
+extern {
+    /// The runtime's storage for one mutex: the lock, the value, and the value's graph and its cycle
+    /// buffer.
+    @CppName("wyl::MutexState")
+    package struct MutexState<T> {
+    }
 
-extern void releaseMutex<T>(MutexState<T> state);
+    @Safe
+    @CallerLocation
+    MutexState<T> createMutex<T>(T value, ref IsolatedState graph);
 
-@CallerLocation
-extern R lockMutex<T, R>(MutexState<T> state, shared fn(ref T) -> R body);
+    @Safe
+    void releaseMutex<T>(MutexState<T> state);
+
+    @Safe
+    @CallerLocation
+    R lockMutex<T, R>(MutexState<T> state, shared fn(ref T) -> R body);
+}

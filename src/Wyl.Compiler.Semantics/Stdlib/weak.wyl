@@ -1,7 +1,12 @@
-/// A reference that doesn't keep its target alive (spec `memory.weak`).
-///
-/// A `T` or `T?` converts to it implicitly, and its default value refers to nothing.
-pub extern struct Weak<T> {
-    /// Returns the target, or null once it has been destroyed.
-    pub extern T? get();
+@Include("wyl.h")
+@CppNamespace("wyl")
+extern {
+    /// A reference that doesn't keep its target alive (spec `memory.weak`).
+    ///
+    /// A `T` or `T?` converts to it implicitly, and its default value refers to nothing.
+    pub struct Weak<T> {
+        /// Returns the target, or null once it has been destroyed.
+        @Safe
+        pub T? get();
+    }
 }

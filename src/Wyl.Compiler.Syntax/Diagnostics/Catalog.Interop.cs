@@ -26,7 +26,9 @@ public static partial class Catalog
             "Acyclic" => "'@Acyclic' can only be used on classes",
             "Repr" => "'@Repr' can only be used on enums",
             "SuppressWarnings" => "'@SuppressWarnings' can only be used on declarations, local variables, and imports",
-            _ => "'@Pure' can only be used on extern functions of the standard library",
+            "Include" or "CppNamespace" => $"'@{name}' can only be used on extern blocks",
+            "CppName" => "'@CppName' can only be used on members of extern blocks and on the fields of their structs and unions",
+            _ => $"'@{name}' can only be used on functions and methods without a body in an extern block",
         });
 
     [Error(433, "annotations.list")]
@@ -47,23 +49,53 @@ public static partial class Catalog
 
     [Error(427, "interop.extern.extern-structs")]
     public static Diagnostic ExternStructOutsideStd(Location at) =>
-        Make(at, "extern structs can only be declared in the standard library");
+        Make(at, "only the standard library can declare a struct backed by a C++ class")
+            .Help("declare the struct's fields, or write ';' in place of its body to declare it opaque");
 
-    [Error(428, "interop.extern.extern-structs")]
-    public static Diagnostic ExternStructField(Location at) =>
-        Make(at, "extern struct cannot declare fields").Note("its C++ class holds its data");
+    [Error(429, "interop.extern.c-structs")]
+    public static Diagnostic ExternStructConstructor(Location at, string kind) =>
+        Make(at, $"{kind} in an extern block cannot declare constructors");
 
-    [Error(429, "interop.extern.extern-structs")]
-    public static Diagnostic ExternStructConstructor(Location at) =>
-        Make(at, "extern struct cannot declare constructors");
+    [Error(496, "interop.extern")]
+    public static Diagnostic ExternOutsideBlock(Location at) =>
+        Make(at, "'extern' can only begin an extern block")
+            .Help("declare the function or struct inside '@Include(\"header.h\") extern { ... }'");
 
-    [Error(425, "interop.extern")]
-    public static Diagnostic InstanceExternMethod(Location at) =>
-        Make(at, "extern methods must be static outside an extern struct");
+    [Error(497, "interop.extern")]
+    public static Diagnostic ModifierOnExternBlock(Location at, string modifier) =>
+        Make(at, $"'{modifier}' cannot be used on an extern block");
 
-    [Error(426, "interop.extern")]
-    public static Diagnostic ExternFunctionOutsideStd(Location at) =>
-        Make(at, "extern functions can only be declared in the standard library");
+    [Error(498, "interop.extern.constants")]
+    public static Diagnostic ModifierOnExternConstant(Location at, string modifier) =>
+        Make(at, $"'{modifier}' cannot be used on an extern constant");
+
+    [Error(499, "interop.extern")]
+    public static Diagnostic MissingInclude(Location at) =>
+        Make(at, "extern block has no '@Include'").Help("write '@Include(\"header.h\")' before 'extern'");
+
+    [Error(500, "interop.extern")]
+    public static Diagnostic DuplicateInclude(Location at, Location first) =>
+        Make(at, "extern block has more than one '@Include'").Note(first, "first '@Include' here");
+
+    [Error(501, "interop.extern")]
+    public static Diagnostic ExternStructModifier(Location at, string kind, string modifier) =>
+        Make(at, $"{kind} in an extern block cannot be '{modifier}'");
+
+    [Error(502, "interop.extern.std")]
+    public static Diagnostic GenericExtern(Location at, string name) =>
+        Make(at, $"'{name}' cannot be generic").Note("only the standard library's extern blocks declare generic members");
+
+    [Error(503, "interop.extern.std")]
+    public static Diagnostic CallerLocationOnExtern(Location at) =>
+        Make(at, "'@CallerLocation' cannot be used on a function without a body");
+
+    [Error(504, "interop.extern.c-structs")]
+    public static Diagnostic ExternFieldInitializer(Location at, string name, string kind) =>
+        Make(at, $"field '{name}' of a {kind} in an extern block cannot have an initializer");
+
+    [Error(505, "annotations.list")]
+    public static Diagnostic AnnotationString(Location at, string name, string example) =>
+        Make(at, $"'@{name}' takes one string literal").Help($"write '@{name}(\"{example}\")'");
 
     [Error(434, "annotations.caller-location")]
     public static Diagnostic CallerLocationOnDispatched(Location at, (string Method, string Implemented)? implementation = null) =>

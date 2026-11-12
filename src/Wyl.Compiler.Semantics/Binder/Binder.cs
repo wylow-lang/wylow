@@ -68,6 +68,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             AddBuiltin(module, builtin);
         RegisterSuppressions(units);
         RegisterImports(units);
+        CheckExternBlocks(units);
         var declarations = units.SelectMany(u => u.Declarations).ToList();
 
         var typeList = new List<TypeSymbol>();
@@ -94,6 +95,8 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             s.OwnsElements = stdlib.OwnedElements(s.Type).Any();
 
         var functionList = declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
+        foreach (var constant in declarations.OfType<ExternConstantDecl>())
+            DeclareExternConstant(constant);
         foreach (var function in functionList.Where(f => f.Declaration!.Location.Source.Module.Package.IsStd))
             stdlib.Register(function);
         CheckImports();
@@ -107,7 +110,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         foreach (var s in typeList)
             CheckUniqueFields(s, cyclic);
         // A struct that contains itself, or a field that can't be stored, is already an error.
-        foreach (var s in typeList.Where(s => s is { Kind: TypeKind.Struct, IsExtern: false, Constructors.Count: 0, Fields.Count: > 0 }
+        foreach (var s in typeList.Where(s => s is { Kind: TypeKind.Struct, IsUnion: false, Constructors.Count: 0, Fields.Count: > 0 }
                      && !cyclic.Contains(s) && s.Fields.All(f => !f.Type.IsRefStruct)))
             DeclareMemberwiseConstructor(s);
         foreach (var s in typeList)

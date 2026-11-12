@@ -1,18 +1,24 @@
 // Panics (spec `library.panic`): the bounds checks that indexing a built-in array makes, and
 // `panic(message)`, which the compiler declares in this module.
 
-/// Checks that `index` is within a sequence of `length` elements.
-///
-/// # Panics
-///
-/// Unless 0 <= `index` < `length`.
-@CallerLocation
-pub extern void checkIndex(int index, int length);
+@Include("wyl.h")
+@CppNamespace("wyl::panic")
+extern {
+    /// Checks that `index` is within a sequence of `length` elements.
+    ///
+    /// # Panics
+    ///
+    /// Unless 0 <= `index` < `length`.
+    @Safe
+    @CallerLocation
+    pub void checkIndex(int index, int length);
 
-/// Checks that the `count` elements from `start` are within a sequence of `length` elements.
-///
-/// # Panics
-///
-/// If `start` or `count` is negative, or `start + count` is greater than `length`.
-@CallerLocation
-pub extern void checkRange(int start, int count, int length);
+    /// Checks that the `count` elements from `start` are within a sequence of `length` elements.
+    ///
+    /// # Panics
+    ///
+    /// If `start` or `count` is negative, or `start + count` is greater than `length`.
+    @Safe
+    @CallerLocation
+    pub void checkRange(int start, int count, int length);
+}

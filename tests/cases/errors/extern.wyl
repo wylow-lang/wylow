@@ -1,13 +1,74 @@
-// The rules for the standard library's extern structs, which a user's program reports alongside
-// their being only for the standard library.
-extern struct Handle {                  // error[WYL0427]: extern structs can only be declared in the standard library
-    int x;                          // error[WYL0428]: extern struct cannot declare fields
-    Handle() { }                    // error[WYL0429]: extern struct cannot declare constructors
-    void m() { }
+// The rules of extern blocks that the standard library's blocks are exempt from, and the other
+// rules of blocks and their annotations (spec interop.extern).
+extern { }                              // error[WYL0499]: extern block has no '@Include'
+
+@Include("first.h")
+@Include("second.h")                    // error[WYL0500]: extern block has more than one '@Include'
+extern { }
+
+@Include(1)                             // error[WYL0505]: '@Include' takes one string literal
+@CppNamespace                           // error[WYL0505]: '@CppNamespace' takes one string literal
+extern { }
+
+@Include("native.h")
+@SuppressWarnings("unqualified-call")   // error[WYL0432]: '@SuppressWarnings' can only be used on declarations, local variables, and imports
+extern { }
+
+@Include("native.h")
+@CppNamespace("native")
+extern {
+    unique struct Token { int id; }     // error[WYL0501]: struct in an extern block cannot be 'unique'
+    ref struct View { int* data; }      // error[WYL0501]: struct in an extern block cannot be 'ref'
+    unique union Cell { int i; }        // error[WYL0501]: union in an extern block cannot be 'unique'
+    struct Handle { }                   // error[WYL0427]: only the standard library can declare a struct backed by a C++ class
+    struct Box<T> { T* item; }          // error[WYL0502]: 'Box' cannot be generic
+    struct Parser<T>;                   // error[WYL0502]: 'Parser' cannot be generic
+    T* first<T>(T* items);              // error[WYL0502]: 'first' cannot be generic
+    @CallerLocation                     // error[WYL0503]: '@CallerLocation' cannot be used on a function without a body
+    void check(int index);
+
+    struct Range {
+        pub int start = 0;              // error[WYL0504]: field 'start' of a struct in an extern block cannot have an initializer
+        @CppName("len") pub int length;
+        @CppName pub int end;           // error[WYL0505]: '@CppName' takes one string literal
+        Range(int start) { }            // error[WYL0429]: struct in an extern block cannot declare constructors
+
+        @Safe
+        int size();
+
+        @Safe                           // error[WYL0432]: '@Safe' can only be used on functions and methods without a body in an extern block
+        int doubled() {
+            return length * 2;
+        }
+
+        T* at<T>(int index);            // error[WYL0502]: 'at' cannot be generic
+    }
+
+    union Value {
+        int asInt = 1;                  // error[WYL0504]: field 'asInt' of a union in an extern block cannot have an initializer
+        Value() { }                     // error[WYL0429]: union in an extern block cannot declare constructors
+    }
+
+    @Safe
+    @Pure
+    int version();
+
+    @CppName("native_count")
+    int count();
+
+    @Safe                               // error[WYL0432]: '@Safe' can only be used on functions and methods without a body in an extern block
+    static int LIMIT;
+
+    @CppName("NATIVE_MAX") static int MAX;
 }
 
-class Host {
-    extern void m();                // error[WYL0426]: extern functions can only be declared in the standard library // error[WYL0425]: extern methods must be static outside an extern struct
-}
+@Safe                                   // error[WYL0432]: '@Safe' can only be used on functions and methods without a body in an extern block
+void safe() { }
+
+@CppName("named")                       // error[WYL0432]: '@CppName' can only be used on members of extern blocks and on the fields of their structs and unions
+void named() { }
+
+@CppNamespace("spaced")                 // error[WYL0432]: '@CppNamespace' can only be used on extern blocks
+void spaced() { }
 
 void main() { }

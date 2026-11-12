@@ -79,7 +79,7 @@ public sealed partial class Binder
     }
 
     /// <summary>Reports an annotation used where it doesn't apply, or unknown altogether.</summary>
-    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure" or SuppressWarnings
+    void ReportMisplacedAnnotation(AnnotationSyntax annotation) => Error(annotation.Name is "CallerLocation" or "Acyclic" or "Repr" or "Pure" or "Safe" or Include or CppNamespaceName or CppNameName or SuppressWarnings
         ? Catalog.MisplacedAnnotation(annotation.Location, annotation.Name)
         : Catalog.UnknownAnnotation(annotation.Location, annotation.Name));
 

@@ -241,7 +241,7 @@ static class Mutations
 
     static bool UniqueApplies(Site site) =>
         site.Node is TypeDecl { Kind: TypeKind.Struct or TypeKind.Enum } declaration
-        && (declaration.Modifiers & (Modifiers.Ref | Modifiers.Extern)) == 0;
+        && (declaration.Modifiers & Modifiers.Ref) == 0 && declaration.Block is null;
 
     /// <summary>Makes a value type unique, or a unique one copyable again, which changes every copy it makes to a move.</summary>
     static Candidate? UniqueBuild(MutationContext context, Site site)
@@ -272,7 +272,7 @@ static class Mutations
     }
 
     static bool ChainApplies(Site site) =>        site.Node is TypeDecl { Kind: TypeKind.Class or TypeKind.Struct } declaration
-        && (declaration.Modifiers & Modifiers.Extern) == 0
+        && declaration.Block is null
         && declaration.Methods.Any(m => m is { IsConstructor: true, Body: not null });
 
     /// <summary>
@@ -305,11 +305,11 @@ static class Mutations
 
     static bool Virtualizable(FunctionDecl method) =>
         !method.IsConstructor && method.Body is not null && method.TypeParameters.Count == 0
-        && (method.Modifiers & (Modifiers.Static | Modifiers.Virtual | Modifiers.Override | Modifiers.Abstract | Modifiers.Extern)) == 0;
+        && (method.Modifiers & (Modifiers.Static | Modifiers.Virtual | Modifiers.Override | Modifiers.Abstract)) == 0;
 
     static bool VirtualApplies(Site site) =>
         site.Node is TypeDecl { Kind: TypeKind.Class } declaration
-        && (declaration.Modifiers & (Modifiers.Extern | Modifiers.Final)) == 0
+        && (declaration.Modifiers & Modifiers.Final) == 0
         && declaration.Methods.Any(Virtualizable);
 
     /// <summary>Puts <c>virtual</c> before the return type, choosing a method that returns a reference where there is one.</summary>

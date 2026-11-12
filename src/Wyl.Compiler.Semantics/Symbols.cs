@@ -174,15 +174,15 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     public bool IsBuiltin => BuiltinCppName is not null;
 
-    /// <summary>Declared <c>extern</c> in the standard library and implemented in the C++ runtime.</summary>
+    /// <summary>Declared without a body in an extern block, so that C++ provides it (spec <c>interop.extern</c>).</summary>
     public bool IsExtern => IsBuiltin && Declaration is not null;
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingType is not null && !IsStatic && !IsConstructor && !IsDestructor;
 
     /// <summary>
-    /// A method with a body of an extern struct. The compiler does not write the struct's C++ class,
-    /// so the method becomes a C++ function, and an instance method's function takes the receiver as
-    /// its first parameter.
+    /// A method with a body of a struct in an extern block. The compiler does not write the struct's
+    /// C++ type, so the method becomes a C++ function, and an instance method's function takes the
+    /// receiver as its first parameter.
     /// </summary>
     public bool IsExternStructBody => ContainingType is { IsExtern: true } && !IsConstructor && !IsDestructor && !IsBuiltin;
 
@@ -341,6 +341,12 @@ public sealed class FieldSymbol(string name, WylType type, TypeSymbol owner, Fie
     public WylType Type { get; } = type;
     public TypeSymbol Owner { get; } = owner;
     public FieldDecl Declaration { get; } = declaration;
+
+    /// <summary>
+    /// The C++ name of a field of a struct or union in an extern block: its <c>@CppName</c>, or its
+    /// own name (spec <c>interop.extern.names</c>). The binder sets it.
+    /// </summary>
+    public string? CppName { get; internal set; }
     public Reach Reach => Reach.Of(Declaration).Within(Owner.Reach);
 
     /// <summary>Declared <c>mut</c>, so it may be assigned after construction.</summary>
@@ -437,8 +443,23 @@ public sealed class TypeSymbol
     /// <summary>A <c>unique struct</c> or <c>unique enum</c>: moved rather than copied.</summary>
     public bool IsUnique => (Declaration.Modifiers & Modifiers.Unique) != 0;
 
-    /// <summary>An <c>extern struct</c> of the standard library, implemented by a C++ class in the runtime.</summary>
-    public bool IsExtern => (Declaration.Modifiers & Modifiers.Extern) != 0;
+    /// <summary>A struct or union declared in an extern block, which C++ declares (spec <c>interop.extern</c>).</summary>
+    public bool IsExtern => Declaration.Block is not null;
+
+    /// <summary>
+    /// A struct of an extern block declared with a body and without fields, which a C++ class
+    /// implements (spec <c>interop.extern.extern-structs</c>).
+    /// </summary>
+    public bool IsCppClass => IsExtern && !Declaration.IsOpaque && !Declaration.IsUnion && Declaration.Fields.Count == 0;
+
+    /// <summary>A union of an extern block (spec <c>interop.extern.c-structs</c>).</summary>
+    public bool IsUnion => Declaration.IsUnion;
+
+    /// <summary>
+    /// The C++ name of a struct or union of an extern block: its <c>@CppName</c>, or its own name in
+    /// its block's namespace (spec <c>interop.extern.names</c>). The binder sets it.
+    /// </summary>
+    public string? CppName { get; internal set; }
 
     /// <summary>An interface declared <c>unsafe</c>, whose implementations promise what the compiler cannot check (spec <c>interfaces.unsafe</c>).</summary>
     public bool IsUnsafe => Kind == TypeKind.Interface && (Declaration.Modifiers & Modifiers.Unsafe) != 0;
@@ -456,12 +477,12 @@ public sealed class TypeSymbol
     };
 
     /// <summary>
-    /// The name the C++ runtime declares the type by, which the emitter then gives it: an extern
-    /// struct's class, and a standard library type the runtime's code names (<c>ReadOnlySpan</c>, which
+    /// The name C++ declares the type by, which the emitter then gives it: a struct or union of an
+    /// extern block, and a standard library type the runtime's code names (<c>ReadOnlySpan</c>, which
     /// <c>memory::compare</c>, <c>memory::equal</c>, and <c>String.copyOf</c> take), so the runtime
     /// never depends on how the emitter names a type.
     /// </summary>
-    public string? RuntimeName => IsExtern || IsNamedByRuntime ? "wyl::" + Name : null;
+    public string? RuntimeName => IsExtern ? CppName : IsNamedByRuntime ? "wyl::" + Name : null;
 
     /// <summary>Set by <see cref="StdlibSymbols.Register"/> for the hooks the runtime refers to.</summary>
     internal bool IsNamedByRuntime { get; set; }

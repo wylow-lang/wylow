@@ -1,9 +1,5 @@
 import std::Unit;
 
-/// The cycle buffer of one isolated graph, which travels inside its box (spec `concurrency.isolated`).
-package extern struct IsolatedState {
-}
-
 /// A value and everything it refers to, which travel to another thread as one graph (spec
 /// `concurrency.isolated`).
 ///
@@ -44,8 +40,20 @@ pub unique struct Isolated<T> {
     }
 }
 
-extern T buildIsolated<T>(ref IsolatedState state, fn() -> T build);
+@Include("wyl.h")
+@CppNamespace("wyl::threading")
+extern {
+    /// The cycle buffer of one isolated graph, which travels inside its box (spec `concurrency.isolated`).
+    @CppName("wyl::IsolatedState")
+    package struct IsolatedState {
+    }
 
-extern R openIsolated<T, R>(ref IsolatedState state, ref T value, shared fn(ref T) -> R body);
+    @Safe
+    T buildIsolated<T>(ref IsolatedState state, fn() -> T build);
 
-package extern T takeValue<T>(ref T value);
+    @Safe
+    R openIsolated<T, R>(ref IsolatedState state, ref T value, shared fn(ref T) -> R body);
+
+    @Safe
+    package T takeValue<T>(ref T value);
+}

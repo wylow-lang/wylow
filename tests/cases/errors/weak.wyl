@@ -12,8 +12,6 @@ class Box<T> {
     Weak<T> item;                       // error[WYL0403]: 'Weak' type argument: expected a class or interface type, found 'T'
 }
 
-extern struct Native { }                // error[WYL0427]: extern structs can only be declared in the standard library
-
 void main() {
     var n = new Node();
     mut Weak<Node> w = n;

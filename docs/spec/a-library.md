@@ -273,8 +273,10 @@ pub unsafe interface ElementOwner<T> {
     void visitElements(ref ElementVisitor<T> visitor);
 }
 
-pub unique extern struct ElementVisitor<T> {
-    pub mut extern void visit(ref T element);
+// A member of an extern block of the standard library.
+pub unique struct ElementVisitor<T> {
+    @Safe
+    pub mut void visit(ref T element);
 }
 ```
 

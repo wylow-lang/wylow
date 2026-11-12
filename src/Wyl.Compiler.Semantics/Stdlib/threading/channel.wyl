@@ -1,6 +1,3 @@
-package extern struct SyncState<T extends sendable> {
-}
-
 /// An unbounded channel, through which one thread sends values that another receives.
 ///
 /// The channel has no size limit, so `send` never waits. It closes when its last `Sender` is
@@ -78,19 +75,34 @@ pub shared class Receiver<T extends sendable> {
     }
 }
 
-extern SyncState<T> createState<T extends sendable>();
+@Include("wyl.h")
+@CppNamespace("wyl::threading")
+extern {
+    @CppName("wyl::SyncState")
+    package struct SyncState<T extends sendable> {
+    }
 
-@CallerLocation
-extern void attachSender<T extends sendable>(SyncState<T> state);
+    @Safe
+    SyncState<T> createState<T extends sendable>();
 
-extern void detachSender<T extends sendable>(SyncState<T> state);
+    @Safe
+    @CallerLocation
+    void attachSender<T extends sendable>(SyncState<T> state);
 
-extern void attachReceiver<T extends sendable>(SyncState<T> state);
+    @Safe
+    void detachSender<T extends sendable>(SyncState<T> state);
 
-extern void detachReceiver<T extends sendable>(SyncState<T> state);
+    @Safe
+    void attachReceiver<T extends sendable>(SyncState<T> state);
 
-@CallerLocation
-extern void sendValue<T extends sendable>(SyncState<T> state, T value);
+    @Safe
+    void detachReceiver<T extends sendable>(SyncState<T> state);
 
-@CallerLocation
-extern T? receiveValue<T extends sendable>(SyncState<T> state);
+    @Safe
+    @CallerLocation
+    void sendValue<T extends sendable>(SyncState<T> state, T value);
+
+    @Safe
+    @CallerLocation
+    T? receiveValue<T extends sendable>(SyncState<T> state);
+}
