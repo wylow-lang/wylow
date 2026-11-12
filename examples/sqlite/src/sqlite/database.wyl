@@ -1,0 +1,122 @@
+import std::Unit;
+import std::collections::List;
+
+/// An error that SQLite reported: its result code and its message.
+pub struct Error implements Printable {
+    pub int code;
+    pub String message;
+
+    /// Returns the result code and the message.
+    pub String toString() {
+        return $"SQLite error {code}: {message}";
+    }
+}
+
+/// An open connection to a database. The destructor closes the connection.
+pub final class Database {
+    module Connection* handle;
+
+    Database(Connection* handle) {
+        this.handle = handle;
+    }
+
+    /// Opens the database at `path`, or an in-memory database if `path` is `":memory:"`.
+    pub static Result<Database, Error> open(String path) {
+        unsafe {
+            mut Connection* handle = null;
+            int code = sqlite3_open(path.cstr(), &handle);
+            if (code != SQLITE_OK) {
+                // SQLite returns a connection on most failures, and the connection holds the message.
+                String message = handle == null
+                    ? String.fromCString(sqlite3_errstr(code))
+                    : String.fromCString(sqlite3_errmsg(handle));
+                _ = sqlite3_close(handle);
+                return Err(Error(code, message));
+            }
+            return Ok(new Database(handle));
+        }
+    }
+
+    /// Returns a statement of the first SQL statement in `sql`.
+    pub Result<Statement, Error> prepare(String sql) {
+        unsafe {
+            mut PreparedStatement* statement = null;
+            int code = sqlite3_prepare_v2(handle, sql.cstr(), sql.byteLength(), &statement, null);
+            if (code != SQLITE_OK) {
+                return Err(error(code));
+            }
+            // SQLite returns no statement for text that holds only whitespace and comments.
+            if (statement == null) {
+                return Err(Error(SQLITE_MISUSE, "the SQL text holds no statement"));
+            }
+            return Ok(Statement(this, statement));
+        }
+    }
+
+    /// Runs `sql`, a statement that returns no rows.
+    pub Result<Unit, Error> execute(String sql) {
+        mut Statement statement = try prepare(sql);
+        if (try statement.step()) {
+            return Err(Error(SQLITE_MISUSE, "the statement returned a row"));
+        }
+        return Ok(Unit());
+    }
+
+    /// Runs `sql`, which may hold several statements, and calls `visit` with each row's column names
+    /// and values. A null value is `null`. The run stops after a row for which `visit` returns
+    /// `false`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a name or a value is not valid UTF-8.
+    pub Result<Unit, Error> forEachRow(String sql, escaping fn(List<String>, List<String?>) -> bool visit) {
+        mut var context = ExecContext(visit);
+        unsafe {
+            int code = sqlite3_exec(handle, sql.cstr(), visitRow, &context, null);
+            if (code != SQLITE_OK && !context.stopped) {
+                return Err(error(code));
+            }
+        }
+        return Ok(Unit());
+    }
+
+    /// Returns the error of `code`, with the message of the connection's last failed call.
+    module Error error(int code) {
+        unsafe {
+            return Error(code, String.fromCString(sqlite3_errmsg(handle)));
+        }
+    }
+
+    ~Database() {
+        // No statement is left to finalize: each statement keeps its database alive.
+        unsafe {
+            _ = sqlite3_close(handle);
+        }
+    }
+}
+
+/// What `forEachRow` gives `sqlite3_exec` as the callback's context.
+struct ExecContext {
+    fn(List<String>, List<String?>) -> bool visit;
+    bool stopped = false;
+}
+
+/// Calls the function of the `ExecContext` that `context` points to with one row of
+/// `sqlite3_exec`'s result. Returns 1, which stops the run, if the function returns `false`.
+@CCallback
+int visitRow(void* context, int columns, byte** values, byte** names) {
+    mut var nameList = new List<String>();
+    mut var valueList = new List<String?>();
+    unsafe {
+        for (mut int column = 0; column < columns; column++) {
+            nameList.add(String.fromCString(names[column]));
+            valueList.add(values[column] == null ? null : String.fromCString(values[column]));
+        }
+        ExecContext* exec = (ExecContext*) context;
+        if (!exec[0].visit(nameList, valueList)) {
+            exec[0].stopped = true;
+            return 1;
+        }
+    }
+    return 0;
+}

@@ -1,0 +1,47 @@
+// SQLite's C API, as the module's safe types call it. Every member is visible only in the module, so
+// a program that imports `sqlite` calls none of these functions itself.
+
+@Include("sqlite3.h")
+extern {
+    @CppName("sqlite3")
+    module struct Connection;
+
+    @CppName("sqlite3_stmt")
+    module struct PreparedStatement;
+
+    module static int SQLITE_OK;
+    module static int SQLITE_MISUSE;
+    module static int SQLITE_ROW;
+    module static int SQLITE_DONE;
+    module static int SQLITE_INTEGER;
+    module static int SQLITE_FLOAT;
+    module static int SQLITE_TEXT;
+    module static int SQLITE_BLOB;
+    module static int SQLITE_NULL;
+    module static extern fn(void*) -> void SQLITE_TRANSIENT;
+
+    module int sqlite3_open(byte* filename, Connection** connection);
+    module int sqlite3_close(Connection* connection);
+    module byte* sqlite3_errmsg(Connection* connection);
+    module byte* sqlite3_errstr(int code);
+    module int sqlite3_prepare_v2(Connection* connection, byte* sql, int length, PreparedStatement** statement, byte** tail);
+    module int sqlite3_bind_parameter_count(PreparedStatement* statement);
+    module int sqlite3_bind_int64(PreparedStatement* statement, int index, long value);
+    module int sqlite3_bind_double(PreparedStatement* statement, int index, double value);
+    module int sqlite3_bind_null(PreparedStatement* statement, int index);
+    module int sqlite3_bind_text(PreparedStatement* statement, int index, byte* text, int length, extern fn(void*) -> void destructor);
+    module int sqlite3_bind_blob(PreparedStatement* statement, int index, void* data, int length, extern fn(void*) -> void destructor);
+    module int sqlite3_bind_zeroblob(PreparedStatement* statement, int index, int length);
+    module int sqlite3_exec(Connection* connection, byte* sql, (extern fn(void*, int, byte**, byte**) -> int)? callback, void* context, byte** error);
+    module int sqlite3_step(PreparedStatement* statement);
+    module int sqlite3_reset(PreparedStatement* statement);
+    module int sqlite3_finalize(PreparedStatement* statement);
+    module int sqlite3_column_count(PreparedStatement* statement);
+    module int sqlite3_column_type(PreparedStatement* statement, int column);
+    module byte* sqlite3_column_name(PreparedStatement* statement, int column);
+    module long sqlite3_column_int64(PreparedStatement* statement, int column);
+    module double sqlite3_column_double(PreparedStatement* statement, int column);
+    module byte* sqlite3_column_text(PreparedStatement* statement, int column);
+    module void* sqlite3_column_blob(PreparedStatement* statement, int column);
+    module int sqlite3_column_bytes(PreparedStatement* statement, int column);
+}

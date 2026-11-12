@@ -2,8 +2,8 @@
 
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
 binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
-smaller gaps that the binding found. The `dependencies` design comes last, because the steps before
-it change what a library package needs.
+smaller gaps that the binding found. Step 4 wrote a safe layer over the binding. The `dependencies`
+design comes last, because the steps before it change what a library package needs.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -75,12 +75,40 @@ WSL").
 - `@Flags`, `E.tryFrom`, and `bitcast<T>` are in the spec, but the compiler does not build them.
   Step 4 cannot use them.
 
-## 4. A safe layer in the example
+## Facts from step 4
 
-Every call in `examples/sqlite` is unsafe, and the example wraps none of them. Write the layer that
-a library package would export: for example, a `Database` class whose destructor closes the
-connection, and a `Statement` that finalizes itself. Write down each place where the language made
-the layer hard to write.
+- `examples/sqlite` has a safe layer in its `sqlite` module, and `main.wyl` has no unsafe code. The
+  extern block's members are visible only in the module. `Database` is a class whose destructor
+  closes the connection. `Statement` is a unique struct whose destructor finalizes the statement,
+  and its field `database` keeps the connection open. `column` returns a `Value` enum, and every
+  call that SQLite can fail returns `Result<T, Error>`.
+- The layer enforces three of SQLite's rules itself. `column` panics if the statement is not on a
+  row or the column is out of range, because SQLite leaves both undefined. `prepare` returns an error
+  for SQL text that holds no statement, because SQLite returns a null statement for it. `bind` binds
+  an empty span with `sqlite3_bind_zeroblob`, because SQLite binds null for a null pointer.
+- These places made the layer hard to write:
+  - `Database` is a class and not a unique struct. A statement must keep its connection open, and
+    a field cannot refer to a value that another variable owns. A class method cannot consume its
+    object, so the layer has no `close` that returns an error. The destructor ignores the result
+    of `sqlite3_close`, which cannot be `SQLITE_BUSY` while every statement keeps its database
+    alive.
+  - `forEachRow` takes an `escaping` function, although `sqlite3_exec` calls the function only
+    during the call. The function reaches the callback through a `void*` to a struct, and a field
+    holds only an escaping function (`WYL0265` rejects `escaping` on a field). An escaping lambda
+    has only a copy of a local (`WYL0351`), so `main.wyl` counts the rows in an object.
+  - An extern constant is not a constant expression, so a `case` cannot name `SQLITE_TEXT` or
+    `SQLITE_ROW`. The layer compares the codes with `if`. A `@Repr` enum result is no help either,
+    because SQLite returns extended result codes, and `E.tryFrom` is not built.
+  - `String.fromCString` panics on invalid UTF-8 and stops at the first null byte. SQLite stores
+    text without checking it, so `column` and `forEachRow` panic on invalid text. The standard
+    library has no public function that makes a `String` from a byte span, or that returns an error
+    for invalid UTF-8, so the layer cannot report invalid text as an `Error` or read text by its
+    length.
+  - The standard library has no function that copies a span into an array, so `column` copies a
+    blob into a `byte[]` one byte at a time.
+- The two limits that step 1 found, an `extern fn` field and a `byte*` field whose C type is
+  `const char*`, did not come up: the layer declares no extern struct with fields.
+- `@CallerLocation` on `column` and `columnName` makes their panics report the caller's line.
 
 ## 5. Designing `dependencies`
 

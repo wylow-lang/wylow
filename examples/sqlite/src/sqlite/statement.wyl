@@ -1,0 +1,181 @@
+import std::Unit;
+
+/// The value of one column of a row.
+pub enum Value implements Printable {
+    Integer(long value),
+    Float(double value),
+    Text(String value),
+    Blob(byte[] bytes),
+    Null;
+
+    /// Returns the value as SQL writes it: text in quotes, and a blob in hexadecimal.
+    pub String toString() {
+        return switch (this) {
+            case Integer(var value) -> $"{value}";
+            case Float(var value) -> $"{value}";
+            case Text(var value) -> $"'{value}'";
+            case Blob(var bytes) -> hex(bytes);
+            case Null -> "null";
+        };
+    }
+}
+
+/// Returns `bytes` as an SQL blob literal: `x'` and two hexadecimal digits for each byte.
+String hex(byte[] bytes) {
+    mut String text = "x'";
+    for (byte b : bytes) {
+        text = $"{text}{b:X2}";
+    }
+    return $"{text}'";
+}
+
+/// A prepared statement. The destructor finalizes it. A statement keeps its database open.
+pub unique struct Statement {
+    module Database database;
+    module PreparedStatement* handle;
+    module bool onRow = false;
+
+    /// Sets parameter `index`, counted from 1, to `value`.
+    pub mut Result<Unit, Error> bind(int index, long value) {
+        unsafe {
+            return check(sqlite3_bind_int64(handle, index, value));
+        }
+    }
+
+    /// Sets parameter `index`, counted from 1, to `value`.
+    pub mut Result<Unit, Error> bind(int index, double value) {
+        unsafe {
+            return check(sqlite3_bind_double(handle, index, value));
+        }
+    }
+
+    /// Sets parameter `index`, counted from 1, to a copy of `text`.
+    pub mut Result<Unit, Error> bind(int index, String text) {
+        unsafe {
+            return check(sqlite3_bind_text(handle, index, text.cstr(), text.byteLength(), SQLITE_TRANSIENT));
+        }
+    }
+
+    /// Sets parameter `index`, counted from 1, to a blob that copies `bytes`.
+    pub mut Result<Unit, Error> bind(int index, ReadOnlySpan<byte> bytes) {
+        // SQLite binds null, not an empty blob, for a null pointer.
+        if (bytes.length() == 0) {
+            unsafe {
+                return check(sqlite3_bind_zeroblob(handle, index, 0));
+            }
+        }
+        unsafe {
+            return check(sqlite3_bind_blob(handle, index, bytes.data(), bytes.byteLength(), SQLITE_TRANSIENT));
+        }
+    }
+
+    /// Sets parameter `index`, counted from 1, to null.
+    pub mut Result<Unit, Error> bindNull(int index) {
+        unsafe {
+            return check(sqlite3_bind_null(handle, index));
+        }
+    }
+
+    /// Runs the statement to its next row. Returns `true` if the statement is on a row, and `false`
+    /// if it has finished.
+    pub mut Result<bool, Error> step() {
+        unsafe {
+            int code = sqlite3_step(handle);
+            onRow = code == SQLITE_ROW;
+            if (onRow) {
+                return Ok(true);
+            }
+            if (code == SQLITE_DONE) {
+                return Ok(false);
+            }
+            return Err(database.error(code));
+        }
+    }
+
+    /// Returns the statement to its start, so that it runs again. The parameters keep their values.
+    pub mut Result<Unit, Error> reset() {
+        onRow = false;
+        unsafe {
+            return check(sqlite3_reset(handle));
+        }
+    }
+
+    /// Returns the number of columns of the statement's rows.
+    pub int columnCount() {
+        unsafe {
+            return sqlite3_column_count(handle);
+        }
+    }
+
+    /// Returns the name of `column`, counted from 0.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `column` is not one of the statement's columns.
+    @CallerLocation
+    pub String columnName(int column) {
+        checkColumn(column);
+        unsafe {
+            return String.fromCString(sqlite3_column_name(handle, column));
+        }
+    }
+
+    /// Returns the value of `column`, counted from 0, in the current row. A text value ends at its
+    /// first null byte.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the statement is not on a row, or if `column` is not one of its columns.
+    /// Panics if the value is text that is not valid UTF-8.
+    @CallerLocation
+    pub Value column(int column) {
+        if (!onRow) {
+            std::panic("the statement is not on a row");
+        }
+        checkColumn(column);
+        unsafe {
+            int type = sqlite3_column_type(handle, column);
+            if (type == SQLITE_INTEGER) {
+                return Value.Integer(sqlite3_column_int64(handle, column));
+            }
+            if (type == SQLITE_FLOAT) {
+                return Value.Float(sqlite3_column_double(handle, column));
+            }
+            if (type == SQLITE_TEXT) {
+                return Value.Text(String.fromCString(sqlite3_column_text(handle, column)));
+            }
+            if (type == SQLITE_BLOB) {
+                // SQLite's documentation reads the pointer before the length.
+                byte* data = (byte*) sqlite3_column_blob(handle, column);
+                int length = sqlite3_column_bytes(handle, column);
+                var bytes = new byte[length];
+                for (mut int i = 0; i < length; i++) {
+                    bytes[i] = data[i];
+                }
+                return Value.Blob(bytes);
+            }
+            return Value.Null;
+        }
+    }
+
+    @CallerLocation
+    void checkColumn(int column) {
+        int count = columnCount();
+        if (column < 0 || column >= count) {
+            std::panic($"column {column} is not one of the statement's {count} columns");
+        }
+    }
+
+    Result<Unit, Error> check(int code) {
+        if (code != SQLITE_OK) {
+            return Err(database.error(code));
+        }
+        return Ok(Unit());
+    }
+
+    ~Statement() {
+        unsafe {
+            _ = sqlite3_finalize(handle);
+        }
+    }
+}

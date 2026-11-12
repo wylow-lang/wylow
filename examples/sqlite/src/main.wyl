@@ -1,47 +1,10 @@
-// A program that binds SQLite's C API by hand. It opens an in-memory database, creates a table,
-// inserts rows with bound text, integers, doubles, and blobs, and prints each row of a query. A
-// last query runs through `sqlite3_exec`, which calls a Wylow function for each row.
+// A program that uses SQLite through the safe layer of the `sqlite` module, without unsafe code. It
+// opens an in-memory database, creates a table, inserts rows with bound text, integers, doubles, and
+// blobs, and prints each row of a query. A last query runs through `forEachRow`, which SQLite's
+// `sqlite3_exec` calls back for each row.
 
-@Include("sqlite3.h")
-extern {
-    @CppName("sqlite3")
-    struct Database;
-
-    @CppName("sqlite3_stmt")
-    struct Statement;
-
-    static int SQLITE_OK;
-    static int SQLITE_ROW;
-    static int SQLITE_DONE;
-    static int SQLITE_INTEGER;
-    static int SQLITE_FLOAT;
-    static int SQLITE_TEXT;
-    static int SQLITE_BLOB;
-    static int SQLITE_NULL;
-    static extern fn(void*) -> void SQLITE_TRANSIENT;
-
-    int sqlite3_open(byte* filename, Database** database);
-    int sqlite3_close(Database* database);
-    byte* sqlite3_errmsg(Database* database);
-    int sqlite3_prepare_v2(Database* database, byte* sql, int length, Statement** statement, byte** tail);
-    int sqlite3_bind_int64(Statement* statement, int index, long value);
-    int sqlite3_bind_double(Statement* statement, int index, double value);
-    int sqlite3_bind_null(Statement* statement, int index);
-    int sqlite3_bind_text(Statement* statement, int index, byte* text, int length, extern fn(void*) -> void destructor);
-    int sqlite3_bind_blob(Statement* statement, int index, void* data, int length, extern fn(void*) -> void destructor);
-    int sqlite3_exec(Database* database, byte* sql, (extern fn(void*, int, byte**, byte**) -> int)? callback, void* context, byte** error);
-    int sqlite3_step(Statement* statement);
-    int sqlite3_reset(Statement* statement);
-    int sqlite3_finalize(Statement* statement);
-    int sqlite3_column_count(Statement* statement);
-    int sqlite3_column_type(Statement* statement, int column);
-    byte* sqlite3_column_name(Statement* statement, int column);
-    long sqlite3_column_int64(Statement* statement, int column);
-    double sqlite3_column_double(Statement* statement, int column);
-    byte* sqlite3_column_text(Statement* statement, int column);
-    void* sqlite3_column_blob(Statement* statement, int column);
-    int sqlite3_column_bytes(Statement* statement, int column);
-}
+import std::Unit;
+import sqlite::{Database, Error, Statement};
 
 /// A row to insert: a name, a count, a weight, and a tag of raw bytes.
 struct Order {
@@ -51,160 +14,80 @@ struct Order {
     pub byte[4] tag;
 }
 
-/// Panics with SQLite's message for `database` if `code` is not `expected`.
-void check(Database* database, int code, int expected) {
-    if (code != expected) {
-        unsafe {
-            String message = String.fromCString(sqlite3_errmsg(database));
-            std::panic($"SQLite returned {code}: {message}");
-        }
-    }
-}
-
-/// Returns a prepared statement of `sql`.
-///
-/// # Safety
-///
-/// `database` must be open.
-unsafe Statement* prepare(Database* database, String sql) {
-    mut Statement* statement = null;
-    check(database, sqlite3_prepare_v2(database, sql.cstr(), sql.byteLength(), &statement, null), SQLITE_OK);
-    return statement;
-}
-
-/// Runs `sql`, which returns no rows.
-///
-/// # Safety
-///
-/// `database` must be open.
-unsafe void execute(Database* database, String sql) {
-    Statement* statement = prepare(database, sql);
-    check(database, sqlite3_step(statement), SQLITE_DONE);
-    check(database, sqlite3_finalize(statement), SQLITE_OK);
-}
-
-/// Inserts each order through one statement, which is reset after each row.
-///
-/// # Safety
-///
-/// `database` must be open, and its `orders` table must exist.
-unsafe void insert(Database* database, ReadOnlySpan<Order> orders) {
-    Statement* statement = prepare(database, "INSERT INTO orders (name, count, weight, tag) VALUES (?, ?, ?, ?)");
+/// Inserts each order through one statement, which is reset after each row, and then a row whose
+/// columns other than the name are null.
+Result<Unit, Error> insert(Database database, ReadOnlySpan<Order> orders) {
+    mut Statement statement = try database.prepare("INSERT INTO orders (name, count, weight, tag) VALUES (?, ?, ?, ?)");
     for (Order order : orders) {
-        String name = order.name;
-        check(database, sqlite3_bind_text(statement, 1, name.cstr(), name.byteLength(), SQLITE_TRANSIENT), SQLITE_OK);
-        check(database, sqlite3_bind_int64(statement, 2, order.count), SQLITE_OK);
-        check(database, sqlite3_bind_double(statement, 3, order.weight), SQLITE_OK);
-        mut byte[4] tag = order.tag;
-        Span<byte> bytes = tag;
-        check(database, sqlite3_bind_blob(statement, 4, bytes.data(), bytes.byteLength(), SQLITE_TRANSIENT), SQLITE_OK);
-        check(database, sqlite3_step(statement), SQLITE_DONE);
-        check(database, sqlite3_reset(statement), SQLITE_OK);
+        try statement.bind(1, order.name);
+        try statement.bind(2, order.count);
+        try statement.bind(3, order.weight);
+        try statement.bind(4, order.tag);
+        _ = try statement.step();
+        try statement.reset();
     }
-    // A row whose columns other than the name are null.
-    String name = "empty";
-    check(database, sqlite3_bind_text(statement, 1, name.cstr(), name.byteLength(), SQLITE_TRANSIENT), SQLITE_OK);
+    try statement.bind(1, "empty");
     for (mut int column = 2; column <= 4; column++) {
-        check(database, sqlite3_bind_null(statement, column), SQLITE_OK);
+        try statement.bindNull(column);
     }
-    check(database, sqlite3_step(statement), SQLITE_DONE);
-    check(database, sqlite3_finalize(statement), SQLITE_OK);
-}
-
-/// Returns the text of one column of the current row, as its type gives it.
-///
-/// # Safety
-///
-/// `statement` must be on a row, and `column` must be one of its columns.
-unsafe String columnText(Statement* statement, int column) {
-    int type = sqlite3_column_type(statement, column);
-    if (type == SQLITE_INTEGER) {
-        return $"{sqlite3_column_int64(statement, column)}";
-    }
-    if (type == SQLITE_FLOAT) {
-        return $"{sqlite3_column_double(statement, column)}";
-    }
-    if (type == SQLITE_TEXT) {
-        return String.fromCString(sqlite3_column_text(statement, column));
-    }
-    if (type == SQLITE_BLOB) {
-        // The pointer is read before the length, as SQLite's documentation advises.
-        byte* data = (byte*) sqlite3_column_blob(statement, column);
-        int length = sqlite3_column_bytes(statement, column);
-        mut String text = "x'";
-        for (mut int i = 0; i < length; i++) {
-            text = $"{text}{data[i]:X2}";
-        }
-        return $"{text}'";
-    }
-    return "null";
+    _ = try statement.step();
+    return Ok(Unit());
 }
 
 /// Prints each row of `sql`, one line a row, with each column's name.
-///
-/// # Safety
-///
-/// `database` must be open.
-unsafe void query(Database* database, String sql) {
-    Statement* statement = prepare(database, sql);
-    int columns = sqlite3_column_count(statement);
-    mut int result = sqlite3_step(statement);
-    while (result == SQLITE_ROW) {
+Result<Unit, Error> query(Database database, String sql) {
+    mut Statement statement = try database.prepare(sql);
+    int columns = statement.columnCount();
+    while (try statement.step()) {
         mut String line = "";
         for (mut int column = 0; column < columns; column++) {
-            String name = String.fromCString(sqlite3_column_name(statement, column));
             String separator = column == 0 ? "" : ", ";
-            line = $"{line}{separator}{name} = {columnText(statement, column)}";
+            line = $"{line}{separator}{statement.columnName(column)} = {statement.column(column)}";
         }
         std::print(line);
-        result = sqlite3_step(statement);
     }
-    check(database, result, SQLITE_DONE);
-    check(database, sqlite3_finalize(statement), SQLITE_OK);
+    return Ok(Unit());
 }
 
-/// The rows that `printRow` has printed.
-struct RowCount {
-    pub int rows;
+/// The rows that the function given to `forEachRow` has printed. The function is escaping, so it
+/// changes an object and not a local of `run`.
+class RowCount {
+    pub mut int rows;
 }
 
-/// Prints one row of `sqlite3_exec`'s result, with each column's name, and counts it in the
-/// `RowCount` that `context` points to. Returns 0, which lets SQLite go on to the next row.
-@CCallback
-int printRow(void* context, int columns, byte** values, byte** names) {
-    mut String line = "";
-    unsafe {
-        for (mut int column = 0; column < columns; column++) {
-            String name = String.fromCString(names[column]);
-            String value = values[column] == null ? "null" : String.fromCString(values[column]);
-            String separator = column == 0 ? "" : ", ";
-            line = $"{line}{separator}{name} = {value}";
-        }
-        RowCount* count = (RowCount*) context;
-        count[0].rows += 1;
-    }
-    std::print(line);
-    return 0;
-}
-
-void main() {
+Result<Unit, Error> run() {
     Order[3] orders = [
         Order("bolts", 120, 0.25, [0xDE, 0xAD, 0xBE, 0xEF]),
         Order("nuts", 300, 0.125, [0x00, 0x01, 0x02, 0x03]),
         Order("washers", 75, 1.5, [0xFF, 0x80, 0x7F, 0x00])
     ];
-    unsafe {
-        mut Database* database = null;
-        String path = ":memory:";
-        check(database, sqlite3_open(path.cstr(), &database), SQLITE_OK);
-        execute(database, "CREATE TABLE orders (name TEXT, count INTEGER, weight REAL, tag BLOB)");
-        insert(database, orders);
-        query(database, "SELECT name, count, weight, tag FROM orders ORDER BY name");
-        query(database, "SELECT count(*) AS rows, sum(count) AS total FROM orders");
-        mut var count = RowCount(0);
-        String sql = "SELECT name, weight FROM orders WHERE weight > 0.2 ORDER BY weight";
-        check(database, sqlite3_exec(database, sql.cstr(), printRow, &count, null), SQLITE_OK);
-        std::print($"sqlite3_exec printed {count.rows} rows");
-        check(database, sqlite3_close(database), SQLITE_OK);
+    Database database = try Database.open(":memory:");
+    try database.execute("CREATE TABLE orders (name TEXT, count INTEGER, weight REAL, tag BLOB)");
+    try insert(database, orders);
+    try query(database, "SELECT name, count, weight, tag FROM orders ORDER BY name");
+    try query(database, "SELECT count(*) AS rows, sum(count) AS total FROM orders");
+    var count = new RowCount();
+    String sql = "SELECT name, weight FROM orders WHERE weight > 0.2 ORDER BY weight";
+    try database.forEachRow(sql, (names, values) -> {
+        mut String line = "";
+        for (mut int column = 0; column < names.count(); column++) {
+            String separator = column == 0 ? "" : ", ";
+            line = $"{line}{separator}{names[column]} = {values[column] ?? "null"}";
+        }
+        std::print(line);
+        count.rows++;
+        return true;
+    });
+    std::print($"forEachRow printed {count.rows} rows");
+    switch (database.execute("INSERT INTO missing VALUES (1)")) {
+        case Ok(_) -> std::print("the insert ran");
+        case Err(var error) -> std::print($"{error}");
+    }
+    return Ok(Unit());
+}
+
+void main() {
+    if (run() is Err(var error)) {
+        std::panic($"{error}");
     }
 }
