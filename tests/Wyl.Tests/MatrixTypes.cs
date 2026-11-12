@@ -1,6 +1,6 @@
 // The types x contexts matrix: each kind of type crossed with where it can appear. A type is a
 // struct, class, enum with data, nullable value or reference, fixed array, escaping or non-escaping
-// function, C function pointer, generic instantiation, nint, a nesting of two, or a value kind programs compute with
+// function, C function pointer, pointer, `void*`, generic instantiation, nint, a nesting of two, or a value kind programs compute with
 // (String, double, long). A context is a local, field, parameter, return, type argument, element,
 // capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
 // `case null`, a field a guarded case binds, or an argument of `super(...)` and `this(...)`. Each cell makes a value and shows something about
@@ -124,6 +124,18 @@ static class MatrixTypes
             expr => $"unsafe {{ print({expr}()); }}",
             Comparable: false,
             Declarations: "@CCallback\nint three() { return 3; }\n\n@CCallback\nint seven() { return 7; }");
+        // Pointers: each value is new storage that the cell never frees, so every pointer stays valid.
+        // Two values made from one integer are two allocations, and pointers compare by address, so
+        // the equality cell's equal pair compares unequal. A default pointer is null, which `read`
+        // shows as -1.
+        yield return new("pointer", "int*", "int*", "int*[2]", "3", "7",
+            raw => $"slot({raw})",
+            expr => $"print(read({expr}));",
+            Declarations: PointerDeclarations);
+        yield return new("void-pointer", "void*", "void*", "void*[2]", "3", "7",
+            raw => $"slot({raw})",
+            expr => $"print(readAny({expr}));",
+            Declarations: PointerDeclarations);
         yield return new("generic", "Box<int>", "Box<int>", "Box<int>[2]", "3", "7",
             raw => $"Box<int>({raw})",
             expr => $"print({expr}.value);");
@@ -154,6 +166,32 @@ static class MatrixTypes
             raw => raw,
             expr => $"print({expr});\nprint({expr}.byteLength());\nprint({expr}.charCount());\nprint({expr}.isEmpty());");
     }
+
+    /// <summary>The functions that the pointer rows make and show values with.</summary>
+    const string PointerDeclarations = """
+        int* slot(int value) {
+            unsafe {
+                int* p = std::memory::allocate<int>(1);
+                std::memory::initialize(p, value);
+                return p;
+            }
+        }
+
+        int read(int* p) {
+            if (p == null) {
+                return -1;
+            }
+            unsafe {
+                return p[0];
+            }
+        }
+
+        int readAny(void* p) {
+            unsafe {
+                return read((int*)p);
+            }
+        }
+        """;
 
     static string Cell(TypeRow row, string context)
     {

@@ -112,6 +112,11 @@ static class Mutations
         // Makes a function type a C function pointer, which only a @CCallback function converts to,
         // so most mutants cross the conversion's errors.
         new("type-extern-function", SiteKind.Type, ExternFunctionApplies, ExternFunctionBuild),
+        // Makes a pointer type `void*`. A value of the old type still converts to it, but indexing,
+        // arithmetic, and passing it on as the old type become errors, and a cast back is unsafe.
+        new("type-void-pointer", SiteKind.Type,
+            site => site.Node is TypeSyntax { Shape: TypeShape.Pointer, Element: not { Shape: TypeShape.Named, Name: "void" } },
+            (_, site) => Single("type-void-pointer", site, "void*")),
         new("type-kind", SiteKind.TypeDecl, KindApplies, KindBuild),
         new("type-unique", SiteKind.TypeDecl, UniqueApplies, UniqueBuild),
         // Gives a unique struct an empty destructor, which crosses destructor lowering and the

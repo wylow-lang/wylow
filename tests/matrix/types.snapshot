@@ -929,6 +929,134 @@ out 3
 out 7
 exit 0
 
+=== pointer/local
+out 3
+exit 0
+
+=== pointer/field
+out 3
+out 7
+exit 0
+
+=== pointer/parameter
+out 3
+exit 0
+
+=== pointer/return
+out 3
+exit 0
+
+=== pointer/type-argument
+out 3
+exit 0
+
+=== pointer/element
+out 3
+out 7
+exit 0
+
+=== pointer/capture
+out 3
+exit 0
+
+=== pointer/equality
+out false
+out false
+out true
+exit 0
+
+=== pointer/default
+out -1
+exit 0
+
+=== pointer/overloads
+out typed
+exit 0
+
+=== pointer/struct-pattern
+out 3
+out 3
+exit 0
+
+=== pointer/case-null
+error 57: pointer type 'int*' cannot be nullable
+
+=== pointer/guarded
+out 3
+exit 0
+
+=== pointer/constructor-call
+out 3
+out 7
+out 7
+out 3
+out 7
+exit 0
+
+=== void-pointer/local
+out 3
+exit 0
+
+=== void-pointer/field
+out 3
+out 7
+exit 0
+
+=== void-pointer/parameter
+out 3
+exit 0
+
+=== void-pointer/return
+out 3
+exit 0
+
+=== void-pointer/type-argument
+out 3
+exit 0
+
+=== void-pointer/element
+out 3
+out 7
+exit 0
+
+=== void-pointer/capture
+out 3
+exit 0
+
+=== void-pointer/equality
+out false
+out false
+out true
+exit 0
+
+=== void-pointer/default
+out -1
+exit 0
+
+=== void-pointer/overloads
+out typed
+exit 0
+
+=== void-pointer/struct-pattern
+out 3
+out 3
+exit 0
+
+=== void-pointer/case-null
+error 57: pointer type 'void*' cannot be nullable
+
+=== void-pointer/guarded
+out 3
+exit 0
+
+=== void-pointer/constructor-call
+out 3
+out 7
+out 7
+out 3
+out 7
+exit 0
+
 === generic/local
 out 3
 exit 0
