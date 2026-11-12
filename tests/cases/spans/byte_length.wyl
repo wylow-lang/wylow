@@ -9,6 +9,22 @@ struct Header {
 
 struct Empty { }
 
+// A unique struct is laid out as a copyable one is, and a struct with a destructor also has a
+// one-byte flags field after its fields.
+unique struct Handle {
+    pub int id;
+}
+
+unique struct Guard {
+    pub int id;
+
+    ~Guard() { }
+}
+
+unique struct EmptyGuard {
+    ~EmptyGuard() { }
+}
+
 void main() {
     mut int[3] ints = [1, 2, 3];
     Span<int> view = ints;
@@ -28,6 +44,18 @@ void main() {
     mut Empty[4] empties = [Empty(), Empty(), Empty(), Empty()];
     Span<Empty> nothing = empties;
     std::print(nothing.byteLength());           // output: 4
+
+    mut Handle[2] handles = [Handle(1), Handle(2)];
+    Span<Handle> handleView = handles;
+    std::print(handleView.byteLength());        // output: 8
+
+    mut Guard[2] guards = [Guard(1), Guard(2)];
+    Span<Guard> guardView = guards;
+    std::print(guardView.byteLength());         // output: 16
+
+    mut EmptyGuard[3] emptyGuards = [EmptyGuard(), EmptyGuard(), EmptyGuard()];
+    Span<EmptyGuard> emptyGuardView = emptyGuards;
+    std::print(emptyGuardView.byteLength());    // output: 3
 
     mut char[2] chars = ['a', 'b'];
     Span<char> text = chars;

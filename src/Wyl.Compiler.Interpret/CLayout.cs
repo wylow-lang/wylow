@@ -1,16 +1,23 @@
 using Wyl.Compiler.Semantics;
+using Wyl.Compiler.Syntax;
 
 namespace Wyl.Compiler.Interpret;
 
 /// <summary>
-/// The size and alignment that C++ gives a blittable type on the 64-bit targets the interpreter
-/// models (spec <c>interop.blittable</c>). A struct's fields are laid out in order, each at the next
-/// offset its alignment allows, and the struct's size is rounded up to its own alignment.
+/// The size and alignment that C++ gives a type on the 64-bit targets the interpreter models: a
+/// blittable type (spec <c>interop.blittable</c>), or a struct of the program whose fields have a
+/// layout here. A struct's fields are laid out in order, each at the next offset its alignment
+/// allows, and the struct's size is rounded up to its own alignment. If a struct has a destructor,
+/// the emitter adds a one-byte flags field after its fields.
 /// </summary>
 readonly record struct CLayout(long Size, long Alignment)
 {
+    static readonly CLayout Flags = new(1, 1);
+
     public static CLayout Of(WylType type)
     {
+        if (type.Symbol is { Kind: TypeKind.Struct, IsExtern: false, IsGeneric: false, IsRefStruct: false } program && !type.IsNullable)
+            return OfFields([.. program.Fields.Select(f => Of(f.Type)), .. program.Destructor is null ? Array.Empty<CLayout>() : [Flags]], union: false);
         if (!type.IsBlittable)
             throw new UnsupportedFeature($"the size of '{type}', which is not blittable");
         return type switch
