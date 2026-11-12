@@ -185,10 +185,7 @@ public sealed partial class Interpreter
     {
         var cell = RefArgumentCell(call, 0, caller);
         CheckTakenOut(cell, "cannot replace a value that is in use", location);
-        var value = ArgumentValue(call.Arguments[1], caller);
-        var previous = cell.Value;
-        cell.Value = value;
-        return previous;
+        return Exchange(cell, ArgumentValue(call.Arguments[1], caller));
     }
 
     /// <summary><c>swap(a, b)</c>: exchanges what the two places hold, running no destructor.</summary>
@@ -198,8 +195,10 @@ public sealed partial class Interpreter
         var b = RefArgumentCell(call, 1, caller);
         CheckTakenOut(a, "cannot swap a value that is in use", location);
         CheckTakenOut(b, "cannot swap a value that is in use", location);
+        // Exchanging the two values in place leaves each place with its own cells, which C++'s
+        // member-wise moves keep too.
         if (!ReferenceEquals(a, b))
-            (a.Value, b.Value) = (b.Value, a.Value);
+            b.Value = Exchange(a, b.Value);
         return null;
     }
 

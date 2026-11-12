@@ -1,0 +1,48 @@
+// A pointer to a field or an element points into the storage of the struct or array that holds
+// it. Assigning the whole struct or array, or replacing or swapping it, writes that storage in
+// place, so the pointer reads the new value (spec unsafe.pointers).
+
+struct Point {
+    pub int x;
+    pub int y;
+}
+
+struct Line {
+    pub Point from;
+    pub Point to;
+}
+
+void main() {
+    mut var point = Point(1, 2);
+    mut var line = Line(Point(1, 2), Point(3, 4));
+    mut Point[2] points = [Point(1, 2), Point(3, 4)];
+    mut var other = Point(20, 21);
+    unsafe {
+        int* x = &point.x;
+        point = Point(5, 6);
+        std::print(x[0]);                       // output: 5
+        x[0] = 7;
+        std::print(point.x);                    // output: 7
+
+        int* toY = &line.to.y;
+        line.to = Point(8, 9);
+        std::print(toY[0]);                     // output: 9
+        line = Line(Point(0, 0), Point(10, 11));
+        std::print(toY[0]);                     // output: 11
+
+        int* elementX = &points[1].x;
+        points[1] = Point(12, 13);
+        std::print(elementX[0]);                // output: 12
+        points = [Point(0, 0), Point(14, 15)];
+        std::print(elementX[0]);                // output: 14
+
+        Point old = std::replace(ref point, Point(16, 17));
+        std::print(old.x);                      // output: 7
+        std::print(x[0]);                       // output: 16
+
+        int* otherX = &other.x;
+        std::swap(ref point, ref other);
+        std::print(x[0]);                       // output: 20
+        std::print(otherX[0]);                  // output: 16
+    }
+}

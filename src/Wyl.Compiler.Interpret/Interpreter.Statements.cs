@@ -197,9 +197,7 @@ public sealed partial class Interpreter
             OwnedStorage owned => owned.Cell,
             _ => throw new InterpreterException("assigning a reference local's value"),
         };
-        var old = cell.Value;
-        cell.Value = value;
-        Release(cell.Type, old);
+        Release(cell.Type, Exchange(cell, value));
     }
 
     void ExecCheck(IrCheck check, Frame frame)

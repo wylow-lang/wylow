@@ -243,9 +243,39 @@ public sealed partial class Interpreter
             return;
         }
         var cell = PlaceCell(place, frame);
-        var old = cell.Value;
-        cell.Value = value;
-        Release(cell.Type, old);
+        Release(cell.Type, Exchange(cell, value));
+    }
+
+    /// <summary>
+    /// Stores <paramref name="value"/> in <paramref name="cell"/> and returns what the cell held.
+    /// C++ assigns a struct or a fixed array member by member, so the storage of each field and
+    /// element stays where it is, and a pointer into it reads the new value. The interpreter keeps
+    /// the cells of a struct or fixed array for the same reason: it moves the new value's contents
+    /// into them, and returns <paramref name="value"/>'s own tree holding the old contents.
+    /// </summary>
+    static Value Exchange(Cell cell, Value value)
+    {
+        switch (cell.Value, value)
+        {
+            case (StructValue current, StructValue next) when current != next && current.Type == next.Type:
+                ExchangeCells(current.Fields, next.Fields);
+                (current.Engaged, next.Engaged) = (next.Engaged, current.Engaged);
+                (current.InUse, next.InUse) = (next.InUse, current.InUse);
+                return next;
+            case (ArrayValue { Type: FixedArrayType } current, ArrayValue next) when current != next && current.Type == next.Type:
+                ExchangeCells(current.Elements, next.Elements);
+                return next;
+            default:
+                var previous = cell.Value;
+                cell.Value = value;
+                return previous;
+        }
+    }
+
+    static void ExchangeCells(Cell[] current, Cell[] next)
+    {
+        for (int i = 0; i < current.Length; i++)
+            next[i].Value = Exchange(current[i], next[i].Value);
     }
 
     /// <summary>The cell a reference local is bound to, from <c>ref</c>, <c>addr</c>, or a reference a call returns.</summary>
