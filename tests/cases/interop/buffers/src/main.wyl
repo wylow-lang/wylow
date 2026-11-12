@@ -1,0 +1,43 @@
+// native
+// Pointers into Wylow storage given to C++: out-parameters through `&`, and a span's data read and
+// written by C++ (spec unsafe.pointers, interop.buffers).
+import std::collections::List;
+
+@Include("buffers.h")
+extern {
+    struct Size {
+        pub int width;
+        pub int height;
+    }
+
+    void size_of_grid(int cells, Size* out);
+    int divide(int a, int b, int* remainder);
+    long sum_values(int* values, int count);
+    void fill_squares(int* values, int count);
+}
+
+void main() {
+    mut var size = Size(0, 0);
+    mut int remainder = 0;
+    mut int[4] squares = [0, 0, 0, 0];
+    var values = new List<int>();
+    values.add(3);
+    values.add(4);
+    values.add(5);
+    unsafe {
+        size_of_grid(12, &size);
+        std::print(size.width);                         // output: 6
+        std::print(size.height);                        // output: 2
+
+        // The left operand is read before the call writes through the pointer.
+        std::print(remainder + divide(17, 5, &remainder));  // output: 3
+        std::print(remainder);                          // output: 2
+
+        ReadOnlySpan<int> read = values.asReadOnlySpan();
+        std::print(sum_values(read.data(), read.length())); // output: 12
+
+        Span<int> view = squares;
+        fill_squares(view.data(), view.length());
+    }
+    std::print(squares[3]);                             // output: 9
+}

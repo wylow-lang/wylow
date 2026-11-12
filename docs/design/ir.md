@@ -47,7 +47,7 @@ Statement   = let x = Rvalue            declare and define a temporary or local
             | unreachable @Loc
 Rvalue      = Operand | unary/binary (checked ones carry @Loc) | call [holder x] | new | construct | variant
             | array | default T | closure | lambda | choose | ref Place | addr Place
-            | data Place | test (null, tag, class, has_value) | convert | hold Place | inuse Place
+            | data Place | ptr Place | test (null, tag, class, has_value) | convert | hold Place | inuse Place
 Operand     = constant | copy Place | move Place | borrow Place | borrow.element Place
               (move: a temporary, or part of one, that isn't used again)
 Argument    = Operand | ref Place | in Place | addr Place      (a call's receiver and arguments)
@@ -382,6 +382,16 @@ already lowered by the binder to a span local and a counting loop, so it needs n
   }
 }
 ```
+
+
+### 5.5.1 Pointers
+
+`ptr P` is the pointer that `&place` makes in unsafe code. It reads nothing, and the verifier does
+not track what it points into, because unsafe code keeps that storage alive itself. Code that runs
+after it may write `P`'s local through the pointer. `LambdaWrites` therefore counts the local
+among those that code may change, as it counts a local that a lambda assigns. A local that a span
+made by `data P` views counts the same way, because the span may be passed to code that writes its
+elements. Null checks do not narrow a local whose address `ptr` takes.
 
 ### 5.6 `try`
 

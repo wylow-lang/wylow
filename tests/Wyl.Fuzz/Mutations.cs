@@ -142,6 +142,9 @@ static class Mutations
             (context, site) => Single("foreach-iterator", site, "(" + context.Slice(site.Span) + ").iterator()")),
         new("statement-lambda", SiteKind.Statement, _ => true, StatementLambdaBuild),
         new("statement-lock", SiteKind.Statement, _ => true, StatementLockBuild),
+        // Writes through a pointer instead: the place's local becomes one that any call may change,
+        // which ordering and the optimizer must respect, and which ends its narrowing.
+        new("assign-pointer", SiteKind.Statement, site => site.Node is AssignStmt { Operator: TokenKind.Assign }, AssignPointerBuild),
         new("expression-conditional", SiteKind.Expression, Wrappable, ConditionalBuild),
         new("expression-switch", SiteKind.Expression, Wrappable, SwitchBuild),
         new("expression-array", SiteKind.Expression, Wrappable, ExpressionArrayBuild),
@@ -466,6 +469,15 @@ static class Mutations
     /// buffer is the thread's. The import has an alias of its own, since a second plain
     /// <c>import std;</c> is an error, and it shares the first line so every line keeps its number.
     /// </summary>
+    static Candidate? AssignPointerBuild(MutationContext context, Site site)
+    {
+        var assign = (AssignStmt)site.Node;
+        var pointer = context.UniqueName("wylp");
+        var target = context.Slice(assign.Target.Location.Span);
+        var value = context.Slice(assign.Value.Location.Span);
+        return Single("assign-pointer", site, $"{{ unsafe {{ var {pointer} = &{target}; {pointer}[0] = {value}; }} }}");
+    }
+
     static Candidate? StatementLockBuild(MutationContext context, Site site)
     {
         var std = context.UniqueName("wylstd");

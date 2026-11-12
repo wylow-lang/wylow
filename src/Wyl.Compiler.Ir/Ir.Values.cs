@@ -181,6 +181,7 @@ public interface IIrRvalueVisitor<out T>
     T Ref(IrRef value);
     T Addr(IrAddr value);
     T Data(IrData value);
+    T Pointer(IrPointer value);
     T Test(IrTest value);
     T Convert(IrConvert value);
     T Hold(IrHold value);
@@ -384,6 +385,17 @@ public sealed class IrData(IrPlace place) : IrRvalue
     public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Data(this);
     public IrPlace Place { get; } = place;
     public override WylType Type => (Place.Type as FixedArrayType)?.Element.PointerTo ?? WylType.Error;
+}
+
+/// <summary>
+/// <c>ptr P</c>: a pointer to a place, which <c>&amp;place</c> makes in unsafe code. Code that runs
+/// after it may write the place through the pointer.
+/// </summary>
+public sealed class IrPointer(IrPlace place) : IrRvalue
+{
+    public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Pointer(this);
+    public IrPlace Place { get; } = place;
+    public override WylType Type => Place.Type.PointerTo;
 }
 
 public enum IrTestKind

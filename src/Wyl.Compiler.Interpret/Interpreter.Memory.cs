@@ -148,7 +148,7 @@ public sealed partial class Interpreter
         int length = (int)(long)Integer(Field("size"));
         if (length == 0)
             return [];
-        var data = PointerAt(Field("data"));
+        var data = PointerAt(Field("elements"));
         var bytes = new byte[length];
         for (int i = 0; i < length; i++)
         {

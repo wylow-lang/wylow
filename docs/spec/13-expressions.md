@@ -535,7 +535,8 @@ Cast = "(" Type ")" UnaryExpression .
 ```
 
 A cast to a named type is recognized as `(Name)` followed by something that can only start an
-operand. `(Format)-1` is a subtraction; write `(Format)(-1)`. A cast is valid between two numeric
+operand. `(Format)-1` is a subtraction; write `(Format)(-1)`. A cast to a pointer type, such as
+`(byte*) p` or `(Point*) &value`, is recognized by its `*`, whatever follows it. A cast is valid between two numeric
 types, between integers and `char`, between integers and enums without data, and wherever an
 implicit conversion exists.
 
@@ -703,7 +704,7 @@ Coalesce        = Binary [ "??" Coalesce ] .
 Binary          = UnaryExpression { BinaryOperator UnaryExpression | "is" Pattern } .
 BinaryOperator  = "*" | "/" | "%" | "+" | "-" | "<<" | ">>" | "<" | "<=" | ">" | ">=" | "==" | "!="
                 | "&" | "^" | "|" | "&&" | "||" .
-UnaryExpression = ( "-" | "!" | "~" | "try" ) UnaryExpression | Cast | Postfix .
+UnaryExpression = ( "-" | "!" | "~" | "&" | "try" ) UnaryExpression | Cast | Postfix .
 Postfix         = Primary { ArgumentList | "." Identifier [ TypeArguments ]
                           | "[" Argument { "," Argument } "]" | "?." Identifier | "!" } .
 ```

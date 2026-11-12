@@ -1,0 +1,16 @@
+// `data()` is a pointer to a span's first element, which writes the storage the span views
+// (spec interop.buffers).
+
+void main() {
+    mut int[3] values = [1, 2, 3];
+    unsafe {
+        Span<int> view = values;
+        int* first = view.data();
+        first[1] = 20;
+        std::print(values[1]);                  // output: 20
+        ReadOnlySpan<int> readOnly = values;
+        int* same = readOnly.data();
+        std::print(same == first);              // output: true
+        std::print(same[2]);                    // output: 3
+    }
+}

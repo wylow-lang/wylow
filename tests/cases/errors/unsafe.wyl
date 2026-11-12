@@ -61,7 +61,19 @@ void main() {
     int* p = memory::allocate<int>(4);   // error[WYL0304]: 'allocate' is unsafe and can only be called in 'unsafe' code
     int* q = p + 1;                     // error[WYL0422]: pointer arithmetic can only be used in 'unsafe' code
     Raw r = Raw(p);                     // error[WYL0304]: constructor 'Raw(int*)' is unsafe and can only be called in 'unsafe' code
+    mut int n = 1;
+    int fixed = 2;
+    mut int[2] pair = [1, 2];
+    Span<int> view = pair;
+    int* address = &n;                  // error[WYL0514]: '&' can only be used in 'unsafe' code
+    long* wide = (long*) p;             // error[WYL0517]: pointer casts can only be used in 'unsafe' code
+    int* first = view.data();           // error[WYL0304]: 'data' is unsafe and can only be called in 'unsafe' code
     unsafe {
+        int* temporary = &(n + 1);      // error[WYL0515]: cannot take the address of a temporary value
+        int* constant = &fixed;         // error[WYL0516]: cannot take the address of 'fixed'
+        long* other = (long*) p;
+        int number = (int) p;           // error[WYL0083]: cannot cast 'int*' to 'int'
+
         Raw ok = Raw(p);
         std::print(ok.data[0] + q[0]);
         long* wrong = p;                // error[WYL0079]: expected 'long*', found 'int*'

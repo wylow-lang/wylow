@@ -1,0 +1,65 @@
+// `&place` points to a variable, a field, or an element, and writes through the pointer are seen
+// through the place (spec unsafe.pointers).
+
+struct Point {
+    pub int x;
+    pub int y;
+}
+
+class Counter {
+    pub mut int count;
+}
+
+void set(int* target, int value) {
+    unsafe {
+        target[0] = value;
+    }
+}
+
+int setAndZero(int* target, int value) {
+    set(target, value);
+    return 0;
+}
+
+void addOne(ref int value) {
+    unsafe {
+        set(&value, value + 1);
+    }
+}
+
+void main() {
+    mut int n = 1;
+    mut int[4] values = [10, 20, 30, 40];
+    mut var point = Point(1, 2);
+    var counter = new Counter();
+    unsafe {
+        int* pointer = &n;
+        pointer[0] = 5;
+        std::print(n);                          // output: 5
+        std::print(&n == pointer);              // output: true
+
+        int* first = &values[0];
+        int* third = first + 2;
+        std::print(third[0]);                   // output: 30
+        third[0] = 35;
+        std::print(values[2]);                  // output: 35
+        std::print(&values[2] == third);        // output: true
+        std::print(first == third);             // output: false
+
+        set(&point.y, 9);
+        std::print(point.y);                    // output: 9
+        set(&counter.count, 4);
+        std::print(counter.count);              // output: 4
+
+        // The left operand is read before the call writes through the pointer.
+        std::print(n + setAndZero(&n, 7));      // output: 5
+        std::print(n);                          // output: 7
+
+        uint* bits = (uint*) &n;
+        std::print(bits[0]);                    // output: 7
+        Point* points = &point;
+        std::print(points[0].x);                // output: 1
+    }
+    addOne(ref n);
+    std::print(n);                              // output: 8
+}

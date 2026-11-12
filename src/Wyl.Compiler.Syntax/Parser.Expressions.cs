@@ -143,7 +143,7 @@ public sealed partial class Parser
     Expr ParseUnary()
     {
         int start = position;
-        if (At(TokenKind.Minus) || At(TokenKind.Bang) || At(TokenKind.Tilde))
+        if (At(TokenKind.Minus) || At(TokenKind.Bang) || At(TokenKind.Tilde) || At(TokenKind.Ampersand))
         {
             var op = Advance();
             var operand = ParseUnary();
@@ -167,25 +167,39 @@ public sealed partial class Parser
     }
 
     /// <summary>
-    /// A cast to a primitive type, or a parenthesized name followed by something that
-    /// can only start an operand, so that <c>(a) - b</c> stays a subtraction.
+    /// A cast to a primitive type or a pointer type, or a parenthesized name followed by something
+    /// that can only start an operand, so that <c>(a) - b</c> stays a subtraction. No expression
+    /// ends in <c>*)</c>, so a pointer type always starts a cast.
     /// </summary>
     bool IsCastStart()
     {
         if (!At(TokenKind.OpenParen))
             return false;
+        int end;
         if (SyntaxFacts.IsPrimitiveTypeKeyword(Peek(1).Kind))
-            return Peek(2).Kind == TokenKind.CloseParen;
-        if (Peek(1).Kind != TokenKind.Identifier)
+        {
+            end = position + 2;
+        }
+        else
+        {
+            if (Peek(1).Kind != TokenKind.Identifier)
+                return false;
+            int name = position + 1;
+            while (KindAt(name) == TokenKind.Identifier && KindAt(name + 1) == TokenKind.ColonColon)
+                name += 2;
+            if (KindAt(name) != TokenKind.Identifier)
+                return false;
+            end = ScanTypeArguments(name + 1) is > 0 and var afterArguments ? afterArguments : name + 1;
+        }
+        int stars = end;
+        while (KindAt(stars) == TokenKind.Star)
+            stars++;
+        if (KindAt(stars) != TokenKind.CloseParen)
             return false;
-        int name = position + 1;
-        while (KindAt(name) == TokenKind.Identifier && KindAt(name + 1) == TokenKind.ColonColon)
-            name += 2;
-        if (KindAt(name) != TokenKind.Identifier)
-            return false;
-        int end = ScanTypeArguments(name + 1) is > 0 and var afterArguments ? afterArguments : name + 1;
-        if (Peek(end - position).Kind != TokenKind.CloseParen)
-            return false;
+        if (stars > end)
+            return true;
+        if (SyntaxFacts.IsPrimitiveTypeKeyword(Peek(1).Kind))
+            return true;
         return Peek(end - position + 1).Kind is TokenKind.Identifier or TokenKind.IntLiteral or TokenKind.FloatLiteral
             or TokenKind.CharLiteral or TokenKind.StringLiteral or TokenKind.TrueKeyword or TokenKind.FalseKeyword or TokenKind.NullKeyword
             or TokenKind.ThisKeyword or TokenKind.SuperKeyword or TokenKind.NewKeyword or TokenKind.OpenParen

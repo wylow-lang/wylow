@@ -106,6 +106,8 @@ public sealed partial class CppEmitter
             return $"{CppType(to)}({operand})";
         if (from.IsEnum)
             return $"static_cast<{CppType(to)}>({operand}.tag)";
+        if (from.IsPointer && to.IsPointer)
+            return $"reinterpret_cast<{CppType(to)}>({operand})";
         if (from.IsFloatingPoint && to.IsInteger)
             return $"wyl::FloatToInt<{CppType(to)}>({operand})";
         if (from == WylType.Double && to == WylType.Float)

@@ -34,8 +34,7 @@ the interpreter. Every test of step 3 that calls C++ code needs the marker.
 
 ## 3. Calls, constants, structs, and the checks (done)
 
-Step 3 is committed, with the part of step 5 that its tests need. The next session starts at step
-4. These facts from step 3 matter later:
+Step 3 is committed, with the part of step 5 that its tests need. These facts from step 3 matter later:
 
 - The binder declares an extern constant as an extern function without parameters
   (`FunctionSymbol.IsExternConstant`), and a use of the constant's name is a call of it.
@@ -79,14 +78,25 @@ The original list:
   by C++ and read by Wylow, each layout and signature mismatch, and each error of the blittable
   check. Add a row or column to the matrices where the feature crosses one.
 
-## 4. Pointers and buffers
+## 4. Pointers and buffers (done)
 
-- `&place` and `(U*) p` (`unsafe.pointers`). `&place` produces a place that the verifier must know.
-  Teach `PlacePath.Of` and the IR effects about it, as `CLAUDE.md` says for any new way to produce a
-  place.
-- `Span<T>.data()` and `ReadOnlySpan<T>.data()`, both unsafe.
-- Tests: an out-parameter filled by C++ through `&local`, a span's data passed to C++, and a C++
-  function writing into a Wylow array through `Span<T>.data()`.
+Step 4 is committed. The next session starts at step 5. These facts from step 4 matter later:
+
+- `&place` binds to `BoundAddressOf` and lowers to the IR value `ptr P` (`IrPointer`). It takes
+  only a place that an assignment could write (`WYL0514` to `WYL0516`), and a pointer cast is
+  unsafe (`WYL0517`). `PlacePath.Of` needs no change: `&place` makes a pointer value, and the
+  place it points to is the operand, which lowering finds as it finds any place.
+- `LambdaWrites` counts every local that a `ptr` or a span's `data` points into as one that code
+  may change when it runs, through `ref` locals too. The verifier counts only `ptr`
+  (`IsAddressTaken`), and null checks do not narrow such a local. A call of a program's extern
+  function may write anything (`Writes`). The same change fixed the emitter, which read a local
+  array after a call that wrote it through a span (`spans/write_order`).
+- The span field that holds the pointer is now `elements`, so that `data()` can be a method.
+- `void*` and `Span<T>.byteLength()` are in the spec but not built. The callbacks work needs
+  `void*`.
+- The interpreter gives a pointer to a field the field's cell. If the whole struct is assigned
+  later, the pointer still reads the old cell, while C++ reads the new value. No test does that
+  yet.
 
 ## 5. The manifest's `native` block and `native/` sources
 

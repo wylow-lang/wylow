@@ -256,6 +256,9 @@ public sealed record BoundArrayLength(Location Location, BoundExpression Operand
 
 public sealed record BoundArrayLiteral(Location Location, WylType Type, IReadOnlyList<BoundExpression> Elements) : BoundExpression(Location, Type);
 
+/// <summary><c>&amp;place</c>: a pointer to a place, which the operand is.</summary>
+public sealed record BoundAddressOf(Location Location, BoundExpression Operand) : BoundExpression(Location, Operand.Type.PointerTo);
+
 /// <summary>A pointer to the first element of a fixed array, which a span then views.</summary>
 public sealed record BoundArrayData(Location Location, BoundExpression Array)
     : BoundExpression(Location, ((FixedArrayType)Array.Type).Element.PointerTo);
@@ -542,6 +545,7 @@ public static class BoundTree
         BoundIndexerElement element => [element.Read],
         BoundArrayLength length => [length.Operand],
         BoundArrayData data => [data.Array],
+        BoundAddressOf address => [address.Operand],
         BoundArrayLiteral literal => literal.Elements,
         BoundNonNull nonNull => [nonNull.Operand],
         BoundCoalesce coalesce => [coalesce.Left, coalesce.Right],

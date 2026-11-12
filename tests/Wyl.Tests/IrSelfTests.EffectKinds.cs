@@ -66,6 +66,7 @@ static partial class IrSelfTests
             [nameof(IIrRvalueVisitor<int>.Ref)] = (IrEffects.Of(new IrRef(RefKind.Ref, new IrPlace(integer))), false, false, 0),
             [nameof(IIrRvalueVisitor<int>.Addr)] = (IrEffects.Of(new IrAddr(RefKind.Ref, new IrPlace(integer))), false, false, 0),
             [nameof(IIrRvalueVisitor<int>.Data)] = (IrEffects.Of(new IrData(new IrPlace(b.Local("a", array)))), false, false, 0),
+            [nameof(IIrRvalueVisitor<int>.Pointer)] = (IrEffects.Of(new IrPointer(new IrPlace(integer))), false, false, 0),
             [nameof(IIrRvalueVisitor<int>.Test)] = (IrEffects.Of(new IrTest(IrTestKind.NotNull, IrRead.Copy(new IrPlace(objectLocal)))), false, false, 0),
             [nameof(IIrRvalueVisitor<int>.Convert)] = (IrEffects.Of(new IrConvert(WylType.Char, one, b.Loc)), false, true, 0),
             [nameof(IIrRvalueVisitor<int>.Hold)] = (IrEffects.Of(new IrHold(new IrPlace(holderLocal), borrows: false)), false, false, 0),

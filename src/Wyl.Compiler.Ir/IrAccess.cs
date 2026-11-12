@@ -16,8 +16,9 @@ public enum IrStorage
 }
 
 /// <summary>
-/// Which locals a lambda the function makes may change when code runs: the analysis's answer, from
-/// the lambdas' bodies (<c>LambdaWrites</c>).
+/// Which locals code may change when it runs: those a lambda the function makes assigns, and those
+/// a pointer points into. It is the analysis's answer, from the lambdas' bodies and the pointers the
+/// program makes (<c>LambdaWrites</c>).
 /// </summary>
 public interface IIrLambdaChanges
 {
@@ -322,6 +323,7 @@ public static class IrWalk
         IrRef reference => [new IrRefArgument(reference.Kind, reference.Place)],
         IrAddr address => [new IrAddrArgument(address.Kind, address.Place)],
         IrData data => [new IrRefArgument(RefKind.In, data.Place)],
+        IrPointer pointer => [new IrRefArgument(RefKind.Ref, pointer.Place)],
         IrTest test => [test.Operand],
         IrConvert conversion => [conversion.Operand],
         IrHold hold => [IrRead.Borrow(hold.Place)],
@@ -375,8 +377,8 @@ public static class IrWalk
 
     /// <summary>
     /// Whether a statement itself may give the local another value: by storing to it or into it,
-    /// by a call given it by <c>ref</c>, by referring to it as something that may (<c>ref</c> or
-    /// <c>addr</c>), or, if <paramref name="moves"/>, by moving out of it, which leaves it empty.
+    /// by a call given it by <c>ref</c>, by referring to it as something that may (<c>ref</c>,
+    /// <c>addr</c>, or a pointer), or, if <paramref name="moves"/>, by moving out of it, which leaves it empty.
     /// </summary>
     public static bool Rebinds(IrStatement statement, IrLocal local, bool moves)
     {
@@ -389,6 +391,7 @@ public static class IrWalk
         {
             IrRef { Kind: RefKind.Ref } reference => IsLocal(reference.Place),
             IrAddr { Kind: RefKind.Ref } address => IsLocal(address.Place),
+            IrPointer pointer => IsLocal(pointer.Place),
             _ => false,
         };
     }

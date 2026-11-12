@@ -116,17 +116,21 @@ public sealed partial class IrVerifier
 
     /// <summary>
     /// Whether code the effects run may write the place: a <c>mut</c> field that something it runs
-    /// writes, storage the function can't see, or a local that a lambda made so far changes.
+    /// writes, storage the function can't see, or a local that a lambda made so far changes or
+    /// whose address is taken.
     /// </summary>
     bool CodeWrites(IrAccess place, IrEffects effects, State state) => writes.CodeMayWrite(place, effects.Runs, new LambdasMade(state, writes.Lambdas));
 
-    /// <summary>The lambdas made on some path to a point, which code that runs there may run.</summary>
+    /// <summary>
+    /// The lambdas made on some path to a point, which code that runs there may run, and the locals
+    /// whose address is taken, which that code may write through a pointer.
+    /// </summary>
     sealed record LambdasMade(State State, LambdaWrites Writes) : IIrLambdaChanges
     {
-        public bool MayChange(IrLocal local) => State.Lambdas.Any(l => Writes.Around(l).Contains(local));
+        public bool MayChange(IrLocal local) => Writes.IsAddressTaken(local) || State.Lambdas.Any(l => Writes.Around(l).Contains(local));
     }
 
-    /// <summary>Whether a lambda made on some path here may change the local when it runs.</summary>
+    /// <summary>Whether a lambda made on some path here, or a pointer to the local, may change it when code runs.</summary>
     bool IsChangedByLambda(IrLocal local, State state) => new LambdasMade(state, writes.Lambdas).MayChange(local);
 
     public const string ReplacedNullable = "the nullable value or variant it points into may be replaced";

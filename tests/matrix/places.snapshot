@@ -47,6 +47,9 @@ out 2
 out 3
 exit 0
 
+=== local/address
+error 44: cannot take the address of 'x'
+
 === local/loop
 out 1
 out 2
@@ -125,6 +128,10 @@ out 2
 out 3
 exit 0
 
+=== mut-local/address
+out 5
+exit 0
+
 === mut-local/loop
 out 2
 out 3
@@ -196,6 +203,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== field/address
+out 5
 exit 0
 
 === field/loop
@@ -272,6 +283,10 @@ out 2
 out 3
 exit 0
 
+=== fixed-element-first/address
+out 5
+exit 0
+
 === fixed-element-first/loop
 out 2
 out 3
@@ -344,6 +359,10 @@ exit 0
 out 5
 out 8
 out 9
+exit 0
+
+=== fixed-element-last/address
+out 5
 exit 0
 
 === fixed-element-last/loop
@@ -420,6 +439,10 @@ out 2
 out 3
 exit 0
 
+=== fixed-element-single/address
+out 5
+exit 0
+
 === fixed-element-single/loop
 out 2
 out 3
@@ -492,6 +515,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== list-element-first/address
+out 5
 exit 0
 
 === list-element-first/loop
@@ -569,6 +596,10 @@ out 8
 out 9
 exit 0
 
+=== list-element-last/address
+out 5
+exit 0
+
 === list-element-last/loop
 out 8
 out 9
@@ -642,6 +673,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== list-element-single/address
+out 5
 exit 0
 
 === list-element-single/loop
@@ -719,6 +754,10 @@ out 2
 out 3
 exit 0
 
+=== span-element-first/address
+out 5
+exit 0
+
 === span-element-first/loop
 out 2
 out 3
@@ -790,6 +829,10 @@ exit 0
 out 5
 out 8
 out 9
+exit 0
+
+=== span-element-last/address
+out 5
 exit 0
 
 === span-element-last/loop
@@ -865,6 +908,10 @@ out 2
 out 3
 exit 0
 
+=== span-element-single/address
+out 5
+exit 0
+
 === span-element-single/loop
 out 2
 out 3
@@ -936,6 +983,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== ref-local/address
+out 5
 exit 0
 
 === ref-local/loop
@@ -1012,6 +1063,9 @@ out 2
 out 3
 exit 0
 
+=== in-local/address
+error 45: cannot take the address of 'r'
+
 === in-local/loop
 out 1
 out 2
@@ -1086,6 +1140,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== ref-nullable-local/address
+out 5
 exit 0
 
 === ref-nullable-local/loop
@@ -1164,6 +1222,9 @@ out 2
 out 3
 exit 0
 
+=== in-nullable-local/address
+error 45: cannot take the address of 'q!'
+
 === in-nullable-local/loop
 out 1
 out 2
@@ -1235,6 +1296,10 @@ exit 0
 === nullable-value/span
 error 44: expected 'Span<int>', found 'int[3]?'
 
+=== nullable-value/address
+out 5
+exit 0
+
 === nullable-value/loop
 error 44: cannot loop over elements inside nullable 'v'
 
@@ -1303,6 +1368,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== captured-local/address
+out 5
 exit 0
 
 === captured-local/loop
@@ -1376,6 +1445,10 @@ exit 0
 out 5
 out 2
 out 3
+exit 0
+
+=== this-field/address
+out 5
 exit 0
 
 === this-field/loop
@@ -1453,6 +1526,10 @@ out 2
 out 3
 exit 0
 
+=== chained-field/address
+out 5
+exit 0
+
 === chained-field/loop
 out 2
 out 3
@@ -1519,6 +1596,9 @@ error 43: 'ref' argument must be a variable, field, or element
 === setter-element/span
 error 43: expected 'Span<int>', found 'int[3]'
 
+=== setter-element/address
+error 44: cannot take the address of a temporary value
+
 === setter-element/loop
 error 43: cannot loop over a temporary array by 'ref'
 
@@ -1576,6 +1656,9 @@ error 43: 'ref' argument must be a variable, field, or element
 === temporary-field/span
 error 43: expected 'Span<int>', found 'int[3]'
 
+=== temporary-field/address
+error 44: cannot take the address of a temporary value
+
 === temporary-field/loop
 error 43: cannot loop over a temporary array by 'ref'
 
@@ -1632,6 +1715,9 @@ error 43: 'ref' argument must be a variable, field, or element
 
 === temporary-setter-element/span
 error 43: expected 'Span<int>', found 'int[3]'
+
+=== temporary-setter-element/address
+error 44: cannot take the address of a temporary value
 
 === temporary-setter-element/loop
 error 43: cannot loop over a temporary array by 'ref'
@@ -1701,6 +1787,9 @@ out 1
 out 2
 out 3
 exit 0
+
+=== static-field/address
+error 44: cannot take the address of 'Statics.value'
 
 === static-field/loop
 out 1

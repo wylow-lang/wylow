@@ -1,0 +1,13 @@
+// A null check does not narrow a local whose address `&` takes, since code can assign it null
+// through the pointer (spec flow.narrowing).
+
+void main() {
+    mut int? maybe = 1;
+    unsafe {
+        int?* pointer = &maybe;
+        pointer[0] = null;
+    }
+    if (maybe != null) {
+        int n = maybe;                  // error[WYL0397]: 'maybe' might be null
+    }
+}

@@ -192,7 +192,7 @@ inline int32_t compare(ReadOnlySpan<T> a, ReadOnlySpan<T> b) {
     static_assert(sizeof(T) == 1, "memory::compare compares bytes");
     size_t common = static_cast<size_t>(a.f_size < b.f_size ? a.f_size : b.f_size);
     if (common > 0) {
-        int order = std::memcmp(a.f_data, b.f_data, common);
+        int order = std::memcmp(a.f_elements, b.f_elements, common);
         if (order != 0) return order < 0 ? -1 : 1;
     }
     return a.f_size < b.f_size ? -1 : a.f_size > b.f_size ? 1 : 0;
@@ -202,7 +202,7 @@ template <class T>
 inline bool equal(ReadOnlySpan<T> a, ReadOnlySpan<T> b) {
     static_assert(sizeof(T) == 1, "memory::equal compares bytes");
     if (a.f_size != b.f_size) return false;
-    return a.f_size == 0 || std::memcmp(a.f_data, b.f_data, static_cast<size_t>(a.f_size)) == 0;
+    return a.f_size == 0 || std::memcmp(a.f_elements, b.f_elements, static_cast<size_t>(a.f_size)) == 0;
 }
 
 inline void collectCycles(const char* location) { CurrentCycles().Collect(SIZE_MAX, location); }

@@ -268,6 +268,8 @@ public sealed class EscapeFlow
                 return Whole(address.Place);
             case IrData data:
                 return Whole(data.Place);
+            case IrPointer pointer:
+                return Whole(pointer.Place);
             case IrUnary or IrBinary or IrTest or IrDefault or IrZeroed:
                 return [];
             default:

@@ -146,10 +146,13 @@ public sealed class Writes
         }
         foreach (var callee in found.Functions)
             into.Add(summaries[callee.Function]!, callee.Map);
-        // Other extern functions write nothing: the containers that use Memory's unsafe functions
-        // panic rather than move or drop elements while borrowed.
+        // A program's extern function may write anything through the pointers it is given or
+        // keeps. The standard library's write nothing: the containers that use Memory's unsafe
+        // functions panic rather than move or drop elements while borrowed.
         if (found.RunsExtern && run is IrRunMethod { Method: var method })
         {
+            if (method.Symbol.IsProgramExtern)
+                into.AddUnknown();
             foreach (var inner in callees.ExternRuns(method))
                 Add(into, inner);
         }

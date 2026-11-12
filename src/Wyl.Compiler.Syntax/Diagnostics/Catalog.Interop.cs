@@ -18,6 +18,22 @@ public static partial class Catalog
     public static Diagnostic PointerIndexing(Location at) =>
         Make(at, "pointer indexing can only be used in 'unsafe' code");
 
+    [Error(514, "unsafe.pointers")]
+    public static Diagnostic AddressOutsideUnsafe(Location at) =>
+        Make(at, "'&' can only be used in 'unsafe' code");
+
+    [Error(515, "unsafe.pointers")]
+    public static Diagnostic AddressOfTemporary(Location at) =>
+        Make(at, "cannot take the address of a temporary value").Help("store it in a 'mut' variable first");
+
+    [Error(516, "unsafe.pointers")]
+    public static Diagnostic AddressOfReadOnly(Location at, string text, ReadOnlyReason reason) =>
+        Make(at, $"cannot take the address of '{text}'").Because(reason);
+
+    [Error(517, "unsafe.pointers")]
+    public static Diagnostic PointerCast(Location at) =>
+        Make(at, "pointer casts can only be used in 'unsafe' code");
+
     [Error(432, "annotations.list")]
     public static Diagnostic MisplacedAnnotation(Location at, string name) =>
         Make(at, name switch

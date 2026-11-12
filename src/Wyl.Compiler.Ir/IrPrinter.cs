@@ -296,6 +296,7 @@ public sealed class IrPrinter
         IrRef reference => $"{FunctionSymbol.RefPrefix(reference.Kind)}{Place(reference.Place)}",
         IrAddr address => $"addr{(address.Kind == RefKind.In ? ".in" : "")} {Place(address.Place)}",
         IrData data => $"data {Place(data.Place)}",
+        IrPointer pointer => $"ptr {Place(pointer.Place)}",
         IrTest test => test.Kind switch
         {
             IrTestKind.NotNull => $"test.not_null {Operand(test.Operand)}",

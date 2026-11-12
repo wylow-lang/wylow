@@ -3,7 +3,7 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler.Diagnostics;
 
 /// <summary>Why a null check does not narrow a variable, which the message gives as a note.</summary>
-public enum NarrowingLost { None, RefVariable, AssignedByLambda, CheckedOutsideLambda }
+public enum NarrowingLost { None, RefVariable, AssignedByLambda, PointedInto, CheckedOutsideLambda }
 
 // Chapter 16: flow, which the IR verifier reports on the lowered program.
 public static partial class Catalog
@@ -30,6 +30,9 @@ public static partial class Catalog
                 .Help("copy it to a local first, or use '!'"),
             NarrowingLost.AssignedByLambda => Make(at, $"'{name}' might be null")
                 .Note("a lambda assigns it, so null checks do not narrow it")
+                .Help("copy it to a local first, or use '!'"),
+            NarrowingLost.PointedInto => Make(at, $"'{name}' might be null")
+                .Note("a pointer points to it, so null checks do not narrow it")
                 .Help("copy it to a local first, or use '!'"),
             NarrowingLost.CheckedOutsideLambda => Make(at, $"'{name}' might be null")
                 .Note("null checks outside a lambda do not narrow inside it")

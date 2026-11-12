@@ -389,6 +389,9 @@ public sealed partial class IrVerifier
             case IrAddr address:
                 Place(address.Place, state, reads: true);
                 break;
+            case IrPointer pointer:
+                Place(pointer.Place, state, reads: true);
+                break;
             case IrData data:
                 Place(data.Place, state, reads: true);
                 if (!data.Place.Type.IsFixedArray)

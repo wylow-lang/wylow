@@ -108,6 +108,9 @@ are reached with `.`, it is passed where the non-null type is expected, and oper
 - A `ref` argument ends the narrowing of a local, since the callee can assign it null.
 - A lambda that may assign the local ends its narrowing from the point the lambda is made, and a
   null check outside a lambda does not narrow inside it ([Lambdas](#flow.lambdas)).
+- A local whose address `&` takes, or the address of a place in it, is not narrowed anywhere in
+  its function, since code can assign it null through the pointer
+  ([Pointers](20-unsafe.md#unsafe.pointers)).
 - A test `x is Type name` narrows `x` where it succeeded, and binds `name` to a non-null value of
   the type ([Bindings](15-patterns.md#patterns.bindings)).
 - It is a compile-time error to use a local as its non-null type where narrowing does not show that

@@ -264,7 +264,7 @@ inline String copyString(ReadOnlySpan<T> bytes) {
     static_assert(sizeof(T) == 1, "copyString copies bytes");
     StringBuffer text;
     // A span's length is an int32_t, so the text never reaches the length limit, which needs a location.
-    text.Append(reinterpret_cast<const char*>(bytes.f_data), static_cast<size_t>(bytes.f_size), "");
+    text.Append(reinterpret_cast<const char*>(bytes.f_elements), static_cast<size_t>(bytes.f_size), "");
     return text.Take();
 }
 

@@ -293,6 +293,8 @@ public sealed partial class Binder
     {
         if (e.Operator == TokenKind.Minus && e.Operand is IntLiteralExpr literal)
             return BindIntegerLiteral(literal, e.Location, negated: true);
+        if (e.Operator == TokenKind.Ampersand)
+            return BindAddressOf(e);
 
         var operand = BindExpression(e.Operand);
         if (operand.Type == WylType.Error)
@@ -310,6 +312,27 @@ public sealed partial class Binder
         if (!valid)
             return ErrorExpression(Catalog.UnaryOperatorNotApplicable(e.Location, SyntaxFacts.GetText(e.Operator), operand.Type.ToString(), NullableOperands(operand)));
         return new BoundUnary(e.Location, op, operand);
+    }
+
+    /// <summary>
+    /// <c>&amp;place</c>: a pointer to a place that an assignment could write, since code may write
+    /// through the pointer (spec unsafe.pointers).
+    /// </summary>
+    BoundExpression BindAddressOf(UnaryExpr e)
+    {
+        var operand = BindExpression(e.Operand);
+        if (operand.Type == WylType.Error)
+            return new BoundErrorExpression(e.Location);
+        if (!InUnsafe)
+            return ErrorExpression(Catalog.AddressOutsideUnsafe(e.Location));
+        var (kind, reason) = ClassifyPlace(operand);
+        if (kind == PlaceKind.Temporary)
+            return ErrorExpression(Catalog.AddressOfTemporary(e.Operand.Location));
+        if (kind == PlaceKind.ReadOnly)
+            return ErrorExpression(Catalog.AddressOfReadOnly(e.Operand.Location, TextOf(e.Operand.Location), reason));
+        if (!CheckStorable(operand.Type, e.Operand.Location, "pointed to"))
+            return new BoundErrorExpression(e.Location);
+        return new BoundAddressOf(e.Location, operand);
     }
 
     BoundExpression BindNonNull(NonNullExpr e)

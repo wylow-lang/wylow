@@ -95,6 +95,9 @@ public sealed partial class IrLowering
                 else
                     Add(DoOf(Rvalue(length.Operand, Use.Read)));
                 return new IrUse(IrConstant.Int(((FixedArrayType)length.Operand.Type).Length));
+            // Unsafe code keeps what the pointer points into alive itself, so nothing is held.
+            case BoundAddressOf address:
+                return new IrPointer(Place(address.Operand, Use.Read));
             case BoundArrayData data:
                 // A view isn't read right away, so the object it points into is held while it may be used.
                 return new IrData(Place(data.Array, use == Use.Read ? Use.InUse : use));

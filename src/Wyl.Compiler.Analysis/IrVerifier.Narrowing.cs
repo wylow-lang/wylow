@@ -32,10 +32,12 @@ public sealed partial class IrVerifier
     /// <summary>
     /// Whether null checks narrow the local: not a <c>ref</c> or <c>in</c> one, which another
     /// reference to its variable could change, nor one a lambda made so far assigns, which any code
-    /// may run. A <c>ref?</c> one always is, since nothing can make it refer elsewhere.
+    /// may run, nor one whose address is taken, which any code may write through the pointer. A <c>ref?</c> one
+    /// always is, since nothing can make it refer elsewhere.
     /// </summary>
     bool Narrowable(IrLocal local, State state) => local.Type.MayBeNull
-        && (local.Type.IsNullableReference || (local.RefKind == RefKind.None && local.Kind != IrLocalKind.Reference && !LambdaAssigns(local, state)));
+        && (local.Type.IsNullableReference || (local.RefKind == RefKind.None && local.Kind != IrLocalKind.Reference
+            && !LambdaAssigns(local, state) && !writes.Lambdas.IsAddressTaken(local)));
 
     bool LambdaAssigns(IrLocal local, State state) => state.Lambdas.Any(l => writes.Lambdas.Assigns(l).Contains(local));
 

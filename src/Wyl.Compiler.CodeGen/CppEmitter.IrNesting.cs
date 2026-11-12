@@ -364,7 +364,7 @@ public sealed partial class CppEmitter
         IrUse { Operand: IrRead { Ownership: IrOwnership.Copy } } => true,
         IrUse => false,
         IrConvert { Operand: IrRead { Ownership: not IrOwnership.Copy } } => false,
-        IrRef or IrAddr or IrHold or IrData or IrTest => false,
+        IrRef or IrAddr or IrHold or IrData or IrPointer or IrTest => false,
         IrCall { Method.Symbol.ReturnRefKind: not RefKind.None } => false,
         _ => true,
     };

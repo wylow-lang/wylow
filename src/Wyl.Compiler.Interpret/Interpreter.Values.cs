@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Wyl.Compiler.Ir;
 using Wyl.Compiler.Semantics;
@@ -292,6 +293,7 @@ public sealed partial class Interpreter
         public Value? Lambda(IrLambda value) => interpreter.Lambda(value, frame);
         public Value? Choose(IrChoose value) => interpreter.Choose(value, frame);
         public Value? Data(IrData value) => interpreter.Data(value, frame);
+        public Value? Pointer(IrPointer value) => interpreter.PointerTo(value.Place, frame);
     }
 
     /// <summary>
@@ -444,6 +446,31 @@ public sealed partial class Interpreter
             : throw new InterpreterException($"the data of a {cell.Value.GetType().Name}");
     }
 
+    /// <summary>
+    /// <c>ptr P</c>: a pointer to a place. A pointer to an element points into the storage of the
+    /// fixed array or pointer it is an element of, so arithmetic on it reaches the other elements.
+    /// A pointer to any other place points into storage of one element, made once for the place's
+    /// cell, so two pointers to one place compare equal.
+    /// </summary>
+    PointerValue PointerTo(IrPlace place, Frame frame)
+    {
+        if (place.Projections is [.., IrElement last])
+        {
+            int index = (int)(long)Integer(EvalOperand(last.Index, frame));
+            if (place.Projections.Count == 1 && place.IsDeref && place.Local.Deref == IrDeref.Pointee)
+            {
+                var target = Pointer(frame, place.Local);
+                return new PointerValue(target.Buffer, target.Index + index);
+            }
+            var holder = PlaceCell(new IrPlace(place.Local, place.IsDeref, [.. place.Projections.SkipLast(1)]), frame);
+            if (holder.Value is ArrayValue array)
+                return new PointerValue(array.View, index);
+        }
+        return new PointerValue(singleCells.GetValue(PlaceCell(place, frame), static cell => Buffer.Over([cell])), 0);
+    }
+
+    readonly ConditionalWeakTable<Cell, Buffer> singleCells = new();
+
     Value Test(IrTest test, Frame frame)
     {
         var operand = EvalOperandInPlace(test.Operand, frame);
@@ -474,6 +501,9 @@ public sealed partial class Interpreter
         var operand = EvalOperand(conversion.Operand, frame);
         if (to.Symbol is { IsIsolated: true })
             return Isolate(to, operand, frame);
+        // A pointer cast keeps the address.
+        if (from.IsPointer && to.IsPointer)
+            return operand;
         // A weak reference watches the object but does not keep it: the conversion takes no count,
         // and lets go of the strong one its operand held, as the runtime's temporary does.
         if (to.Symbol is { IsWeak: true })

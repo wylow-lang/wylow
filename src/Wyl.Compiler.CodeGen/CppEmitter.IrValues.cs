@@ -191,6 +191,7 @@ public sealed partial class CppEmitter
         IrRef reference => PlaceText(reference.Place),
         IrAddr address => $"wyl::AddressOf({PlaceText(address.Place)})",
         IrData data => $"const_cast<{CppType(data.Type)}>({PlaceText(data.Place)}.data())",
+        IrPointer pointer => $"wyl::AddressOf({PlaceText(pointer.Place)})",
         IrTest test => TestText(test),
         // The function value is converted where it is used, which a template parameter may take as it is.
         IrConvert { Type.IsNonEscapingFunction: true } conversion => OperandText(conversion.Operand),

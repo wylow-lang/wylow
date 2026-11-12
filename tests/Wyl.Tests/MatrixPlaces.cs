@@ -1,7 +1,7 @@
 // The places x operations matrix: where a value lives, crossed with what is done through it.
 // A place is a location (a local, a field, an element, a reference, a nullable value, a capture,
-// a receiver's field); an operation reads it, writes it, passes it, refers to it, views it, loops
-// over it, captures it, narrows it, returns it, or reassigns it while a reference holds it.
+// a receiver's field); an operation reads it, writes it, passes it, refers to it, views it,
+// writes it through a pointer, loops over it, captures it, narrows it, returns it, or reassigns it while a reference holds it.
 // Each cell prints what it stored, so a snapshot shows the value every operation left behind;
 // a cell where the spec calls for an error records the error instead.
 static class MatrixPlaces
@@ -9,7 +9,7 @@ static class MatrixPlaces
     static readonly string[] Operations =
     [
         "read", "assign", "compound", "pass", "pass-ref-in", "extend-ref-in", "take-ref-in", "take-ref-nullable",
-        "replace", "span", "loop", "capture", "capture-escaping", "narrow", "return", "return-ref", "reassign",
+        "replace", "span", "address", "loop", "capture", "capture-escaping", "narrow", "return", "return-ref", "reassign",
     ];
 
     public static Matrix Build()
@@ -217,6 +217,8 @@ static class MatrixPlaces
             "span" => use.Mutable
                 ? $"Span<int> view = {place};\nview[0] = 5;"
                 : $"ReadOnlySpan<int> view = {place};\nprint(view[0]);",
+            // A pointer may write the place, so '&' takes only a place an assignment could write.
+            "address" => $"unsafe {{\n{use.Type}* pointer = &{place};\npointer[0] = {value};\n}}",
             "loop" => use.Mutable
                 ? $"for (ref int element : {place}) {{\nelement += 1;\n}}"
                 : $"for (in int element : {place}) {{\nprint(element);\n}}",

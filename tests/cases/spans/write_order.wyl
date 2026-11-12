@@ -1,0 +1,14 @@
+// A call that writes a local array through a span runs after an operand to its left reads the
+// array, as evaluation is left to right (spec expressions.order). The emitter used to read the
+// array after the call.
+
+int setFirst(Span<int> view) {
+    view[0] = 7;
+    return 0;
+}
+
+void main() {
+    mut int[2] values = [1, 2];
+    std::print(values[0] + setFirst(values));   // output: 1
+    std::print(values[0]);                      // output: 7
+}

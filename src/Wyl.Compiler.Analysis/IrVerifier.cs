@@ -496,6 +496,7 @@ public sealed partial class IrVerifier
         }
         var lost = symbol.RefKind != RefKind.None ? NarrowingLost.RefVariable
             : LambdaAssigns(local, state) ? NarrowingLost.AssignedByLambda
+            : writes.Lambdas.IsAddressTaken(local) ? NarrowingLost.PointedInto
             : narrowedOutside.Contains(symbol) ? NarrowingLost.CheckedOutsideLambda
             : NarrowingLost.None;
         var what = $"'{FunctionSymbol.RefPrefix(symbol.RefKind).Trim()}' {(symbol.IsParameter ? "parameter" : "variable")}";

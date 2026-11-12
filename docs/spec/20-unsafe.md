@@ -20,7 +20,7 @@ unsafe code means the same inside it: indexing is checked, integer overflow is c
 mode says, and borrows are counted.
 
 - It is a compile-time error if safe code dereferences or indexes a pointer, does arithmetic on
-  one, takes an address, casts a pointer, calls an unsafe function, reads a field of a union
+  one, takes an address with `&`, casts a pointer, calls an unsafe function, reads a field of a union
   ([Structs and unions](21-interop.md#interop.extern.c-structs)), or calls `beginBorrow` or
   `endBorrow` ([`Borrowable`](17-memory.md#memory.borrows.borrowable)).
 - It is a compile-time error if a method declared `unsafe` overrides or implements a method that
@@ -52,9 +52,13 @@ not nullable.
   `p[0]` is the place `p` points to. The index is not checked, and may be negative.
 - `p + n` and `p - n`, for an `int` `n`, are the pointers `n` elements after or before `p`. They are
   not checked.
-- `&place` is a pointer to that place: a `T*` when the place holds a `T`.
-- `(U*) p` converts a pointer to type `U*`. The pointer's value does not change; reading or writing
-  through it is allowed only as [Storage and types](#unsafe.aliasing) says.
+- `&place` is a pointer to that place: a `T*` when the place holds a `T`. The place is one that an
+  assignment could write ([Assignment](14-statements.md#statements.assignment)): a `mut`
+  variable or parameter, a `ref` variable or parameter, a field or element of one, a `mut` field of
+  an object, an element that a pointer points to, or the place a method returns by `ref`. An
+  element's index is checked, as indexing is everywhere.
+- `(U*) p` converts a pointer to type `U*`. The pointer's value does not change. Reading or writing
+  through the result is allowed only as [Storage and types](#unsafe.aliasing) says.
 - Two pointers of one type compare with `==` and `!=` by address: they are equal when they point to
   the same element of the same storage. A pointer compares with `null`. No other operator applies
   to a pointer, and comparing needs no unsafe code.
@@ -62,15 +66,27 @@ not nullable.
   error if `T` and the type of `x` have different sizes. The result is a value of `T` only when
   the bits are one of `T`'s valid representations, so `bitcast<Direction>(i)` converts a `@Repr`
   enum's value without the check a cast makes ([Integer representations](09-enums.md#enums.repr)).
+- It is a compile-time error if the operand of `&` is a temporary value, such as the result of a
+  call or an operator.
+- It is a compile-time error if the operand of `&` is a place that is read-only: a variable or
+  parameter that is not `mut`, a field of an object that is not `mut`, an `in` variable or
+  parameter, a static, or a place inside one.
+- It is a compile-time error if the operand of `&` has a type that a pointer cannot point to: a
+  `ref struct` or a nullable reference ([Pointer types](04-types.md#types.pointers)).
+
+Code that runs after `&place` may read or write the place through the pointer. The program
+behaves as if any call made after that point may do so.
 
 It is undefined behavior to read or write through a pointer outside the storage it points into, or
-after that storage is gone or has moved.
+after that storage is gone or has moved. A pointer made through a `ref` parameter points
+into storage that the caller lends for the call: it is undefined behavior to use the pointer after
+the function returns.
 
 **Example:**
 
 ```java unchecked
 unsafe {
-    int[4] values = [10, 20, 30, 40];
+    mut int[4] values = [10, 20, 30, 40];
     int* first = &values[0];
     int* third = first + 2;
     std::print(third[0]);               // 30

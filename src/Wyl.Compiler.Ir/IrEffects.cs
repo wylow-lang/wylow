@@ -160,6 +160,7 @@ public sealed record IrEffects(IReadOnlyList<IrWrite> Writes, IReadOnlyList<IrRu
         public IrEffects Ref(IrRef value) => None;
         public IrEffects Addr(IrAddr value) => None;
         public IrEffects Data(IrData value) => None;
+        public IrEffects Pointer(IrPointer value) => None;
         public IrEffects Test(IrTest value) => None;
 
         static IrEffects Calling(IrRvalue value, IrRun? runs)
