@@ -140,7 +140,7 @@ of the C++ build, such as a failed signature or layout check.
 |---|---|
 | Editing | one mode with a filter: seconds |
 | Before each commit | whole suite `--interpret`, and clang filtered to the area touched. Docs-only changes run nothing; dashboard-only changes only build. Nothing else unless asked |
-| Push to `dev` or `main` (CI) | all seven modes, each on its own runner, the TSan mode on a Linux runner, and the generator's `--self-test` |
+| Push to `dev` or `main` (CI) | all seven modes, each on its own runner, the gcc and TSan modes on Linux runners as well, and the generator's `--self-test` |
 | Nightly / weekly (CI) | fuzzing and generation; mutation testing |
 
 Long runs (fuzzing, generation, mutation, coverage) go through CI or the user; hand over the

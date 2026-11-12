@@ -95,7 +95,7 @@ static class MatrixTests
                 lines.Add(line.Length == 0 ? "out" : "out " + line);
             foreach (var line in SuffixLines(standardError))
             {
-                // clang's ASan cannot hook one function of this MSVC runtime and says so in every run.
+                // Clang 19's ASan cannot hook one function of the MSVC 14.51 runtime, and it says so in every run.
                 if (line.Contains("interception_win", StringComparison.Ordinal))
                     continue;
                 lines.Add(line.Length == 0 ? "err" : "err " + line);

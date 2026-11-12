@@ -21,10 +21,9 @@ public sealed class NativeCompiler
     static readonly ConcurrentDictionary<string, Lazy<string?>> PrecompiledHeaders = new();
     static readonly Lazy<IReadOnlyDictionary<string, string>?> MsvcEnvironment = new(CaptureMsvcEnvironment);
 
-    // The installed clang may be older than the MSVC STL expects.
-    static readonly string[] SanitizedFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"];
+    static readonly string[] SanitizedFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined"];
 
-    static readonly string[] ThreadSanitizedClangFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=thread", "-g", "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"];
+    static readonly string[] ThreadSanitizedClangFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=thread", "-g"];
 
     // The runtime frees pool slots with sized operator delete, which clang++ before 19 declares only
     // with -fsized-deallocation; g++ accepts the flag and enables it anyway.
@@ -81,67 +80,134 @@ public sealed class NativeCompiler
 
     public static string RuntimeDirectory => Path.Combine(AppContext.BaseDirectory, "runtime");
 
+    /// <summary>
+    /// The compiler for <paramref name="preferred"/>, or with none preferred, the first of clang-cl,
+    /// MSVC, and g++ that this machine has in a supported version (decision 0098). Returns null, with
+    /// the reason in <paramref name="error"/>, if no such compiler is found or the one found is older
+    /// than <see cref="ToolchainVersions"/> allows.
+    /// </summary>
     public static NativeCompiler? Find(Toolchain? preferred, out string? error)
     {
         error = null;
-        if ((preferred is null or Toolchain.Clang) && FindClang() is { } clang)
-            return clang;
-        if ((preferred is null or Toolchain.Msvc) && FindMsvc() is { } msvc)
-            return msvc;
-        if ((preferred is null or Toolchain.Gcc) && FindGcc() is { } gcc)
-            return gcc;
-        if (preferred is Toolchain.ClangSanitized && FindClangSanitized() is { } sanitized)
-            return sanitized;
-        if (preferred is Toolchain.ThreadSanitized && ThreadSanitized.Value is { } threaded)
-            return threaded;
-
-        error = preferred switch
+        if (OperatingSystem.IsMacOS())
         {
-            Toolchain.Clang or Toolchain.ClangSanitized =>
-                "could not find clang-cl on PATH, or MSVC, whose headers and libraries it uses",
-            Toolchain.Msvc => "could not find MSVC; install Visual Studio with the 'Desktop development with C++' workload",
-            Toolchain.Gcc => "could not find g++ on PATH",
-            Toolchain.ThreadSanitized => "no C++ toolchain here builds a program with ThreadSanitizer",
-            _ => "no C++ compiler found; install clang-cl, or Visual Studio with the 'Desktop development with C++' workload, or g++",
-        };
+            error = "wyl does not build programs on macOS; 'wyl interpret' runs them without a C++ compiler";
+            return null;
+        }
+        List<string> reasons = [];
+        foreach (var toolchain in preferred is { } one ? [one] : DefaultOrder)
+        {
+            var (compiler, reason) = Found.GetOrAdd(toolchain, t => new(() => Lookup(t))).Value;
+            if (compiler is not null)
+                return compiler;
+            reasons.Add(reason!);
+        }
+        error = reasons.Count == 1
+            ? reasons[0]
+            : "no supported C++ compiler found:\n" + string.Join('\n', reasons.Select(r => "  " + r));
         return null;
     }
 
-    static NativeCompiler? FindClang()
+    static readonly Toolchain[] DefaultOrder = [Toolchain.Clang, Toolchain.Msvc, Toolchain.Gcc];
+
+    static readonly ConcurrentDictionary<Toolchain, Lazy<(NativeCompiler? Compiler, string? Reason)>> Found = new();
+
+    static (NativeCompiler?, string?) Lookup(Toolchain toolchain) => toolchain switch
     {
-        if (!OperatingSystem.IsWindows() || MsvcEnvironment.Value is not { } env)
-            return null;
-        var clang = FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH"));
-        return clang is null ? null : new NativeCompiler(Toolchain.Clang, clang, env);
+        Toolchain.Clang => FindClang(Toolchain.Clang),
+        Toolchain.ClangSanitized => FindClang(Toolchain.ClangSanitized),
+        Toolchain.Msvc => FindMsvc(),
+        Toolchain.Gcc => FindGcc(),
+        _ => ProbeThreadSanitized() is { } threaded
+            ? (threaded, null)
+            : (null, $"no C++ compiler here builds a program with ThreadSanitizer; it needs clang++ {ToolchainVersions.LinuxClang.Major} or g++ {ToolchainVersions.Gcc.Major} on Linux"),
+    };
+
+    /// <summary>
+    /// The clang-cl of the Visual Studio installation whose MSVC environment the build uses. That
+    /// clang-cl is released with the installation's standard library, so the two always match.
+    /// </summary>
+    static (NativeCompiler?, string?) FindClang(Toolchain toolchain)
+    {
+        if (Msvc() is not { } env)
+            return (null, MsvcRefusal("clang-cl"));
+        var clang = VisualStudioClang(env);
+        if (clang is null)
+            return (null, "could not find clang-cl in Visual Studio; install its 'C++ Clang tools for Windows' component");
+        if (toolchain == Toolchain.ClangSanitized)
+            AddSanitizerRuntimeToPath(clang);
+        return (new NativeCompiler(toolchain, clang, env), null);
     }
 
-    static NativeCompiler? FindMsvc()
+    static string? VisualStudioClang(IReadOnlyDictionary<string, string> env) =>
+        env.GetValueOrDefault("VSINSTALLDIR") is { Length: > 0 } installation
+        && Path.Combine(installation, "VC", "Tools", "Llvm", "x64", "bin", "clang-cl.exe") is var clang
+        && File.Exists(clang)
+            ? clang
+            : null;
+
+    static (NativeCompiler?, string?) FindMsvc()
     {
-        if (!OperatingSystem.IsWindows() || MsvcEnvironment.Value is not { } env)
-            return null;
+        if (Msvc() is not { } env)
+            return (null, MsvcRefusal("cl.exe"));
         var cl = FindOnPath("cl.exe", env.GetValueOrDefault("PATH") ?? env.GetValueOrDefault("Path"));
-        return cl is null ? null : new NativeCompiler(Toolchain.Msvc, cl, env);
+        return cl is null
+            ? (null, "could not find cl.exe in the MSVC environment")
+            : (new NativeCompiler(Toolchain.Msvc, cl, env), null);
     }
 
-    static NativeCompiler? FindGcc()
+    /// <summary>The MSVC environment, or null if this is not Windows or its toolset is not supported.</summary>
+    static IReadOnlyDictionary<string, string>? Msvc() =>
+        OperatingSystem.IsWindows()
+        && MsvcEnvironment.Value is { } env
+        && ToolchainVersions.IsSupported(MsvcToolsetVersion(env), ToolchainVersions.MsvcToolset)
+            ? env
+            : null;
+
+    static string? MsvcToolsetVersion(IReadOnlyDictionary<string, string> env) => env.GetValueOrDefault("VCToolsVersion");
+
+    /// <summary>Why <see cref="Msvc"/> is null, for a compiler that needs the MSVC environment.</summary>
+    static string MsvcRefusal(string compiler)
+    {
+        if (!OperatingSystem.IsWindows())
+            return $"{compiler} needs MSVC, which exists only on Windows";
+        if (MsvcEnvironment.Value is not { } env)
+            return $"could not find MSVC, which {compiler} needs; install Visual Studio with the 'Desktop development with C++' workload";
+        return $"the MSVC toolset is version {MsvcToolsetVersion(env) ?? "unknown"}, and wyl needs {ToolchainVersions.MsvcToolset} or newer; update Visual Studio";
+    }
+
+    static (NativeCompiler?, string?) FindGcc()
     {
         var gcc = FindOnPath(OperatingSystem.IsWindows() ? "g++.exe" : "g++", Environment.GetEnvironmentVariable("PATH"));
-        return gcc is null ? null : new NativeCompiler(Toolchain.Gcc, gcc, null);
+        if (gcc is null)
+            return (null, "could not find g++ on PATH");
+        var version = CompilerVersion(gcc, "-dumpfullversion");
+        return ToolchainVersions.IsSupported(version, ToolchainVersions.Gcc)
+            ? (new NativeCompiler(Toolchain.Gcc, gcc, null), null)
+            : (null, $"g++ is version {version ?? "unknown"}, and wyl needs {ToolchainVersions.Gcc.Major} or newer");
     }
 
-    static readonly Lazy<NativeCompiler?> ThreadSanitized = new(ProbeThreadSanitized);
+    /// <summary>What a gcc-style compiler prints for <paramref name="flag"/>, or null if it can't be run.</summary>
+    static string? CompilerVersion(string compiler, string flag)
+    {
+        var query = new ProcessStartInfo(compiler);
+        query.ArgumentList.Add(flag);
+        var result = ProcessRunner.Run(query);
+        return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
+    }
 
     static IEnumerable<NativeCompiler> ThreadSanitizedCandidates()
     {
         if (OperatingSystem.IsWindows())
         {
-            if (FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH")) is { } clang && MsvcEnvironment.Value is { } env)
+            if (Msvc() is { } env && VisualStudioClang(env) is { } clang)
                 yield return new NativeCompiler(Toolchain.ThreadSanitized, clang, env);
             yield break;
         }
-        foreach (var name in new[] { "clang++", "g++" })
+        foreach (var (name, flag, minimum) in new[] { ("clang++", "-dumpversion", ToolchainVersions.LinuxClang), ("g++", "-dumpfullversion", ToolchainVersions.Gcc) })
         {
-            if (FindOnPath(name, Environment.GetEnvironmentVariable("PATH")) is { } compiler)
+            if (FindOnPath(name, Environment.GetEnvironmentVariable("PATH")) is { } compiler
+                && ToolchainVersions.IsSupported(CompilerVersion(compiler, flag), minimum))
                 yield return new NativeCompiler(Toolchain.ThreadSanitized, compiler, null);
         }
     }
@@ -179,18 +245,6 @@ public sealed class NativeCompiler
             {
             }
         }
-    }
-
-    /// <summary>clang-cl compiles against MSVC's headers and libraries, so it runs in MSVC's environment.</summary>
-    static NativeCompiler? FindClangSanitized()
-    {
-        if (!OperatingSystem.IsWindows() || MsvcEnvironment.Value is not { } env)
-            return null;
-        var clang = FindOnPath("clang-cl.exe", Environment.GetEnvironmentVariable("PATH"));
-        if (clang is null)
-            return null;
-        AddSanitizerRuntimeToPath(clang);
-        return new NativeCompiler(Toolchain.ClangSanitized, clang, env);
     }
 
     /// <summary>
@@ -380,8 +434,6 @@ public sealed class NativeCompiler
         {
             foreach (var arg in new[] { "/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3" })
                 args.Add(arg);
-            if (Toolchain == Toolchain.Clang)
-                args.Add("/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH");
             args.Add(release ? "/O2" : "/Od");
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
@@ -578,8 +630,6 @@ public sealed class NativeCompiler
                 File.WriteAllText(stub, "#include \"wyl.h\"\n");
                 foreach (var arg in new[] { "/nologo", "/std:c++20", "/permissive-", "/utf-8", "/EHsc", "/W3", "/c" })
                     args.Add(arg);
-                if (Toolchain == Toolchain.Clang)
-                    args.Add("/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH");
                 args.Add(release ? "/O2" : "/Od");
                 if (!release)
                     args.Add("/DWYL_DEBUG=1");

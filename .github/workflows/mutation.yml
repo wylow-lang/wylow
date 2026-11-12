@@ -14,7 +14,7 @@ on:
 
 jobs:
   targets:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       ids: ${{ steps.list.outputs.ids }}
     steps:
@@ -32,7 +32,7 @@ jobs:
   mutate:
     name: ${{ matrix.target }}
     needs: targets
-    runs-on: windows-latest
+    runs-on: windows-2025
     # The harness stops at its own budget and saves a partial result before the job limit.
     timeout-minutes: 360
     strategy:

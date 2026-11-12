@@ -17,7 +17,7 @@ on:
 jobs:
   fuzz:
     name: tier ${{ matrix.tier }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 240
     strategy:
       fail-fast: false

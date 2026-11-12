@@ -1,5 +1,7 @@
 # The suite in every mode, one runner per mode, on every push to dev or main, and the generator's
-# self-check, so a change that breaks the generator fails the push instead of the nightly run.
+# self-check, so a change that breaks the generator fails the push instead of the nightly run. The
+# runner images are pinned, because the oldest supported compiler versions are the versions that
+# these images have (decision 0098).
 name: CI
 
 on:
@@ -14,7 +16,7 @@ concurrency:
 jobs:
   test:
     name: ${{ matrix.mode }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -37,7 +39,8 @@ jobs:
       - name: Toolchains
         shell: pwsh
         run: |
-          foreach ($tool in 'g++', 'clang-cl', 'lld-link') { "$tool -> $((Get-Command $tool -ErrorAction SilentlyContinue).Source)" }
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property catalog_productDisplayVersion
+          g++ --version | Select-Object -First 1
       - run: dotnet build
       - name: Test (${{ matrix.mode }})
         shell: pwsh
@@ -45,7 +48,7 @@ jobs:
 
   generator:
     name: generator self-check
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
@@ -57,9 +60,24 @@ jobs:
         shell: pwsh
         run: dotnet tests/Wyl.Generate/bin/Debug/net10.0/Wyl.Generate.dll --self-test
 
+  gcc-linux:
+    name: gcc (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Toolchain
+        run: g++ --version
+      - run: dotnet build
+      - name: Test (gcc)
+        run: dotnet tests/Wyl.Tests/bin/Debug/net10.0/Wyl.Tests.dll --cc gcc --jobs $(nproc)
+
   tsan:
     name: tsan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
@@ -68,6 +86,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Toolchain
         run: |
+          clang++ --version
           g++ --version
           sudo sysctl -w vm.mmap_rnd_bits=28 || true
       - run: dotnet build

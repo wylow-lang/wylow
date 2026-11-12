@@ -415,6 +415,28 @@ links each library of `link` by the toolchain's spelling: `name.lib` with MSVC a
 `/LIBPATH:` after `/link` with MSVC and clang-cl, and as `-L` with g++. `Driver` copies each file
 of `copy` into the executable's directory after every build, and also when it reuses an executable.
 
+## Toolchains
+
+The build compiles the generated C++ with one of five toolchains (`Toolchain`). `NativeCompiler.Find`
+finds the compiler of each toolchain, and it refuses a compiler that is older than the oldest
+supported version in `ToolchainVersions` (decision 0098). The oldest supported version of each
+compiler is the oldest version that CI runs. CI pins its runner images, so a commit that changes an
+image also changes this table.
+
+| Toolchain | Platform | Compiler | Oldest version | CI runs |
+|---|---|---|---|---|
+| `clang` | Windows | clang-cl from Visual Studio | the version that comes with MSVC toolset 14.44 | Visual Studio 2022 17.14, on `windows-2025` |
+| `msvc` | Windows | cl.exe | MSVC toolset 14.44 | Visual Studio 2022 17.14, on `windows-2025` |
+| `asan` | Windows | clang-cl from Visual Studio, with AddressSanitizer and UBSan | the version that comes with MSVC toolset 14.44 | Visual Studio 2022 17.14, on `windows-2025` |
+| `gcc` | Windows and Linux | g++ | 13 | 15.2 on `windows-2025`, and 13.3 on `ubuntu-24.04` |
+| `tsan` | Linux | clang++, or g++ if no supported clang++ is found | clang++ 18, g++ 13 | clang++ 18.1, on `ubuntu-24.04` |
+
+The build finds MSVC with `vswhere.exe` and runs in the environment that `vcvars64.bat` sets up.
+clang-cl is the one in that installation's `VC\Tools\Llvm\x64\bin` directory, which Visual Studio's
+"C++ Clang tools for Windows" component installs. The compiler never takes clang-cl from `PATH`,
+because the MSVC standard library requires a clang-cl at least as new as the one released with it.
+The build finds g++ and clang++ on `PATH`. The compiler does not build programs on macOS.
+
 ## Panics
 
 A panic prints its message and a stack trace where it happens, and a debugger stops there (`wyl::RaisePanic` in `runtime/wyl/core.h`, which ends with `std::abort`).

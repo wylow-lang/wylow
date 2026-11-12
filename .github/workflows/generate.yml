@@ -22,7 +22,7 @@ on:
 jobs:
   self-test:
     name: self-check
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
@@ -37,7 +37,7 @@ jobs:
   generate:
     name: tier ${{ matrix.tier }}
     needs: self-test
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 240
     strategy:
       fail-fast: false

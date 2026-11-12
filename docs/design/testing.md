@@ -91,7 +91,7 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   folding on explicit casts, and a narrowing that changes a value disagrees with the interpreter).
 - **ThreadSanitizer.** `--cc tsan` runs only the tests marked `// tsan`, since TSan is much slower
   and the suite's other tests start no thread. TSan does not work on Windows, so the mode runs on
-  `ubuntu-latest` in CI, where it finds clang++ or g++ on PATH; the toolchain exists only after a
+  `ubuntu-24.04` in CI, where it finds clang++ or g++ on PATH; the toolchain exists only after a
   probe program builds and runs with `-fsanitize=thread`, which is why the mode disappears rather
   than failing when the platform cannot do it. A report fails the test but does not enter the
   output comparison (`sanitizers/live-tsan` checks that the mode still reports a deliberate race).
@@ -118,12 +118,13 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   `// native` test lists errors and binds without any, the runner builds it and compares the
   errors that the C++ build reports, such as a failed signature or layout check
   (`interop/signature_mismatch`, `interop/layout_mismatch`).
-- **Sanitizers.** `--cc asan` uses clang-cl from PATH; any report fails the test, and the runner
-  checks both sanitizers still report a deliberate bug (`sanitizers/live`). It finds a use after
-  free whose freed memory still holds the old bytes. UBSan reports and continues, so a report is
-  found in stderr, not the exit code. Every sanitized program prints a harmless
-  `interception_win: unhandled instruction` line (Clang 19's ASan and this MSVC runtime).
-  Reproduce with `wyl run <file> --cc asan`.
+- **Sanitizers.** `--cc asan` uses the clang-cl of Visual Studio (runtime.md, "Toolchains"). Any
+  report fails the test, and the runner checks that both sanitizers still report a deliberate bug
+  (`sanitizers/live`). ASan finds a use after free even if the freed memory still holds the old
+  bytes. UBSan reports and continues, so the runner finds a report in stderr, not in the exit code.
+  With Clang 19's ASan and the MSVC 14.51 runtime, every sanitized program printed a harmless
+  `interception_win: unhandled instruction` line, and the matrices still drop that line. Clang
+  22's ASan prints no such line. Reproduce a failure with `wyl run <file> --cc asan`.
 - **Refactoring without behavior change**: build the commit before it in a git worktree, run the
   tests in both, and `diff -r` the two `tests/.out` (C++ and `.ir`).
 - **The fuzzer** (`tests/Wyl.Fuzz`) mutates `tests/cases/**/*.wyl` and checks every mutant with the

@@ -34,8 +34,13 @@ What's next is tracked in the roadmap issue (#6).
 ## Requirements
 
 - .NET 10 SDK
-- clang-cl on `PATH`, with Visual Studio's "Desktop development with C++" workload for its headers
-  and libraries; or `g++` on `PATH`
+- On Windows, Visual Studio 2022 17.14 or newer with the "Desktop development with C++" workload
+  and its "C++ Clang tools for Windows" component. g++ 13 or newer on `PATH` also works.
+- On Linux, g++ 13 or newer on `PATH`. The ThreadSanitizer mode also uses clang++ 18 or newer.
+- The compiler does not build programs on macOS. `wyl interpret` runs them there.
+
+`docs/design/runtime.md` ("Toolchains") lists the supported compilers and the versions that CI
+tests.
 
 ## Usage
 

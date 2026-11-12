@@ -40,6 +40,16 @@ WSL").
   A `byte*` field whose C type is `const char*` already had the same limit. Step 4 should record
   both limits if the safe layer meets them.
 
+## Facts from the toolchain step
+
+- Decision 0098 defines the supported C++ compilers. `ToolchainVersions` holds the oldest version of
+  each, and `NativeCompiler.Find` refuses an older compiler. runtime.md ("Toolchains") lists the
+  compilers and the versions that CI runs. CI pins `windows-2025` and `ubuntu-24.04`, and it runs
+  the gcc mode on Linux as well.
+- clang-cl is the one in the Visual Studio installation of the MSVC environment, never the one on
+  `PATH`. The build no longer defines `_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`.
+- The spec says that a `.cpp` native source is C++20.
+
 ## 2. C sources under `native/`
 
 The build compiles each `.cpp` file under `native/`, and no `.c` file. If it compiled C files
@@ -48,9 +58,37 @@ library. The example would then build SQLite from `sqlite3.c` on every platform,
 import library and its `lib.exe` step would go away. The amalgamation is about 9.6 MB, so the fetch
 script stays, and it downloads the amalgamation instead of the DLL.
 
-- Each toolchain needs C flags, and the build cache key must cover the C files as it covers the C++
-  files.
-- Tests: a package test with a `.c` file that an extern block calls, in every native mode.
+The user agreed to these decisions in a design session. Step 2 records them as decision 0099.
+
+- **Scope.** The build compiles `.c` and `.cpp` files and no others. Each language has one fixed
+  set of flags. The manifest gets no free-form compiler flags, because such flags would tie a
+  package to one toolchain. A library that needs more ships a prebuilt library.
+- **Standard.** A `.c` source is C17 with every toolchain (`/std:c17`, `-std=c17`). The spec says
+  so in `interop.native`.
+- **Shared flags.** A C source gets the sanitizer flags, the optimization level of the build mode,
+  the include path, the manifest's `defines`, and the program's C runtime library. A C source gets
+  none of `/std:c++20`, `/EHsc`, `/permissive-`, and `WYL_DEBUG`. C and C++ share one `defines`
+  list.
+- **Warnings.** The build keeps the warnings of native sources, but it shows them only if the
+  build fails. The SQLite amalgamation prints hundreds of warnings at `/W3`.
+- **A cache per object.** A Wylow change must not compile the amalgamation again, so the build
+  keeps each native object. An object's key covers its source, every file that it can include,
+  its flags, the toolchain, and the mode. Step 5 needs the same cache, because each dependency's
+  sources are compiled into every program that uses it. The compile of a native source therefore
+  takes one package's native inputs as an argument, so that step 5 can give each package its own
+  include directories and definitions.
+- **Linkage.** The build relies on the header's `#ifdef __cplusplus` / `extern "C"` guard.
+  `BuildFailure` recognizes a missing mangled name whose plain C name a C object defines, and its
+  help names the guard. Check first how the emitter declares an extern function that has no
+  header.
+- **g++.** g++ compiles a `.c` file as C++, so the gcc and Linux TSan paths compile each C source
+  in a call of its own with `-x c`.
+- **Exceptions.** Nothing unwinds through a C frame, because each callback is called through a
+  `noexcept` wrapper (decision 0097). The spec states it.
+- **Smaller points.** Native sources may compile in parallel. C and C++ sources stay in one ordered
+  list, because `BuildFailure.UserOf` maps an object to its source by index. The build cache key
+  already covers every file under `native/`.
+- **Tests.** A package test has a `.c` file that an extern block calls, in every native mode.
 
 ## 3. Gaps the binding found
 
