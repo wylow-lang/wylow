@@ -315,9 +315,15 @@ them and returns an error code ([Native source files](#interop.native)).
 A package's `native/` directory, next to its `src/` directory, holds C and C++ source and header
 files. Each `.cpp` file in it, or in a directory below it, is compiled as C++20, and each `.c` file
 is compiled as C17. Every source is compiled with the include directories and the definitions of
-the manifest's `native` block ([The manifest](03-programs.md#programs.manifest)), and it is linked
-with the program. The `native/` directory is on the include path, so an extern block reaches its
-headers by their paths from it.
+the `native` block of its own package's manifest ([The manifest](03-programs.md#programs.manifest)),
+and it is linked with the program. The `native/` directory is on its package's include path, so an
+extern block reaches its headers by their paths from it.
+
+An extern block's `@Include` path is searched for in the `native/` directory of the block's own
+package, and then in that package's `include` directories, in the order the manifest lists them.
+The search does not look in the directories of another package of the program
+([Dependencies](03-programs.md#programs.manifest.dependencies)), so two packages may each have a
+header of the same path.
 
 An extern block includes its header into C++. A function that a C source defines has C linkage, so
 the header declares the function inside `extern "C"` when C++ includes the header. If C sources

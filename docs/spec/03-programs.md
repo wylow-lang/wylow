@@ -1,8 +1,9 @@
 <a id="programs"></a>
 # 3. Programs, packages, and modules
 
-A program is a package. Its source files are grouped into modules, one per directory, and each
-declaration says how far it is visible: its file, its module, its package, or everywhere.
+A program is a package, built together with the libraries it depends on. A package's source files
+are grouped into modules, one per directory, and each declaration says how far it is visible: its
+file, its module, its package, or everywhere.
 
 <a id="programs.packages"></a>
 ## 3.1 Packages
@@ -11,14 +12,22 @@ A **package** is a directory holding a manifest, `package.wylcfg`
 ([The manifest](#programs.manifest)), and a directory `src/` holding its source files. Its
 modules are `src/` and the directories below it ([Modules](#programs.modules)).
 
-A source file compiled on its own is a package of one module and one file, which has no name.
+A package is a **program** or a **library**, as its manifest's `kind` says. A program has an entry
+point ([The entry point](#programs.entry)) and is built into an executable. A library has no entry
+point, and its code runs only as part of a program that depends on it
+([Dependencies](#programs.manifest.dependencies)).
 
-A file of a package is named by its path below `src/`, with `/` between directories:
-`geometry/shapes.wyl`. A file compiled on its own is named by its file name. This is the name a
-panic's location gives ([Panics](18-errors.md#errors.panics)).
+A source file compiled on its own is a program of one module and one file, which has no name.
+
+A file of a program is named by its path below `src/`, with `/` between directories:
+`geometry/shapes.wyl`. A file of a library that the program depends on is named by the library's
+name, `::`, and its path below the library's `src/`: `parser::lexer/tokens.wyl`. A file compiled on
+its own is named by its file name. This is the name a panic's location gives
+([Panics](18-errors.md#errors.panics)).
 
 A package is compiled as a whole, so its declarations may refer to each other in any order and from
-any of its files, and its modules may import each other in a cycle.
+any of its files, and its modules may import each other in a cycle. A program is compiled together
+with the source files of every library it depends on.
 
 - It is a compile-time error if a package has no `src/` directory.
 - It is a compile-time error if a package has no source file.
@@ -58,26 +67,39 @@ An entry's identifier is its **key**. An entry is a string (`key = "text";`), a 
 | Key | Where | Kind |
 |---|---|---|
 | `name` | top level | string |
+| `kind` | top level | string |
+| `version` | top level | string |
 | `dependencies` | top level | block |
 | *any name* | in `dependencies` | block |
-| `path` | in an entry of `dependencies` | string |
+| `path`, `version` | in an entry of `dependencies` | string |
 | `native` | top level | block |
 | `include`, `libraryPaths`, `link`, `copy`, `defines` | in `native`, or in a platform block of it | list of strings |
 | `windows`, `linux`, `macos` | in `native` | block |
 
 `name` gives the package's name, which need not be its directory's.
 
-`native` gives what the package's extern blocks and native source files need to build
-([Interop](21-interop.md#interop)). Each path in it is relative to the package's directory.
+`kind` is `"program"` or `"library"` ([Packages](#programs.packages)). A package whose manifest has
+no `kind` entry is a program.
 
-- `include` lists directories that are searched for the headers that `@Include` names.
+`version` gives the package's version ([Versions](#programs.manifest.versions)).
+
+`dependencies` lists the libraries that the package uses
+([Dependencies](#programs.manifest.dependencies)).
+
+`native` gives what the package's extern blocks and native source files need to build
+([Interop](21-interop.md#interop)). Each path in it is relative to the directory of the package
+whose manifest it is in.
+
+- `include` lists directories that are searched for the headers that the package's `@Include`
+  annotations name.
 - `libraryPaths` lists directories that are searched for the libraries that `link` names.
 - `link` lists libraries that are linked with the program. Each is named without the platform's file
   prefix or extension: `"parser"` names `parser.lib` on Windows and `libparser` elsewhere.
 - `copy` lists files that are copied next to the built program, such as a shared library that it
   loads when it starts.
-- `defines` lists preprocessor definitions, `"NAME"` or `"NAME=value"`, given to every C++ source
-  the program is built from.
+- `defines` lists preprocessor definitions, `"NAME"` or `"NAME=value"`. They are given to the
+  package's own native source files, and to the C++ source into which any package's extern block
+  includes its header.
 - A platform block, `windows`, `linux`, or `macos`, holds entries of the same keys. When the
   program is built for that platform, each of its lists is added after the list of the same key in
   `native`.
@@ -104,8 +126,8 @@ native {
 - It is a compile-time error if the manifest has no `name` entry.
 - It is a compile-time error if the name is not an identifier ([Identifiers](02-lexical.md#lexical.identifiers)),
   or is `std`.
-- It is a compile-time error if an entry of `dependencies` has no `path`.
-- It is a compile-time error if the manifest has a `dependencies` entry.
+- It is a compile-time error if `kind` is neither `"program"` nor `"library"`.
+- It is a compile-time error if a library's manifest has no `version` entry.
 - It is a compile-time error if a directory that `include` or `libraryPaths` names does not exist,
   or if a file that `copy` names does not exist. These rules apply to the lists of `native` and to
   the lists of the platform block of the platform that the program is built for.
@@ -116,6 +138,81 @@ native {
 // shop/package.wylcfg
 name = "shop";
 ```
+
+<a id="programs.manifest.versions"></a>
+### 3.2.1 Versions
+
+A package's **version** is written `"major.minor.patch"`: three numbers, each written in decimal
+digits, with no leading zero except in the number `0` itself. `"1.4.2"` has the major number 1, the
+minor number 4, and the patch number 2.
+
+An entry of `dependencies` may state the version that the package needs, written `"major.minor"` or
+`"major.minor.patch"`. A missing patch number is 0. A library's version **satisfies** a stated
+version if both of these hold:
+
+- The library's version is not lower than the stated version. Versions are ordered by their major
+  numbers, then by their minor numbers, then by their patch numbers.
+- The library's major number equals the stated major number. If the stated major number is 0, the
+  library's minor number also equals the stated minor number.
+
+A stated `"1.4"` is satisfied by `1.4.0`, `1.4.7`, and `1.9.0`, and not by `1.3.9` or `2.0.0`. A
+stated `"0.3"` is satisfied by `0.3.0` and `0.3.5`, and not by `0.4.0`.
+
+- It is a compile-time error if a `version` entry does not have the form its place gives.
+- It is a compile-time error if an entry of `dependencies` states a version and the library's
+  version does not satisfy it.
+
+<a id="programs.manifest.dependencies"></a>
+### 3.2.2 Dependencies
+
+Each entry of `dependencies` names a library that the package uses. The entry's key is the
+library's name. The entry's `path` is the library's directory, relative to the directory of the
+package whose manifest holds the entry. The libraries that these entries name are the package's
+**dependencies**.
+
+```
+// shop/package.wylcfg
+name = "shop";
+dependencies {
+    parser { path = "vendor/parser"; version = "1.4"; }
+}
+
+// shop/vendor/parser/package.wylcfg
+name = "parser";
+kind = "library";
+version = "1.4.2";
+```
+
+A program is built from itself, its dependencies, their dependencies, and so on. These are the
+**packages of the program**. Two paths that reach the same directory name the same package, and the
+program compiles that package once.
+
+A package sees its own dependencies, and no other library. A dependency's name is a path root in
+every file of the package ([Paths](#programs.paths)). A file reaches the names of the dependency's
+root module and its submodules through paths and imports, as far as their visibility allows
+([Visibility](#programs.visibility)). A library may re-export a name of its own dependency with
+`pub import` ([Imports](#programs.imports)).
+
+The native settings of every package of the program apply to the program's build. Each package's
+native source files are compiled with that package's own `include` and `defines` lists
+([Native source files](21-interop.md#interop.native)). The `link`, `libraryPaths`, and `copy` lists
+of every package apply to the program.
+
+- It is a compile-time error if an entry of `dependencies` has no `path`.
+- It is a compile-time error if the directory that `path` names does not hold a package.
+- It is a compile-time error if the key of an entry is not the `name` of the package that its
+  `path` names.
+- It is a compile-time error if the package that `path` names is not a library.
+- It is a compile-time error if a package is its own dependency, directly or through other
+  dependencies.
+- It is a compile-time error if two packages of a program have the same name and different
+  directories.
+- It is a compile-time error if a package has a dependency of the same name as a module directly in
+  its `src/`.
+- It is a compile-time error if two packages of the program define one preprocessor name with
+  different values.
+- It is a compile-time error if two files that `copy` lists for the platform that the program is
+  built for have the same file name and different directories.
 
 <a id="programs.modules"></a>
 ## 3.3 Modules
@@ -188,10 +285,11 @@ ImportName = Identifier [ "as" Identifier ] .
 
 An import's path is its identifiers before any `as`, `*`, or `{`. In `import a::b::*;` and
 `import a::b::{N, M};`, every name of the path is a module; in `import a::b::N;`, every name but the
-last is, and `N` is the name the import brings in. The first module is one directly in `src/` or
-the package `std`, and each after it is a module within the one before. An import of one name with
-no module before it, such as `import Config;`, brings in a module directly in `src/`, the package
-`std`, or a name of the root module. An import never starts relative to its file.
+last is, and `N` is the name the import brings in. The first module is one directly in `src/`, the
+root module of a dependency of the file's package, or the package `std`, and each after it is a
+module within the one before. An import of one name with no module before it, such as
+`import Config;`, brings in a module directly in `src/`, the root module of a dependency, the
+package `std`, or a name of the root module. An import never starts relative to its file.
 
 An import brings names into its file:
 
@@ -249,7 +347,8 @@ module may have the name of a type, a function, or a local variable.
 
 The first name of a path is a module the file sees. A path's first name means the first of these
 that has it: a submodule of the file's module, a module that the file's module re-exports, a module
-that the file imports, and the package `std`. Every file sees the package `std` without an import.
+that the file imports, the root module of a dependency of the file's package, and the package `std`.
+Every file sees its package's dependencies and the package `std` without an import.
 
 - It is a compile-time error if a path's first name is not a module the file sees, including a
   module directly in `src/` that the file does not import.
@@ -383,7 +482,7 @@ These names always mean these declarations:
 A program's **entry point** is the function named `main` declared at the top level of its root
 module. It returns `void` or `int`, and takes no parameters or one by-value parameter of type
 `String[]`: `void main()`, `int main()`, `void main(String[] args)`, or `int main(String[] args)`. A
-function named `main` in any other module is an ordinary function.
+function named `main` in any other module is an ordinary function. A library has no entry point.
 
 A `String[]` parameter holds the program's **arguments**, in order, without the program's name.
 Each is UTF-8 text: a part of an argument that is not well-formed text is replaced by U+FFFD, one
@@ -391,7 +490,9 @@ for each maximal ill-formed subsequence, as Unicode recommends (*The Unicode Sta
 "U+FFFD Substitution of Maximal Subparts"). The arguments are an input of the run
 ([Observable behavior](01-introduction.md#introduction.observable)).
 
-- It is a compile-time error if the root module has no function named `main`, or has more than one.
+- It is a compile-time error if the root module of a program has no function named `main`, or has
+  more than one.
+- It is a compile-time error if the root module of a library has a function named `main`.
 - It is a compile-time error if `main` has type parameters, or parameters other than one by-value
   `String[]`.
 - It is a compile-time error if `main` returns a type other than `void` or `int`.

@@ -2,8 +2,8 @@
 
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
 binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
-smaller gaps that the binding found. Step 4 wrote a safe layer over the binding. The `dependencies`
-design comes last, because the steps before it change what a library package needs.
+smaller gaps that the binding found. Step 4 wrote a safe layer over the binding, and step 5 designed
+the manifest's `dependencies` with the user. Steps 6 to 9 build that design.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -110,10 +110,64 @@ WSL").
   `const char*`, did not come up: the layer declares no extern struct with fields.
 - `@CallerLocation` on `column` and `columnName` makes their panics report the caller's line.
 
-## 5. Designing `dependencies`
+## Facts from step 5
 
-A library package needs the manifest's `dependencies`, which is not built. This step is a design
-session with the user, not code. The binding found that a dependency's `native` block must apply
-to the program that uses it, its `native/` sources must be compiled into that program, and each of
-its relative paths must resolve against its own directory. A package that ships a prebuilt library
-also ships a script that fetches it, because the manifest has no fetch step.
+- Decision 0101 records the design, and `programs.manifest.dependencies`,
+  `programs.manifest.versions`, `programs.packages`, `programs.paths`, `programs.entry`,
+  `errors.panics`, and `interop.native` state its rules. The compiler builds none of it yet.
+- A package is a program or a library, and `kind = "library";` makes it a library. A library must
+  not have `main`, and it must declare `version = "major.minor.patch"`.
+- A dependency is a local `path`. The compiler has no registry and no fetch step. An entry may state
+  a version, and the compiler checks it with the compatibility rule of Semantic Versioning: the
+  same major number, not lower, and below 1.0 the same minor number.
+- A dependency's name is a path root without an import, as `std` is. A package sees only its own
+  dependencies.
+- Each package keeps its own native settings. An extern block finds its header only in its own
+  package's `native/` and `include` directories.
+- A panic in a dependency names its file as `parser::lexer/tokens.wyl:3:5`.
+- The compiler reports a dependency's errors and not its warnings.
+- `tests/cases/packages/manifest_keys` pins today's behavior: `version` is not a key (`WYL0023`), and
+  `dependencies` cannot be used (`WYL0031`). Step 6 changes both lines of the test.
+- Later, and not designed: code that reads its own package's version, such as for a `--version`
+  flag. The user suggested a preprocessor definition that a function of `std` reads.
+
+## 6. The manifest's new keys and libraries
+
+Read `kind`, `version`, and the `version` of a dependency entry (`Manifest.cs`), with the errors of
+`programs.manifest` and `programs.manifest.versions`. A library with `main` is an error, and a
+program without `main` keeps its error. `wyl check` checks a library on its own, and `wyl build` and
+`wyl run` refuse a library with an error that says why. `dependencies` still draws `WYL0031`, so
+this step adds no way to use a library yet.
+
+## 7. Loading and naming dependencies
+
+`PackageSources` loads each dependency's sources into a `Package` of its own, and identifies a
+package by its full directory path. Each error of `programs.manifest.dependencies` that concerns the
+graph gets a code and a test: a path that holds no package, a key that is not the library's name, a
+dependency that is a program, a cycle, two packages of one name, a module that has a dependency's
+name, and a version that the library does not satisfy. The binder's `ResolveModule` looks for a
+dependency after imports and before `std`, and `Reach` already keeps `package` names inside their
+package. `CppEmitter.ModulePrefix` must qualify a dependency's root module by its package, because
+the program's root module has no prefix. A panic location in a dependency carries the package's
+name. The build reports a dependency's errors and drops its warnings. The source key of
+`Driver.Build` must hash every package's sources.
+
+The runner treats each directory with a `package.wylcfg` under `tests/cases/packages/` as one test.
+A test with a dependency keeps the library in a directory that the runner skips, which this step
+decides and records in `testing.md`.
+
+## 8. Native settings of dependencies
+
+`NativeInputs` becomes one set for each package. Each package's native sources compile with their
+own `include` and `defines` lists. The generated C++ includes each extern block's header by the
+path that its own package resolves, so two packages may have headers of one path. The `link`,
+`libraryPaths`, and `copy` lists of every package apply to the program. Two packages that define
+one name with different values are an error, and so are two `copy` files with one file name. Both
+build keys and the native-object key must hash every package's native inputs. This step runs on
+Linux through WSL.
+
+## 9. The SQLite library and its demonstration
+
+Split `examples/sqlite` into a library that holds the `sqlite` module and the amalgamation, and a
+program that depends on it and holds `main.wyl`. The library's `pub` names are the safe layer's.
+Record what the split shows, as step 4 recorded what the safe layer showed.

@@ -17,8 +17,9 @@ runs, and no other thread continues. A panic can't be caught.
 The location of a panic is the location of the operation that failed, or, inside a function marked
 `@CallerLocation`, the location of the call to that function
 ([`@CallerLocation`](22-annotations.md#annotations.caller-location)). It is written as the file's
-path under the package's `src/` directory, a line, and a column
-([Source text](02-lexical.md#lexical.source)): `geometry/shapes.wyl:3:5`.
+name ([Packages](03-programs.md#programs.packages)), a line, and a column
+([Source text](02-lexical.md#lexical.source)): `geometry/shapes.wyl:3:5` in the program's own
+files, and `parser::lexer/tokens.wyl:3:5` in a file of the library `parser`.
 
 <a id="errors.result"></a>
 ## 18.2 `Result`
