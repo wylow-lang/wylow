@@ -7,9 +7,11 @@ namespace Wyl.Compiler.CodeGen;
 
 /// <summary>
 /// The lines of generated C++ that come from one extern declaration of a block outside the standard
-/// library, so that the build can report a C++ error on those lines at the declaration.
+/// library, so that the build can report a C++ error on those lines at the declaration. The
+/// <paramref name="Symbol"/> of a function or constant is the qualified C++ name that the program
+/// links to, so that the build can report a link that does not find it.
 /// </summary>
-public sealed record InteropRegion(int FirstLine, int LastLine, Location Declaration, string What);
+public sealed record InteropRegion(int FirstLine, int LastLine, Location Declaration, string What, string? Symbol = null);
 
 /// <summary>A <c>static_assert</c> of the boundary: the diagnostic its failure is, and the index of the region it is in.</summary>
 public sealed record InteropCheck(Diagnostic Diagnostic, int Region);
@@ -68,17 +70,17 @@ public sealed partial class CppEmitter
                     EmitExternConstant(function);
                 else
                     EmitExternFunction(function);
-            });
+            }, symbol: QualifiedCppName(function));
         }
     }
 
-    void InRegion(Location declaration, string what, Action emit, bool separate = true)
+    void InRegion(Location declaration, string what, Action emit, bool separate = true, string? symbol = null)
     {
         if (separate)
             Line();
         int first = lineCount + 1;
         emit();
-        interopRegions.Add(new InteropRegion(first, lineCount, declaration, what));
+        interopRegions.Add(new InteropRegion(first, lineCount, declaration, what, symbol));
     }
 
     static string KindOf(TypeSymbol s) => s.IsUnion ? "union" : "struct";
@@ -179,7 +181,8 @@ public sealed partial class CppEmitter
         Line("{");
         Line($"    if constexpr ({one}<D>)");
         Line("    {");
-        Line($"        using F = decltype({address});");
+        if (values.Count > 0)
+            Line($"        using F = decltype({address});");
         Line($"        {Returned(result, $"{target}({string.Join(", ", values.Select((v, i) => $"wyl::interop::Convert<wyl::interop::Parameter<F, {i}>>({v})"))})")}");
         Line("    }");
         Line("    else");

@@ -7,18 +7,18 @@ can do, and each one also tests it.
 
 Commit each step on its own once it passes.
 
-## 1. A failed link names its cause
+## 1. A failed link names its cause (done)
 
-`BuildFailure.Classify` reports every unresolved symbol in a program with extern blocks as "a C++
-function that an extern block declares is not defined". If a native source calls a function of a
-library that the manifest does not link, the report blames the extern block, which is wrong.
+Step 1 is committed. These facts from step 1 matter later:
 
-- Read the missing symbols from the linker's output (MSVC `LNK2019`/`LNK2001`, lld-link
-  `undefined symbol:`, GNU ld `undefined reference to`).
-- If an extern block declares a missing symbol, report the declaration. Otherwise, name the symbol
-  and the object that refers to it, and say that the program links no library that defines it.
-- Tests: a package whose native source calls a function of a library that its manifest does not
-  name, and the existing case of an extern function that nothing defines.
+- `BuildFailure.MissingSymbols` reads the missing symbols of link.exe, lld-link, and GNU ld. A symbol
+  that an extern declaration names is `WYL0519` at the declaration. A symbol that a native source
+  uses is the package's error, which names the symbol and the source.
+- The MSYS2 `ld` of the development machine exits with status 5 and prints nothing when a symbol is
+  missing, so `interop/undefined_extern` fails there in the gcc mode. The `build-failure/`
+  self-tests read GNU ld's format from a copy of its output.
+- The wrapper of an extern function without parameters no longer declares the alias `F`, which
+  clang reported as unused.
 
 ## 2. `void*` and `Span<T>.byteLength()`
 

@@ -1,0 +1,17 @@
+// native
+// A C++ function that an extern block names and that nothing the program links defines is reported
+// at its declaration (spec interop.extern).
+@Include("parser.h")
+@CppNamespace("parser")
+extern {
+    @Safe int parse_count(int limit);           // error[WYL0519]: nothing that the program links defines 'parser::parse_count', which extern function 'parse_count' names
+}
+
+@Include("parser.h")
+extern {
+    @Safe int parser_version();
+}
+
+void main() {
+    std::print(parse_count(parser_version()));
+}

@@ -149,6 +149,11 @@ public static partial class Catalog
     public static Diagnostic LayoutMismatch(Location at, string part, string kind, string type, string cppName) =>
         Make(at, $"{part} of {kind} '{type}' does not match the C++ type '{cppName}'");
 
+    [Error(519, "interop.extern")]
+    public static Diagnostic UndefinedExtern(Location at, string what, string cppName) =>
+        Make(at, $"nothing that the program links defines '{cppName}', which {what} names")
+            .Help("define it in a source file under 'native/', or name the library that defines it in the manifest's 'link' list");
+
     [Error(513, "interop.extern.names")]
     public static Diagnostic CppRejected(Location at, string what, string cppMessage) =>
         Make(at, $"the C++ compiler rejects {what}").Note(cppMessage);

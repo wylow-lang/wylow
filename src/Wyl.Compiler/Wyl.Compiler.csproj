@@ -8,6 +8,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Wyl.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\runtime\**\*" LinkBase="runtime" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
