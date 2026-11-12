@@ -364,6 +364,40 @@ public static class IrWalk
         }
     }
 
+    /// <summary>
+    /// Whether control can reach the end of the statement. A <c>return</c>, <c>break</c>,
+    /// <c>continue</c>, or <c>unreachable</c> never completes, and a loop completes only if a
+    /// <c>break</c> out of it can run.
+    /// </summary>
+    public static bool Completes(IrStatement statement) => Completes(statement, [], []);
+
+    static bool Completes(IrStatement statement, HashSet<IrLoop> broken, HashSet<IrLoop> continued)
+    {
+        switch (statement)
+        {
+            case IrBlock block:
+                return block.Statements.All(s => Completes(s, broken, continued));
+            case IrIf conditional:
+                bool then = Completes(conditional.Then, broken, continued);
+                return conditional.Else is null || Completes(conditional.Else, broken, continued) || then;
+            case IrLoop loop:
+                bool bodyEnds = Completes(loop.Body, broken, continued);
+                if (loop.Continue is { } next && (bodyEnds || continued.Contains(loop)))
+                    Completes(next, broken, continued);
+                return broken.Contains(loop);
+            case IrBreak jump:
+                broken.Add(jump.Loop);
+                return false;
+            case IrContinue jump:
+                continued.Add(jump.Loop);
+                return false;
+            case IrReturn or IrUnreachable:
+                return false;
+            default:
+                return true;
+        }
+    }
+
     /// <summary>The local a statement itself declares in its block, if any.</summary>
     public static IrLocal? Declared(IrStatement statement) => statement switch
     {

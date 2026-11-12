@@ -77,8 +77,10 @@ static class InUse
                 guards.Add(guard.Local);
             }
             block.Statements.Add(statement);
-            // A return ends the function, and the block's cleanup restores the guard.
-            if (statement is not IrReturn)
+            // If a statement never completes, control leaves the block, and the block's cleanup
+            // restores the guard.
+            bool completes = IrWalk.Completes(statement);
+            if (completes)
             {
                 foreach (var guard in guards)
                     block.Statements.Add(new IrEnd(guard) { Origin = statement.Origin });
@@ -101,7 +103,7 @@ static class InUse
                         (endsAfter.TryGetValue(last, out var list) ? list : endsAfter[last] = []).Add(guard.Local);
                 }
             }
-            if (endsAfter.TryGetValue(index, out var ends))
+            if (completes && endsAfter.TryGetValue(index, out var ends))
             {
                 foreach (var guard in ends)
                     block.Statements.Add(new IrEnd(guard) { Origin = statement.Origin });

@@ -1,0 +1,39 @@
+// A unique enum that implements Hashable of itself gets `equals` and `hash` written from its
+// fields. A binding into a variant's field marks the value in use until the binding's scope ends.
+// If a branch returns or breaks, control leaves that scope without reaching its end.
+import std::{Hashable, Hasher};
+
+unique enum Color implements Hashable<Color> {
+    Red,
+    Green,
+    Custom(int rgb),
+}
+
+int rgbOf(in Color color) {
+    if (color is Custom(in var rgb)) {
+        return rgb;
+    }
+    return -1;
+}
+
+int firstCustom(in Color[3] colors) {
+    mut int found = -1;
+    for (in Color color : colors) {
+        if (color is Custom(in var rgb)) {
+            found = rgb;
+            break;
+        }
+    }
+    return found;
+}
+
+void main() {
+    std::print(Color.Red.equals(Color.Red));                // output: true
+    std::print(Color.Red.equals(Color.Green));              // output: false
+    std::print(Color.Custom(5).equals(Color.Custom(5)));    // output: true
+    std::print(Color.Custom(5).equals(Color.Custom(6)));    // output: false
+    std::print(Color.Custom(5).equals(Color.Red));          // output: false
+    std::print(rgbOf(Color.Custom(7)));                     // output: 7
+    std::print(rgbOf(Color.Green));                         // output: -1
+    std::print(firstCustom([Color.Red, Color.Custom(3), Color.Custom(4)]));  // output: 3
+}
