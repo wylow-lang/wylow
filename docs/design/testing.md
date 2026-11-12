@@ -96,6 +96,14 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   than failing when the platform cannot do it. A report fails the test but does not enter the
   output comparison (`sanitizers/live-tsan` checks that the mode still reports a deliberate race).
   Reproduce with `wyl run <file> --cc tsan`.
+- **Linux through WSL.** On Windows, WSL 2 with Ubuntu runs the Linux modes locally: `--cc gcc`,
+  `--cc tsan`, and `--interpret`. The distribution needs the .NET 10 SDK, g++, and clang, and
+  `libsqlite3-dev` for `examples/sqlite`. Build in a clone inside the Linux file system, made with
+  `git clone /mnt/<drive>/<path to the repository> ~/wylow`, and bring each new commit across with
+  `git pull`. A build in the Windows checkout under `/mnt` would overwrite the Windows build's
+  `bin/` and `obj/` directories, and the Windows file system is slow from Linux. An agent runs a
+  command there with `wsl -d Ubuntu -- bash -lc "<command>"`. A command that needs `sudo` asks for
+  a password, so the user runs installations.
 - **Threads.** The interpreter runs each logical thread on an operating-system thread, so two runs
   of one program may interleave differently (decision 0057). A test of threads or channels
   synchronizes before each line it prints, with a `join` or a `receive`, and expects a property of
