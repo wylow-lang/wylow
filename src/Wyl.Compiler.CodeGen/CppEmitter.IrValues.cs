@@ -47,7 +47,12 @@ public sealed partial class CppEmitter
         : declaredHolds.TryGetValue(local, out var hold) && hold.Borrows ? $"(*{Name(local)})"
         : Name(local);
 
-    string PlaceText(IrPlace place)
+    /// <summary>
+    /// A place as C++ names it. Where <paramref name="reading"/> says that the value is read, a field
+    /// of a union is copied out of the union's bytes, so that the C++ never reads an inactive member
+    /// (spec <c>interop.extern.c-structs</c>).
+    /// </summary>
+    string PlaceText(IrPlace place, bool reading = false)
     {
         var local = place.Local;
         var projections = place.Projections;
@@ -57,7 +62,7 @@ public sealed partial class CppEmitter
         {
             if (local.IsThis && local.Type.IsReference)
                 text = $"wyl::Ref<{ObjectType(local.Type)}>(this)";
-            else if (local.IsThis && projections is [IrField first, ..])
+            else if (local.IsThis && projections is [IrField first, ..] && emitting is not { Symbol.IsExternStructBody: true })
                 (text, start) = ($"this->{FieldName(first.Field)}", 1);
             else
                 text = !local.IsThis ? BaseText(local) : emitting is { Symbol.IsExternStructBody: true } ? SelfName : "(*this)";
@@ -86,6 +91,7 @@ public sealed partial class CppEmitter
         {
             text = projection switch
             {
+                IrField { Field.Owner.IsUnion: true } field when reading => $"wyl::interop::ReadUnion<{CppType(field.Type)}>({text})",
                 IrField field => $"{text}.{FieldName(field.Field)}",
                 IrElement element when plan.Fused.TryGetValue(element, out var check) => $"wyl::At({text}, {OperandText(element.Index)}, {LocText(check.Loc!)})",
                 IrElement { Index: IrConstant constant } => $"{text}[{ConstantText(constant)}]",
@@ -112,7 +118,7 @@ public sealed partial class CppEmitter
         }
         if (read.Ownership == IrOwnership.Move && read.Type.IsCounted)
             return $"std::move({PlaceText(read.Place)})";
-        return PlaceText(read.Place);
+        return PlaceText(read.Place, reading: true);
     }
 
     string ConstantText(IrConstant constant) => constant.Value switch
@@ -230,8 +236,13 @@ public sealed partial class CppEmitter
         var constructor = construction.Constructor;
         if (constructor.Symbol.IsImplicit)
             return DefaultValue(construction.Type);
-        var name = constructor.Symbol.IsMemberwise ? MemberwiseName([.. construction.Arguments.Select(a => a is not IrFieldDefault)]) : "make";
-        return $"{CppType(construction.Type)}::{name}({string.Join(", ", ArgumentsText(constructor, construction.Arguments, construction.Loc))})";
+        var arguments = string.Join(", ", ArgumentsText(constructor, construction.Arguments, construction.Loc));
+        if (!constructor.Symbol.IsMemberwise)
+            return $"{CppType(construction.Type)}::make({arguments})";
+        var form = construction.Arguments.Select(a => a is not IrFieldDefault).ToList();
+        return construction.Type.Symbol!.IsExtern
+            ? $"{ExternMemberwiseName(construction.Type.Symbol, form)}({arguments})"
+            : $"{CppType(construction.Type)}::{MemberwiseName(form)}({arguments})";
     }
 
     string CallText(IrCall call)
@@ -245,6 +256,8 @@ public sealed partial class CppEmitter
         var typeArguments = TypeArgumentList(method.TypeArguments);
         // `.template` is required for a member template of a dependent type and harmless otherwise.
         var memberName = (typeArguments.Length > 0 ? "template " : "") + MethodName(function) + typeArguments;
+        if (function.IsProgramExtern)
+            return $"{ExternWrapperName(function)}({string.Join(", ", call.Receiver is { } self ? texts.Prepend(ReceiverPlaceText(self)) : texts)})";
         if (call.Receiver is not { } receiver)
         {
             if (function.BuiltinCppName is { } builtin)
@@ -256,14 +269,9 @@ public sealed partial class CppEmitter
             return $"{ObjectType(method.Owner!)}::{memberName}({arguments})";
         }
 
-        var receiverPlace = receiver switch
-        {
-            IrRead read => read.Place,
-            IrRefArgument reference => reference.Place,
-            _ => throw new InvalidOperationException($"unexpected receiver {receiver.GetType().Name}"),
-        };
+        var receiverPlace = ReceiverPlace(receiver);
         var receiverType = receiverPlace.Type;
-        var receiverText = receiver is IrRead value ? OperandText(value) : PlaceText(receiverPlace);
+        var receiverText = ReceiverPlaceText(receiver);
         if (function.IsExternStructBody)
             return $"{ExternStructFunctionName(function)}{typeArguments}({string.Join(", ", texts.Prepend(receiverText))})";
         bool isThis = receiverPlace is { IsDeref: false, Projections.Count: 0, Local.IsThis: true } && emitting is not { Symbol.IsExternStructBody: true };
@@ -274,6 +282,15 @@ public sealed partial class CppEmitter
             return StdlibSymbols.IsHostedPrimitive(receiverType) ? $"wyl::Builtin({receiverText}).{function.BuiltinCppName}({arguments})" : $"{target}{function.BuiltinCppName}({arguments})";
         return $"{target}{memberName}({arguments})";
     }
+
+    static IrPlace ReceiverPlace(IrArgument receiver) => receiver switch
+    {
+        IrRead read => read.Place,
+        IrRefArgument reference => reference.Place,
+        _ => throw new InvalidOperationException($"unexpected receiver {receiver.GetType().Name}"),
+    };
+
+    string ReceiverPlaceText(IrArgument receiver) => receiver is IrRead value ? OperandText(value) : PlaceText(ReceiverPlace(receiver));
 
     /// <summary>A lambda's body as a C++ lambda's, printed at the indentation of the statement it is in.</summary>
     string LambdaText(IrFunction lambda, string introducer, IEnumerable<string> leading)

@@ -129,9 +129,18 @@ public sealed partial class Binder
         var written = TextOf(e.Location);
         if (entry.Type is not null)
             return ErrorExpression(Catalog.TypeNotValue(e.Location, written));
+        if (entry.Functions is [{ IsExternConstant: true } constant])
+            return ReadExternConstant(e.Location, constant);
         if (expected?.NonNull is FunctionType function)
             return BindFunctionReference(e, entry.Functions!, function);
         return ErrorExpression(Catalog.FunctionNotValue(e.Location, "function", written, written, CanReference(e)));
+    }
+
+    /// <summary>A read of an extern constant, which is a call of the function the binder declares for it.</summary>
+    BoundExpression ReadExternConstant(Location at, FunctionSymbol constant)
+    {
+        CheckVisible(at, constant.Reach, $"constant '{constant.Name}'");
+        return MakeCall(at, new MethodReference(constant, null, []), null, []);
     }
 
     BoundExpression BindName(NameExpr e, WylType? expected)
@@ -149,7 +158,10 @@ public sealed partial class Binder
             if (!hasThis)
                 return ErrorExpression(Catalog.InstanceMemberUnavailable(e.Location, "field", e.Name, noThisContext));
             CheckVisible(e.Location, field.Field.Reach, $"field '{field.Field.Owner.Name}.{e.Name}'");
-            return new BoundFieldAccess(e.Location, new BoundThis(e.Location, stdlib.ThisType(currentType)), field.Field, TypeMap.For(field.Owner).Apply(field.Field.Type));
+            var access = new BoundFieldAccess(e.Location, new BoundThis(e.Location, stdlib.ThisType(currentType)), field.Field, TypeMap.For(field.Owner).Apply(field.Field.Type));
+            if (field.Field.Owner.IsUnion && !InUnsafe)
+                unionReads.Add(access);
+            return access;
         }
 
         if (currentType is not null && LookupStaticField(currentType.Type, e.Name) is { } statics)
@@ -160,6 +172,8 @@ public sealed partial class Binder
 
         if (LookupType(e.Name, e.Location) is not null || LookupTypeParameter(e.Name) is not null)
             return ErrorExpression(Catalog.TypeNotValue(e.Location, e.Name));
+        if (LookupFunctions(e.Name, e.Location) is [{ IsExternConstant: true } constant])
+            return ReadExternConstant(e.Location, constant);
         if (LookupFunctions(e.Name, e.Location) is not null || (currentType is not null && LookupMethods(currentType.Type, e.Name).Count > 0))
             return ErrorExpression(Catalog.FunctionNotValue(e.Location, "function", e.Name, e.Name, CanReference(e)));
         if (ExpectedVariant(e.Name, expected) is { } variant)
@@ -267,7 +281,10 @@ public sealed partial class Binder
             return ErrorExpression(LookupMethods(target.Type, name).Count > 0 ? Catalog.MethodNotField(nameLocation, $"{DisplayName(target.Type)}.{name}", name) : Catalog.NoField(nameLocation, DisplayName(target.Type), name));
         }
         CheckVisible(nameLocation, field.Reach, $"field '{field.Owner.Name}.{name}'");
-        return new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
+        var access = new BoundFieldAccess(location, target, field, TypeMap.For(owner).Apply(field.Type));
+        if (field.Owner.IsUnion && !InUnsafe)
+            unionReads.Add(access);
+        return access;
     }
 
     bool HasMembers(WylType type) => type.IsStructOrEnum || type.IsReference || type.IsTypeParameter || stdlib.MemberHost(type) != type;

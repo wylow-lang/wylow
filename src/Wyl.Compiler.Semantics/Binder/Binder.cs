@@ -95,8 +95,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             s.OwnsElements = stdlib.OwnedElements(s.Type).Any();
 
         var functionList = declarations.OfType<FunctionDecl>().Select(DeclareFunction).ToList();
-        foreach (var constant in declarations.OfType<ExternConstantDecl>())
-            DeclareExternConstant(constant);
+        var constants = declarations.OfType<ExternConstantDecl>().Select(DeclareExternConstant).ToList();
         foreach (var function in functionList.Where(f => f.Declaration!.Location.Source.Module.Package.IsStd))
             stdlib.Register(function);
         CheckImports();
@@ -115,6 +114,7 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
             DeclareMemberwiseConstructor(s);
         foreach (var s in typeList)
             CheckSignatures(s);
+        CheckBlittable([.. functionList, .. constants, .. typeList.SelectMany(s => s.Members)], typeList);
         foreach (var function in functionList)
             CheckFunctionSignature(function, $"function '{function.Name}'");
         foreach (var s in typeList)
@@ -131,11 +131,16 @@ public sealed partial class Binder(DiagnosticBag diagnostics)
         }
         foreach (var function in functionList.Where(f => f.Body is not null))
             bodies.Add(new BoundFunction(function, BindBody(function)));
+        ReportUnionReads();
         CheckConstructorCycles(bodies);
         FindReturnedHolds([.. functionList, .. typeList.SelectMany(s => s.Members)]);
 
         CheckBounds();
-        return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, functionList, FindMain(package), stdlib);
+        return new BoundProgram(package, [.. units.Select(u => u.Source).Where(s => s.Module.Package == package)], typeList, bodies, functionList, FindMain(package), stdlib)
+        {
+            Headers = headers,
+            ExternConstants = constants,
+        };
     }
 
     void Error(Diagnostic diagnostic) => diagnostics.Add(diagnostic);

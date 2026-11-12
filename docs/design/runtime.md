@@ -364,10 +364,46 @@ arithmetic type has no members, so the methods without a body of such a struct a
 `wyl::Builtin<T>` (`compare.h`), which wraps the value. `wyl::Bound<I>` gives a primitive or a
 `String` as its `Builtin`, whose `m_`-named members are what a call through a generic bound names.
 
-A program may declare extern blocks, and the binder checks them. Nothing else of
-[Interop](../spec/21-interop.md#interop) is built yet. The compiler emits no call of a member of a
-program's extern block, and no layout checks. It calls the standard library's extern functions
-directly, without a `noexcept` wrapper.
+The generated C++ includes the header of each extern block after `wyl.h`, once per header. The
+compiler calls the standard library's extern functions directly. It calls each extern function and
+constant of a program's block through a wrapper that `CppEmitter.EmitInterop` writes, with the
+adapters of `runtime/wyl/interop.h`:
+
+- `wyl::interop::Address<D>(name)` takes the address of a C++ function that has exactly one
+  declaration. For an overloaded name, the deduction of the function's type fails, so the concept
+  `requires { Address<D>(name); }` is false instead of an error. The type parameter `D` makes the
+  expression dependent, so that C++ evaluates it only in a template's instantiation.
+  `MemberAddress<D>` does the same for a member function.
+- The wrapper is a `noexcept` function template. If the name has one declaration, the wrapper
+  converts each argument to the C++ parameter's type with `wyl::interop::Convert`, which copies the
+  value's bits. If the name has several declarations, the wrapper passes each argument unchanged
+  through `wyl::interop::Pass<D>`, and the C++ compiler picks the declaration that the argument
+  types select. The wrapper never relies on the order in which C++ ranks overloads, since it
+  converts only for a name with one declaration. Each call is a lambda passed to
+  `wyl::interop::Result`, which converts the result, so that the conversion depends on the
+  lambda's type and C++ checks it only where the wrapper is used. A `@Repr` enum crosses as its
+  integer, the enum's `tag`.
+- The signature check is a `static_assert` of `wyl::interop::SignaturePart` for the number of
+  parameters, for the result, and for each parameter. `wyl::interop::Matches` decides whether two
+  types match (spec `interop.signatures`). A name with several declarations passes every part.
+- A using-declaration in a namespace of its own names each free function, so that a name that the
+  header does not declare is an error with every compiler, even when nothing calls it.
+- A constant's wrapper converts the C++ expression to the declared type, and its check compares the
+  type of the expression with that type.
+- The layout check of a struct or union compares the C++ type with a struct or union that has the
+  declared fields in their order: the size, the alignment, and each field's offset and size.
+
+A struct with fields in an extern block is the C++ type of its name, with the C++ names of its
+fields. Its memberwise constructor and its methods with bodies are free functions named for the
+Wylow type, `wyl_Point_make` and `wyl_Point_m_doubled`. Its `==` is an `operator==` that the
+compiler writes in the C++ type's namespace. A read of a union field is
+`wyl::interop::ReadUnion<T>(value)`, which copies the union's first bytes into a `T`, so that the
+C++ never reads an inactive member.
+
+The build compiles each `.cpp` file under the package's `native/` directory with the toolchain and
+the flags of the build, and puts the directory on the include path. With MSVC and clang-cl, each
+native source compiles in a call of its own, since the program's call uses the precompiled `wyl.h`,
+which a native source does not include.
 
 ## Panics
 

@@ -1,0 +1,34 @@
+// native
+// Each way a struct or union of an extern block can differ from the C++ type of its name, which
+// the C++ build reports at the declaration (spec interop.blittable.layout).
+@Include("records.h")
+extern {
+    struct Pair {
+        pub int first;
+        pub int second;
+    }
+
+    struct Wide {                               // error[WYL0512]: the size or alignment of struct 'Wide' does not match the C++ type 'Wide'
+        pub int value;                          // error[WYL0512]: field 'value' of struct 'Wide' does not match the C++ type 'Wide'
+        pub int tag;                            // error[WYL0512]: field 'tag' of struct 'Wide' does not match the C++ type 'Wide'
+    }
+
+    struct Reordered {
+        pub int a;                              // error[WYL0512]: field 'a' of struct 'Reordered' does not match the C++ type 'Reordered'
+        pub int b;                              // error[WYL0512]: field 'b' of struct 'Reordered' does not match the C++ type 'Reordered'
+    }
+
+    struct Longer {                             // error[WYL0512]: the size or alignment of struct 'Longer' does not match the C++ type 'Longer'
+        pub int value;
+    }
+
+    union Cell {                                // error[WYL0512]: the size or alignment of union 'Cell' does not match the C++ type 'Cell'
+        pub int narrow;
+    }
+
+    struct Absent {                             // error[WYL0513]: the C++ compiler rejects struct 'Absent'
+        pub int value;
+    }
+}
+
+void main() { }

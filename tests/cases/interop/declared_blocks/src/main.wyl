@@ -1,6 +1,6 @@
 // A program may declare extern blocks without calling their members, and `union` is an ordinary
 // identifier outside an extern block (spec interop.extern).
-@Include("parser.h")
+@Include("declared.h")
 @CppNamespace("parser")
 extern {
     pub static int MAX_TOKENS;

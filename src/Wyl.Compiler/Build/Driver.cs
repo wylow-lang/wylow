@@ -10,6 +10,12 @@ public sealed record BuildOptions(bool Release = false, Toolchain? Toolchain = n
 public sealed record ExecutableBuild(string? ExePath, string? Error)
 {
     public bool Success => ExePath is not null;
+
+    /// <summary>
+    /// The errors of a build that failed because a header or a native source does not match the
+    /// program's extern blocks, each at the declaration it is about.
+    /// </summary>
+    public IReadOnlyList<Diagnostic> Diagnostics { get; init; } = [];
 }
 
 /// <summary>
@@ -45,7 +51,9 @@ public static class Driver
         // A build that fails partway may have replaced the executable, so the old key goes first.
         Directory.CreateDirectory(outputDirectory);
         File.Delete(keyPath);
-        var build = BuildExecutable(compilation.Cpp!, compiler, name, outputDirectory, options.Release);
+        var build = BuildExecutable(compilation, compiler, name, outputDirectory, options.Release);
+        if (build.Diagnostics.Count > 0)
+            return new ProgramBuild([.. diagnostics, .. build.Diagnostics.Select(d => d.ToString())], build.Diagnostics.Count, null);
         if (build.Success && key is not null)
         {
             File.WriteAllText(diagnosticsPath, JsonSerializer.Serialize(diagnostics));
@@ -62,27 +70,28 @@ public static class Driver
         var compiler = NativeCompiler.Find(options.Toolchain, out var error);
         if (compiler is null)
             return new ExecutableBuild(null, error);
-        return BuildExecutable(compilation.Cpp, compiler, name, outputDirectory, options.Release);
+        return BuildExecutable(compilation, compiler, name, outputDirectory, options.Release);
     }
 
-    static ExecutableBuild BuildExecutable(string cpp, NativeCompiler compiler, string name, string outputDirectory, bool release)
+    static ExecutableBuild BuildExecutable(CompilationResult compilation, NativeCompiler compiler, string name, string outputDirectory, bool release)
     {
+        var cpp = compilation.Cpp!;
         Directory.CreateDirectory(outputDirectory);
         var cppPath = Path.Combine(outputDirectory, name + ".cpp");
         File.WriteAllText(cppPath, cpp);
         var exePath = ExePath(outputDirectory, name);
         var keyPath = Path.Combine(outputDirectory, name + ".key");
-        var key = compiler.BuildKey(release, cpp);
+        var key = compiler.BuildKey(release, cpp, compilation.NativeDirectory);
         if (File.Exists(exePath) && ReadText(keyPath) == key)
             return new ExecutableBuild(exePath, null);
 
-        var result = compiler.Build(cppPath, exePath, release);
+        File.Delete(keyPath);
+        var result = compiler.Build(cppPath, exePath, release, nativeDirectory: compilation.NativeDirectory);
         if (result.Success)
             File.WriteAllText(keyPath, key);
-        // The program already passed every Wylow check, so a C++ failure is a compiler bug.
         return result.Success
             ? new ExecutableBuild(exePath, null)
-            : new ExecutableBuild(null, $"internal compiler error: the generated C++ failed to compile ({cppPath})\n{result.Output}");
+            : BuildFailure.Classify(result.Output, cppPath, compilation.Interop, compilation.NativeDirectory);
     }
 
     /// <summary>
@@ -109,6 +118,11 @@ public static class Driver
         Add(sources.Package.Name ?? "");
         foreach (var diagnostic in sources.Diagnostics)
             Add(diagnostic.ToString());
+        foreach (var (path, bytes) in NativeCompiler.NativeFiles(sources.NativeDirectory))
+        {
+            Add(path);
+            Add(Convert.ToBase64String(bytes));
+        }
         foreach (var file in sources.Files)
         {
             Add(file.Path);

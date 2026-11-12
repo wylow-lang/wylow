@@ -25,7 +25,7 @@ static class BuildCacheSelfTests
         var compiler = NativeCompiler.Find(null, out var error);
         if (compiler is null)
             return [new("build-cache/key", error)];
-        return [CppKey(compiler), SourceKey(compiler), Replay(outputDirectory)];
+        return [CppKey(compiler), SourceKey(compiler), Replay(outputDirectory), Native(compiler, outputDirectory)];
     }
 
     static TestResult CppKey(NativeCompiler compiler)
@@ -63,6 +63,38 @@ static class BuildCacheSelfTests
         if (Key("a/main.wyl", Source, release: true) == key)
             problems.Add("the key ignores --release");
         return new("build-cache/source-key", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    /// <summary>
+    /// Both keys cover every file of a package's <c>native/</c> directory, so that a changed native
+    /// source or header does not reuse the executable built from the old one.
+    /// </summary>
+    static TestResult Native(NativeCompiler compiler, string outputDirectory)
+    {
+        var directory = Path.Combine(outputDirectory, "build-cache", "native");
+        if (Directory.Exists(directory))
+            Directory.Delete(directory, recursive: true);
+        var native = Path.Combine(directory, "native");
+        Directory.CreateDirectory(Path.Combine(native, "detail"));
+        var sources = PackageSources.Of(new SourceText(Path.Combine(directory, "main.wyl"), Source)) with { NativeDirectory = native };
+        string? Key() => Driver.SourceKey(compiler, sources, new CompileOptions(), release: false);
+        string BuildKey() => compiler.BuildKey(release: false, Program, native);
+
+        File.WriteAllText(Path.Combine(native, "detail", "shim.cpp"), "int shim() { return 1; }\n");
+        var (key, buildKey) = (Key(), BuildKey());
+        List<string> problems = [];
+        if (Key() != key || BuildKey() != buildKey)
+            problems.Add("the same native files give different keys");
+        File.WriteAllText(Path.Combine(native, "detail", "shim.cpp"), "int shim() { return 2; }\n");
+        if (Key() == key)
+            problems.Add("the source key ignores a changed native source");
+        if (BuildKey() == buildKey)
+            problems.Add("the build key ignores a changed native source");
+        (key, buildKey) = (Key(), BuildKey());
+        File.WriteAllText(Path.Combine(native, "shim.h"), "#pragma once\n");
+        if (Key() == key || BuildKey() == buildKey)
+            problems.Add("a key ignores a native header that was added");
+        return new("build-cache/native", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     /// <summary>A build that reuses an executable reports the warnings of the build that made it.</summary>

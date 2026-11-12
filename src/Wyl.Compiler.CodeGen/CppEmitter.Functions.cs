@@ -33,7 +33,13 @@ public sealed partial class CppEmitter
     const string SelfName = "self";
 
     /// <summary>The C++ function a method with a body of an extern struct is, named for its Wylow type so that no two collide.</summary>
-    string ExternStructFunctionName(FunctionSymbol method) => $"wyl_{method.ContainingType!.Name}_{MethodName(method)}";
+    string ExternStructFunctionName(FunctionSymbol method) => $"wyl_{QualifiedName(method.ContainingType!)}_{MethodName(method)}";
+
+    /// <summary>
+    /// The C++ function a memberwise constructor of a struct of an extern block is in one form, since
+    /// the compiler writes no C++ type that it could be a member of.
+    /// </summary>
+    static string ExternMemberwiseName(TypeSymbol s, IReadOnlyList<bool> form) => $"wyl_{QualifiedName(s)}_{MemberwiseName(form)}";
 
     /// <summary>
     /// Declares the reached methods with bodies of the extern structs, after every type is complete
@@ -46,11 +52,17 @@ public sealed partial class CppEmitter
     void DeclareExternStructMethods(BoundProgram program)
     {
         var reached = program.Functions.Select(f => f.Symbol).Where(f => f.IsExternStructBody && functions.Contains(f)).ToList();
-        if (reached.Count == 0)
+        var memberwise = program.Types.Where(s => s.IsExtern).SelectMany(s => s.Members).Where(m => m.IsMemberwise).ToList();
+        if (reached.Count == 0 && memberwise.Count == 0)
             return;
         Line();
         foreach (var method in reached)
             Line($"{ReturnType(method)} {ExternStructFunctionName(method)}({Parameters(method)});");
+        foreach (var constructor in memberwise)
+        {
+            foreach (var form in functions.MemberwiseForms(constructor))
+                Line($"{CppType(constructor.ContainingType!.Type)} {ExternMemberwiseName(constructor.ContainingType, form.Builds!)}({MemberwiseParameters(constructor, form.Builds!)});");
+        }
         foreach (var owner in reached.Where(m => m.Overridden.Any(o => o.ContainingType is { Kind: TypeKind.Interface })).GroupBy(m => m.ContainingType!))
         {
             var type = stdlib.ThisType(owner.Key);

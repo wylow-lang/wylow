@@ -15,7 +15,11 @@ public sealed partial class Binder
     /// The functions that <paramref name="expression"/>, a name or <c>Type.name</c>, refers to, if it
     /// names functions rather than a value; found as a call of it would find them.
     /// </summary>
-    IReadOnlyList<FunctionSymbol>? ReferencedFunctions(Expr expression) => expression switch
+    IReadOnlyList<FunctionSymbol>? ReferencedFunctions(Expr expression) =>
+        // An extern constant's name is a value, although the binder declares the constant as a function.
+        ReferencedNames(expression) is [{ IsExternConstant: true }] ? null : ReferencedNames(expression);
+
+    IReadOnlyList<FunctionSymbol>? ReferencedNames(Expr expression) => expression switch
     {
         NameExpr name when IsValueName(name.Name) => null,
         NameExpr name when currentType is not null && LookupMethods(currentType.Type, name.Name) is { Count: > 0 } methods =>

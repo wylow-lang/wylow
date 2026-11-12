@@ -32,7 +32,24 @@ without an intrinsic, with the status `InterpretationStatus.Native`. A test mark
 skips the interpreted mode, and `RunComparison.IsNative` keeps the fuzzer from comparing it with
 the interpreter. Every test of step 3 that calls C++ code needs the marker.
 
-## 3. Calls, constants, structs, and the checks
+## 3. Calls, constants, structs, and the checks (done)
+
+Step 3 is committed, with the part of step 5 that its tests need. The next session starts at step
+4. These facts from step 3 matter later:
+
+- The binder declares an extern constant as an extern function without parameters
+  (`FunctionSymbol.IsExternConstant`), and a use of the constant's name is a call of it.
+  `FunctionSymbol.IsProgramExtern` says that a function or constant belongs to a block outside the
+  standard library.
+- `runtime.md`'s "Interop" section describes the wrappers, the checks, and the adapters of
+  `runtime/wyl/interop.h`. `BuildFailure.Classify` turns a failed check, or another C++ error on
+  the lines of an extern declaration, into a diagnostic (`WYL0510` to `WYL0513`).
+- The build compiles each `.cpp` file under a package's `native/` directory, puts the directory on
+  the include path, and hashes every file of it into both build keys, which the
+  `build-cache/native` self-test pins. The `native` block of the manifest is still an error.
+- The tests of `&place` in step 4 can replace the pointer that `interop/calls` gets from C++.
+
+The original list:
 
 - Emit `#include` for each block's header, once per header, after `wyl.h`.
 - Emit each call of a user extern through a `noexcept` wrapper that passes each argument and the
@@ -72,6 +89,10 @@ the interpreter. Every test of step 3 that calls C++ code needs the marker.
   function writing into a Wylow array through `Span<T>.data()`.
 
 ## 5. The manifest's `native` block and `native/` sources
+
+Step 3 already compiles and links the sources under `native/`, puts the directory on the include
+path, and hashes its files into both build keys, which `build-cache/native` pins. What remains is
+the manifest's block, the mapping of `link` names, `copy`, and their part of the architecture row.
 
 - Read `include`, `libraryPaths`, `link`, `copy`, `defines`, and the platform blocks, and remove
   `native` from the rule "It is a compile-time error if the manifest has a `dependencies` or `native`

@@ -98,6 +98,12 @@ public sealed partial class Binder
             DeclareErrorBindings(syntax);
             return new BoundDiscardPattern(syntax.Location, type);
         }
+        if (type.Symbol is { IsUnion: true } union && syntax is not (DiscardPatternSyntax or VarPatternSyntax))
+        {
+            Error(Catalog.UnionPattern(syntax.Location, union.Name));
+            DeclareErrorBindings(syntax);
+            return new BoundDiscardPattern(syntax.Location, WylType.Error);
+        }
         switch (syntax)
         {
             case DiscardPatternSyntax:

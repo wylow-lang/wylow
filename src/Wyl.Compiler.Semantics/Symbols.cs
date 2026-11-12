@@ -176,6 +176,18 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
 
     /// <summary>Declared without a body in an extern block, so that C++ provides it (spec <c>interop.extern</c>).</summary>
     public bool IsExtern => IsBuiltin && Declaration is not null;
+
+    /// <summary>
+    /// A constant of an extern block (spec <c>interop.extern.constants</c>). The binder declares it as
+    /// an extern function without parameters, and a use of its name is a call of that function.
+    /// </summary>
+    public bool IsExternConstant { get; init; }
+
+    /// <summary>
+    /// An extern function or constant of a block outside the standard library. The compiler calls
+    /// it through a wrapper that checks and converts its signature (spec <c>interop.signatures</c>).
+    /// </summary>
+    public bool IsProgramExtern => IsExtern && (Declaration!.Block ?? ContainingType?.Declaration.Block) is { IsStd: false };
     public bool IsGeneric => TypeParameters.Count > 0;
     public bool IsInstanceMethod => ContainingType is not null && !IsStatic && !IsConstructor && !IsDestructor;
 
@@ -531,6 +543,9 @@ public sealed class TypeSymbol
 
     /// <summary>For an enum, whether any variant carries data.</summary>
     public bool HasData => Variants.Any(v => v.Fields.Count > 0);
+
+    /// <summary>An enum declared with <c>@Repr</c>, which an extern function may take as a parameter (spec <c>interop.blittable</c>).</summary>
+    public bool HasRepr => Kind == TypeKind.Enum && Declaration.Annotations.Any(a => a.Name == "Repr");
 
     /// <summary>The integer type an enum without data converts to; set when declared or values are given.</summary>
     public WylType? UnderlyingType { get; set; }

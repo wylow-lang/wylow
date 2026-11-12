@@ -500,6 +500,8 @@ public sealed partial class Binder
     BoundStatement BindAssignment(AssignStmt s)
     {
         var target = BindAssignmentTarget(s.Target);
+        if (s.Operator == TokenKind.Assign)
+            WritesUnionFields(target);
         var value = s.Operator == TokenKind.Assign ? BindValue(s.Value, target.Type) : BindExpression(s.Value);
         if (target.Type == WylType.Error || !CheckAssignable(target))
             return ErrorStatement(s.Location);

@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Wyl.Compiler;
+using Wyl.Compiler.Build;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Text;
 
@@ -126,7 +127,16 @@ static partial class CatalogSelfTests
             yield break;
         }
         var result = Compilation.Lower(sources, DiagnosticsOnly.Options);
-        var codes = result.Diagnostics.Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
+        IEnumerable<Diagnostic> diagnostics = result.Diagnostics;
+        // A header that does not match an extern block is an error that only the C++ build finds.
+        if (result.Success && sources.NativeDirectory is not null)
+        {
+            var build = Driver.BuildExecutable(Compilation.Compile(sources), "example", Path.Combine(Path.GetTempPath(), "wyl-diagnostic-pages", descriptor.Code + "-build"), new BuildOptions());
+            if (build.Diagnostics.Count == 0 && build.Error is { } error)
+                yield return $"{descriptor.Code}: its example does not build: {error}";
+            diagnostics = build.Diagnostics;
+        }
+        var codes = diagnostics.Select(d => d.Code).Distinct().Order(StringComparer.Ordinal).ToList();
         if (!codes.SequenceEqual([descriptor.Code]))
             yield return $"{descriptor.Code}: its example produces {(codes.Count == 0 ? "no diagnostic" : string.Join(", ", codes))}";
     }

@@ -163,6 +163,8 @@ public sealed partial class Binder
                 : BindConstruction(e.Location, constructed, pending.Bind(ConstructorsOf(constructed)));
         }
 
+        if (entry.Functions is [{ IsExternConstant: true } constant])
+            return ErrorExpression(Catalog.NotCallable(e.Callee.Location, TextOf(e.Callee.Location), constant.ReturnType.ToString()));
         List<Candidate> candidates = [.. entry.Functions!.Select(f => new Candidate(f, null))];
         var functionArguments = pending.Bind(candidates);
         if (AnyError(functionArguments))

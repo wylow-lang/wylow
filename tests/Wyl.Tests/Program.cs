@@ -399,6 +399,15 @@ static partial class TestCase
         if (toolchain == Toolchain.ThreadSanitized && !test.Text.Contains("// tsan", StringComparison.Ordinal))
             return null;
         var compilation = Compilation.Compile(test.Sources, options);
+        var directory = Path.Combine(outputDirectory, Path.ChangeExtension(name, null));
+        // A header that does not match an extern block is an error that only the C++ build finds.
+        if (expected.Errors.Count > 0 && compilation.Success && RunComparison.IsNative(test.Text))
+        {
+            var failed = Driver.BuildExecutable(compilation, Path.GetFileNameWithoutExtension(file), directory, new BuildOptions(expected.Release, toolchain));
+            if (failed.Diagnostics.Count == 0 && !failed.Success)
+                return failed.Error;
+            return CompareDiagnostics(expected, [.. compilation.Diagnostics, .. failed.Diagnostics]);
+        }
         if (CompareDiagnostics(expected, compilation.Diagnostics) is { } diagnosticProblems)
             return diagnosticProblems;
         if (expected.Errors.Count > 0)
@@ -407,7 +416,6 @@ static partial class TestCase
             && Path.GetFullPath(mainSource.Path) != test.MainFile && (expected.Output.Count > 0 || expected.Panic is not null))
             return $"the markers are in {test.MainName}, but 'main' is in {mainSource.Name}";
 
-        var directory = Path.Combine(outputDirectory, Path.ChangeExtension(name, null));
         var build = Driver.BuildExecutable(
             compilation, Path.GetFileNameWithoutExtension(file), directory, new BuildOptions(expected.Release, toolchain));
         var irFile = Path.Combine(directory, Path.GetFileNameWithoutExtension(file) + ".ir");

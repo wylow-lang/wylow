@@ -488,7 +488,9 @@ public sealed partial class CppEmitter
         var form = built.Builds!;
         var type = CppType(s.Type);
         EmitOwnerTemplatePrefix(s);
-        Line($"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
+        Line(s.IsExtern
+            ? $"{type} {ExternMemberwiseName(s, form)}({MemberwiseParameters(symbol, form)})"
+            : $"{type} {type}::{MemberwiseName(form)}({MemberwiseParameters(symbol, form)})");
         EmitIrFunction(built);
     }
 

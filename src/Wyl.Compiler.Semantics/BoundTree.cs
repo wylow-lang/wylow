@@ -21,6 +21,12 @@ public sealed record BoundProgram(
 {
     IReadOnlyList<TypeSymbol>? borrowableClasses;
 
+    /// <summary>The headers that the extern blocks of the program and the standard library include, each once, in the order the blocks name them.</summary>
+    public IReadOnlyList<ExternHeader> Headers { get; init; } = [];
+
+    /// <summary>The constants of every extern block, each declared as an extern function without parameters.</summary>
+    public IReadOnlyList<FunctionSymbol> ExternConstants { get; init; } = [];
+
     /// <summary>Whether an object of exactly the type is a <c>Borrowable</c>.</summary>
     public bool IsBorrowable(WylType type) => Stdlib.Borrowable is { } borrowable && Conversions.IsSubtype(type, borrowable.Type, function: null);
 
@@ -547,3 +553,6 @@ public static class BoundTree
         _ => [],
     };
 }
+
+/// <summary>A header that an extern block includes, and the first <c>@Include</c> that names it.</summary>
+public sealed record ExternHeader(string Path, Location At);

@@ -1,5 +1,6 @@
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Syntax;
+using Wyl.Compiler.Text;
 
 namespace Wyl.Compiler.Semantics;
 
@@ -11,6 +12,9 @@ public sealed partial class Binder
     const string CppNamespaceName = "CppNamespace";
     const string CppNameName = "CppName";
 
+    /// <summary>The header of each extern block, each once, in the order the blocks name them.</summary>
+    readonly List<ExternHeader> headers = [];
+
     /// <summary>Checks each block's annotations: exactly one <c>@Include</c>, and otherwise only <c>@CppNamespace</c>.</summary>
     void CheckExternBlocks(IEnumerable<CompilationUnit> units)
     {
@@ -21,11 +25,15 @@ public sealed partial class Binder
             {
                 if (annotation.Name == Include)
                 {
-                    StringArgument(annotation, "header.h");
-                    if (include is null)
-                        include = annotation;
-                    else
+                    var header = StringArgument(annotation, "header.h");
+                    if (include is not null)
                         Error(Catalog.DuplicateInclude(annotation.Location, include.Location));
+                    else
+                    {
+                        include = annotation;
+                        if (header is not null && !headers.Any(h => h.Path == header))
+                            headers.Add(new ExternHeader(header, annotation.Location));
+                    }
                 }
                 else if (annotation.Name == CppNamespaceName)
                 {
@@ -125,11 +133,96 @@ public sealed partial class Binder
             Error(Catalog.GenericExtern(decl.NameLocation, decl.Name));
     }
 
-    /// <summary>Checks an extern constant's type, name, and annotations.</summary>
-    void DeclareExternConstant(ExternConstantDecl decl)
+    /// <summary>
+    /// Declares an extern constant as an extern function without parameters, which reading the
+    /// constant calls. The call needs no unsafe code and changes nothing (spec <c>interop.extern.constants</c>).
+    /// </summary>
+    FunctionSymbol DeclareExternConstant(ExternConstantDecl constant)
     {
-        HasCallerLocation(decl);
-        BindType(decl.Type, allowVoid: false);
-        TakesLanguageName(decl.Name, decl.NameLocation);
+        HasCallerLocation(constant);
+        var type = BindType(constant.Type, allowVoid: false);
+        var decl = new FunctionDecl(constant.Location, constant.Modifiers, constant.Type, constant.Name, constant.NameLocation, [], [], null)
+        {
+            Visibility = constant.Visibility,
+            Block = constant.Block,
+        };
+        var function = new FunctionSymbol(constant.Name, [], type)
+        {
+            Declaration = decl,
+            Reach = Reach.Of(decl),
+            BuiltinCppName = BlockMemberCppName(constant, constant.Name, constant.Block!),
+            IsPure = true,
+            IsExternConstant = true,
+        };
+        AddTopLevelFunction(function, decl);
+        return function;
+    }
+
+    /// <summary>
+    /// Checks that each type an extern declaration of a block outside the standard library uses is
+    /// blittable, after every struct's fields are declared (spec <c>interop.blittable</c>). A
+    /// <c>@Repr</c> enum may only be a parameter's type.
+    /// </summary>
+    void CheckBlittable(IEnumerable<FunctionSymbol> functions, IEnumerable<TypeSymbol> types)
+    {
+        foreach (var function in functions.Where(f => f.IsProgramExtern))
+        {
+            var decl = function.Declaration!;
+            if (function.IsExternConstant)
+            {
+                CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"constant '{function.Name}'", parameter: false);
+                continue;
+            }
+            for (int i = 0; i < function.Parameters.Count && i < decl.Parameters.Count; i++)
+            {
+                var parameter = function.Parameters[i];
+                var what = $"parameter '{parameter.Name}'";
+                if (parameter.RefKind != RefKind.None)
+                    Error(Catalog.NotBlittable(decl.Parameters[i].Location, what, $"{FunctionSymbol.RefPrefix(parameter.RefKind)}{parameter.Type}"));
+                else
+                    CheckBlittable(decl.Parameters[i].Type.Location, parameter.Type, what, parameter: true);
+            }
+            if (function.ReturnType != WylType.Void)
+                CheckBlittable(decl.ReturnType!.Location, function.ReturnType, $"the result of '{function.Name}'", parameter: false);
+        }
+        foreach (var s in types.Where(s => s.Declaration.Block is { IsStd: false }))
+        {
+            foreach (var field in s.Fields)
+                CheckBlittable(field.Declaration.Type.Location, field.Type, $"field '{field.Name}'", parameter: false);
+        }
+    }
+
+    void CheckBlittable(Location at, WylType type, string what, bool parameter)
+    {
+        if (type.Symbol is { HasRepr: true, HasData: false })
+        {
+            if (!parameter)
+                Error(Catalog.EnumNotParameter(at, what, type.ToString()));
+        }
+        else if (!type.IsBlittable)
+        {
+            Error(Catalog.NotBlittable(at, what, type.ToString()));
+        }
+    }
+
+    /// <summary>
+    /// The accesses of union fields outside unsafe code that were bound, less those that an
+    /// assignment writes. Each one left after every body is bound is a read, which needs unsafe code
+    /// (spec <c>interop.extern.c-structs</c>).
+    /// </summary>
+    readonly HashSet<BoundFieldAccess> unionReads = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Takes the union fields that a plain assignment's target goes through out of the reads, since the assignment writes them.</summary>
+    void WritesUnionFields(BoundExpression target)
+    {
+        foreach (var step in PlacePath.Of(target).Steps.OfType<BoundFieldAccess>())
+            unionReads.Remove(step);
+    }
+
+    /// <summary>Reports each read of a union field outside unsafe code once, however often the binder bound it.</summary>
+    void ReportUnionReads()
+    {
+        foreach (var read in unionReads.DistinctBy(r => r.Location))
+            Error(Catalog.UnionRead(read.Location, read.Field.Owner.Name, read.Field.Name));
     }
 }

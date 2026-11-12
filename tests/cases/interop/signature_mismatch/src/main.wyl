@@ -1,0 +1,15 @@
+// native
+// Each way an extern function or constant can differ from the C++ declaration it names, which the
+// C++ build reports at the declaration (spec interop.signatures, interop.extern.constants).
+@Include("codec.h")
+extern {
+    static int CODEC_LIMIT;                     // error[WYL0511]: type 'int' of constant 'CODEC_LIMIT' does not match the type of C++ 'CODEC_LIMIT'
+    int codec_encode(int value);                // error[WYL0510]: return type 'int' of 'codec_encode' does not match the C++ function 'codec_encode'
+    int codec_decode(int value);                // error[WYL0510]: type 'int' of parameter 'value' of 'codec_decode' does not match the C++ function 'codec_decode'
+    int codec_check(int value);                 // error[WYL0510]: the number of parameters of 'codec_check' does not match the C++ function 'codec_check'
+    int codec_reset();                          // error[WYL0510]: return type 'int' of 'codec_reset' does not match the C++ function 'codec_reset'
+    int codec_flags(int* name);                 // error[WYL0510]: type 'int*' of parameter 'name' of 'codec_flags' does not match the C++ function 'codec_flags'
+    void codec_missing();                       // error[WYL0513]: the C++ compiler rejects extern function 'codec_missing'
+}
+
+void main() { }

@@ -102,4 +102,38 @@ public static partial class Catalog
         implementation is var (method, implemented)
             ? Make(at, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods").Note($"'{method}' implements '{implemented}'")
             : Make(at, "'@CallerLocation' cannot be used on virtual, abstract, or interface methods");
+
+    [Error(506, "interop.blittable")]
+    public static Diagnostic NotBlittable(Location at, string what, string type) =>
+        Make(at, $"{what} has type '{type}', which is not blittable")
+            .Note("an extern declaration uses only types whose memory representation is the same in C++");
+
+    [Error(507, "interop.blittable")]
+    public static Diagnostic EnumNotParameter(Location at, string what, string type) =>
+        Make(at, $"{what} has enum type '{type}', which only a parameter of an extern function can have")
+            .Help("declare the integer type, and convert the value with 'as'");
+
+    [Error(508, "interop.extern.c-structs")]
+    public static Diagnostic UnionRead(Location at, string union, string field) =>
+        Make(at, $"reading field '{field}' of union '{union}' can only be done in 'unsafe' code");
+
+    [Error(509, "interop.extern.c-structs")]
+    public static Diagnostic UnionPattern(Location at, string union) =>
+        Make(at, $"cannot match union '{union}' with a pattern");
+
+    [Error(510, "interop.signatures")]
+    public static Diagnostic SignatureMismatch(Location at, string function, string cppName, string part) =>
+        Make(at, $"{part} of '{function}' does not match the C++ function '{cppName}'");
+
+    [Error(511, "interop.extern.constants")]
+    public static Diagnostic ConstantMismatch(Location at, string constant, string type, string cppName) =>
+        Make(at, $"type '{type}' of constant '{constant}' does not match the type of C++ '{cppName}'");
+
+    [Error(512, "interop.blittable.layout")]
+    public static Diagnostic LayoutMismatch(Location at, string part, string kind, string type, string cppName) =>
+        Make(at, $"{part} of {kind} '{type}' does not match the C++ type '{cppName}'");
+
+    [Error(513, "interop.extern.names")]
+    public static Diagnostic CppRejected(Location at, string what, string cppMessage) =>
+        Make(at, $"the C++ compiler rejects {what}").Note(cppMessage);
 }

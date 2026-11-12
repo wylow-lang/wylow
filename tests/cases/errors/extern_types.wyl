@@ -1,0 +1,68 @@
+// The types an extern declaration outside the standard library may use, and the rules of unions
+// and constants in extern blocks (spec interop.blittable, interop.extern.c-structs, interop.extern.constants).
+import std::collections::List;
+
+class Node { }
+
+struct Pair {
+    int first;
+    int second;
+}
+
+struct Named {
+    String name;
+}
+
+@Repr(uint)
+enum Mode {
+    Read,
+    Write,
+}
+
+@Include("native.h")
+extern {
+    static String NAME;                         // error[WYL0506]: constant 'NAME' has type 'String', which is not blittable
+    static Mode MODE;                           // error[WYL0507]: constant 'MODE' has enum type 'Mode', which only a parameter of an extern function can have
+    static int LIMIT;                           // error[WYL0034]: 'LIMIT' is already defined in this module
+    static int COUNT;
+
+    struct Record {
+        pub int id;
+        pub String label;                       // error[WYL0506]: field 'label' has type 'String', which is not blittable
+        pub Mode mode;                          // error[WYL0507]: field 'mode' has enum type 'Mode', which only a parameter of an extern function can have
+        pub Pair pair;
+        pub int[4] values;
+    }
+
+    union Cell {
+        pub int whole;
+        pub float real;
+    }
+
+    void take(String text);                     // error[WYL0506]: parameter 'text' has type 'String', which is not blittable
+    void items(List<int> values);               // error[WYL0506]: parameter 'values' has type 'List<int>', which is not blittable
+    void node(Node node);                       // error[WYL0506]: parameter 'node' has type 'Node', which is not blittable
+    void named(Named named);                    // error[WYL0506]: parameter 'named' has type 'Named', which is not blittable
+    void change(ref int value);                 // error[WYL0506]: parameter 'value' has type 'ref int', which is not blittable
+    String label();                             // error[WYL0506]: the result of 'label' has type 'String', which is not blittable
+    Mode mode();                                // error[WYL0507]: the result of 'mode' has enum type 'Mode', which only a parameter of an extern function can have
+    void set(Mode mode, Pair pair, int* data);
+}
+
+void LIMIT() { }
+
+void main() {
+    mut var cell = Cell();
+    cell.whole = 3;
+    int whole = cell.whole;                     // error[WYL0508]: reading field 'whole' of union 'Cell' can only be done in 'unsafe' code
+    cell.real += 1.0f;                          // error[WYL0508]: reading field 'real' of union 'Cell' can only be done in 'unsafe' code
+    unsafe {
+        std::print(cell.real);
+    }
+    switch (cell) {
+        case Cell(var w, var r) -> std::print(0);   // error[WYL0509]: cannot match union 'Cell' with a pattern
+        default -> std::print(1);
+    }
+    std::print(COUNT);
+    std::print(COUNT());                        // error[WYL0299]: cannot call 'COUNT' of non-function type 'int'
+}

@@ -105,7 +105,11 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   interpreter does not run (decision 0087). The interpreter refuses such a program before it runs
   anything, and names the first call. The test is marked `// native`, so `--interpret` skips it,
   and the fuzzer compares its mutants only among the native modes (`RunComparison.IsNative`). A
-  test that calls C++ code without the marker fails in the interpreted mode.
+  test that calls C++ code without the marker fails in the interpreted mode. A package test keeps
+  the C++ it calls in its own `native/` directory, so the suite needs no library installed. If a
+  `// native` test lists errors and binds without any, the runner builds it and compares the
+  errors that the C++ build reports, such as a failed signature or layout check
+  (`interop/signature_mismatch`, `interop/layout_mismatch`).
 - **Sanitizers.** `--cc asan` uses clang-cl from PATH; any report fails the test, and the runner
   checks both sanitizers still report a deliberate bug (`sanitizers/live`). It finds a use after
   free whose freed memory still holds the old bytes. UBSan reports and continues, so a report is

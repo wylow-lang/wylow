@@ -44,8 +44,25 @@ public sealed class NativeCompiler
     /// the runtime headers, and the C++ compiler itself. Equal keys mean the executable a previous build
     /// left is the one this build would produce.
     /// </summary>
-    public string BuildKey(bool release, string cpp) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{cpp}")));
+    public string BuildKey(bool release, string cpp, string? nativeDirectory = null)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{cpp}"));
+        foreach (var (path, bytes) in NativeFiles(nativeDirectory))
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));
+            hash.AppendData(bytes);
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    /// <summary>Every file under a package's <c>native/</c> directory, by its path there, with its bytes, in a stable order.</summary>
+    public static IEnumerable<(string Path, byte[] Bytes)> NativeFiles(string? nativeDirectory) => nativeDirectory is null
+        ? []
+        : Directory.EnumerateFiles(nativeDirectory, "*", SearchOption.AllDirectories)
+            .Select(f => (Path: Path.GetRelativePath(nativeDirectory, f).Replace('\\', '/'), File: f))
+            .OrderBy(f => f.Path, StringComparer.Ordinal)
+            .Select(f => (f.Path, File.ReadAllBytes(f.File)));
 
     /// <summary>What a build depends on besides the C++ it compiles: the toolchain, the mode, the C++ compiler itself, and the runtime headers.</summary>
     internal string Identity(bool release)
@@ -336,8 +353,18 @@ public sealed class NativeCompiler
             ? null
             : PrecompiledHeaders.GetOrAdd($"{Toolchain}|{compilerPath}|{release}", _ => new(() => BuildPrecompiledHeader(release))).Value;
 
-    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true)
+    /// <summary>
+    /// Builds the executable from the generated C++ and, if <paramref name="nativeDirectory"/> is
+    /// given, every <c>.cpp</c> file under it, with that directory on the include path (spec
+    /// <c>interop.native</c>). A native source does not include <c>wyl.h</c>, so where the program
+    /// uses the precompiled header, the native sources compile in a call of their own first.
+    /// </summary>
+    public NativeBuildResult Build(string cppPath, string exePath, bool release, bool precompiledHeader = true, string? nativeDirectory = null)
     {
+        var nativeSources = nativeDirectory is null
+            ? []
+            : Directory.GetFiles(nativeDirectory, "*.cpp", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToList();
+        var nativeObjects = new List<string>();
         var startInfo = new ProcessStartInfo(compilerPath)
         {
             WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(exePath))!,
@@ -360,6 +387,12 @@ public sealed class NativeCompiler
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
             args.Add($"/I{RuntimeDirectory}");
+            if (nativeDirectory is not null)
+            {
+                args.Add($"/I{nativeDirectory}");
+                if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
+                    return failed;
+            }
             var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
             if (precompiled is not null)
             {
@@ -374,6 +407,8 @@ public sealed class NativeCompiler
             args.Add(cppPath);
             if (precompiled is not null)
                 args.Add(Path.Combine(precompiled, "wyl.obj"));
+            foreach (var native in nativeObjects)
+                args.Add(native);
         }
         else if ((Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized) && environment is not null)
         {
@@ -386,6 +421,12 @@ public sealed class NativeCompiler
             if (!release)
                 args.Add("/DWYL_DEBUG=1");
             args.Add($"/I{RuntimeDirectory}");
+            if (nativeDirectory is not null)
+            {
+                args.Add($"/I{nativeDirectory}");
+                if (CompileNative(startInfo, nativeSources, exePath, nativeObjects) is { } failed)
+                    return failed;
+            }
             args.Add($"/Fe{exePath}");
             if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
             {
@@ -402,6 +443,8 @@ public sealed class NativeCompiler
                 args.Add($"/Fo{Path.ChangeExtension(exePath, ".obj")}");
                 args.Add(cppPath);
             }
+            foreach (var native in nativeObjects)
+                args.Add(native);
         }
         else
         {
@@ -423,13 +466,49 @@ public sealed class NativeCompiler
             if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
                 args.Add($"-I{precompiled}");
             args.Add($"-I{RuntimeDirectory}");
+            if (nativeDirectory is not null)
+                args.Add($"-I{nativeDirectory}");
             args.Add("-o");
             args.Add(exePath);
             args.Add(cppPath);
+            foreach (var native in nativeSources)
+                args.Add(native);
         }
 
         var result = ProcessRunner.Run(startInfo);
         return new NativeBuildResult(result.ExitCode == 0, (result.StandardOutput + result.StandardError).Trim());
+    }
+
+    /// <summary>
+    /// Compiles the native sources to objects in a directory beside the executable, with the flags
+    /// that <paramref name="program"/> has so far, which are the program's own up to its outputs and
+    /// inputs. Returns the failure, or null after adding the objects to <paramref name="objects"/>.
+    /// </summary>
+    static NativeBuildResult? CompileNative(ProcessStartInfo program, IReadOnlyList<string> sources, string exePath, List<string> objects)
+    {
+        if (sources.Count == 0)
+            return null;
+        var directory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(exePath))!, "native-objects");
+        Directory.CreateDirectory(directory);
+        // Each source compiles on its own, so that two of one name in different directories get two objects.
+        for (int i = 0; i < sources.Count; i++)
+        {
+            var startInfo = new ProcessStartInfo(program.FileName) { WorkingDirectory = program.WorkingDirectory };
+            startInfo.Environment.Clear();
+            foreach (var (name, value) in program.Environment)
+                startInfo.Environment[name] = value;
+            foreach (var arg in program.ArgumentList.Where(a => a != "-fuse-ld=lld"))
+                startInfo.ArgumentList.Add(arg);
+            var obj = Path.Combine(directory, $"{i}_{Path.GetFileNameWithoutExtension(sources[i])}.obj");
+            startInfo.ArgumentList.Add("/c");
+            startInfo.ArgumentList.Add($"/Fo{obj}");
+            startInfo.ArgumentList.Add(sources[i]);
+            var result = ProcessRunner.Run(startInfo);
+            if (result.ExitCode != 0)
+                return new NativeBuildResult(false, (result.StandardOutput + result.StandardError).Trim());
+            objects.Add(obj);
+        }
+        return null;
     }
 
     /// <summary>

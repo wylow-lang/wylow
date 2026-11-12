@@ -170,18 +170,30 @@ public sealed partial class Binder
         typeParameters = [];
         CheckExternFunction(function, null);
         CheckReturnsView(function);
+        AddTopLevelFunction(function, decl);
+        return function;
+    }
 
+    /// <summary>Adds a top-level function to its module's or its file's names, unless its name or signature is taken.</summary>
+    void AddTopLevelFunction(FunctionSymbol function, FunctionDecl decl)
+    {
         if (TakesLanguageName(decl.Name, decl.NameLocation))
-            return function;
+            return;
         if (ClashingFile(decl, decl.Name) is { } other)
         {
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, null, other.Name, null));
-            return function;
+            return;
         }
         if (OwnType(decl.Name, decl.Location.Source) is { } type)
         {
             Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, type.Declaration.NameLocation, null, SyntaxFacts.KindNameWithArticle(type.Kind)));
-            return function;
+            return;
+        }
+        // A constant's name is a value, so it shares its name with no function (spec interop.extern.constants).
+        if (OwnFunctions(decl.Name, decl.Location.Source).FirstOrDefault(f => f.IsExternConstant != function.IsExternConstant || f.IsExternConstant) is { } named)
+        {
+            Error(Catalog.DuplicateName(decl.NameLocation, decl.Name, named.Declaration?.NameLocation, null, named.IsExternConstant ? "a constant" : "a function"));
+            return;
         }
 
         // Within what any one file sees, each signature is declared once: the overloads this file
@@ -194,7 +206,6 @@ public sealed partial class Binder
         {
             Error(Catalog.DuplicateFunction(decl.NameLocation, "function", function.Signature, existing.Declaration?.NameLocation, DiffersOnlyInEscaping(function, existing) ? existing.Signature : null));
         }
-        return function;
     }
 
     /// <summary>

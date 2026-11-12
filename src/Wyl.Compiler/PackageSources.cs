@@ -10,6 +10,17 @@ namespace Wyl.Compiler;
 /// </summary>
 public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> Files, IReadOnlyList<Diagnostic> Diagnostics)
 {
+    /// <summary>
+    /// The package's <c>native/</c> directory, if it has one: its C++ sources are compiled and linked
+    /// with the program, and it is on the include path (spec <c>interop.native</c>).
+    /// </summary>
+    public string? NativeDirectory { get; init; }
+
+    /// <summary>Every <c>.cpp</c> file under <see cref="NativeDirectory"/>, by full path, in a stable order.</summary>
+    public IReadOnlyList<string> NativeSources => NativeDirectory is null
+        ? []
+        : [.. Directory.GetFiles(NativeDirectory, "*.cpp", SearchOption.AllDirectories).Select(Path.GetFullPath).Order(StringComparer.Ordinal)];
+
     /// <summary>A file compiled on its own: the one file of its own unnamed package.</summary>
     public static PackageSources Of(SourceText file) => new(file.Module.Package, [file], []);
 
@@ -39,7 +50,8 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
         AddModule(src, package.Root, files, diagnostics);
         if (files.Count == 0)
             diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
-        return new PackageSources(package, files, diagnostics.Sorted());
+        var native = Path.GetFullPath(Path.Combine(directory, "native"));
+        return new PackageSources(package, files, diagnostics.Sorted()) { NativeDirectory = Directory.Exists(native) ? native : null };
 
         void AddModule(string path, Module module, List<SourceText> into, DiagnosticBag bag)
         {

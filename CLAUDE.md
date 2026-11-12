@@ -47,7 +47,10 @@ binds). A test imports the types it uses and calls functions through their modul
 `import std::collections::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A
 bare call of an imported function draws warning `WYL0480`; a test about imports themselves turns it off
 with `@SuppressWarnings("unqualified-call")` on the import or the declaration (decision 0073). A directory with a
-`package.wylcfg` (`tests/cases/packages/`) is one test of all its files.
+`package.wylcfg` (`tests/cases/packages/`) is one test of all its files. A package test of interop
+(`tests/cases/interop/`) keeps its C++ headers and sources in its own `native/` directory. If a
+`// native` test lists errors and binds without any, the runner builds it and compares the errors
+of the C++ build, such as a failed signature or layout check.
 
 ## Rules
 
@@ -59,7 +62,8 @@ with `@SuppressWarnings("unqualified-call")` on the import or the declaration (d
   or any other model, this does not apply.)
 - **All safety checking happens before the emitter**: names and types in the binder, order and
   flow in the IR verifier. The emitter only translates and never produces C++ with undefined
-  behavior; a C++ compile failure is a compiler bug.
+  behavior. A C++ compile failure is a compiler bug, except where a header or a `native/` source
+  does not match an extern block, which the build reports at the declaration (`BuildFailure`).
 - **Evaluation order is left to right**, made explicit by lowering; the emitter nests an operand
   back only where `IrEffects`/`IrAccess` show nothing in between can tell, so a new instruction must
   be described there correctly.

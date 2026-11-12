@@ -1,0 +1,130 @@
+// native
+// Calls into C++ in each direction of each conversion, constants, an opaque struct, structs by
+// value and by pointer, unions, a @Repr enum, member functions, and an overloaded name (spec interop).
+import std::collections::List;
+
+@Include("shapes.h")
+extern {
+    static int SHAPES_LIMIT;
+    static long SHAPES_BIG;
+    @CppName("shapes_flags") static uint FLAGS;
+
+    struct Point {
+        pub int x;
+        pub int y;
+
+        @Safe int sum();
+        @Safe mut void shift(int by);
+
+        int doubled() {
+            return (x + y) * 2;
+        }
+    }
+
+    union Value {
+        pub int asInt;
+        pub float asFloat;
+        pub byte[4] bytes;
+    }
+
+    struct Counter;
+
+    @Safe int point_dot(Point a, Point b);
+    void point_scale(Point* p, int by);
+    @Safe Point point_make(int x, int y);
+    Point* point_new(int x, int y);
+    void point_free(Point* p);
+
+    Counter* counter_create(long start);
+    long counter_next(Counter* counter);
+    void counter_destroy(Counter* counter);
+
+    @Safe Value value_of_float(float f);
+    @Safe float value_float(Value v);
+
+    @Safe uint color_code(Shade shade);
+    @Safe uint color_next(uint color);
+    nuint text_length(byte* text);
+    byte* text_greeting();
+
+    @Safe long twice(long value);
+    @Safe ulong widen(ushort value);
+
+    @Safe int pick(int value);
+    @Safe @CppName("pick") int pickDouble(double value);
+}
+
+@Include("shapes.h")
+@CppNamespace("shapes")
+extern {
+    struct Box {
+        @CppName("corner") pub Point origin;
+        pub long area;
+    }
+
+    @Safe long box_area(Box box);
+}
+
+@Repr(uint)
+enum Shade {
+    Red = 1,
+    Green = 2,
+    Blue = 3,
+}
+
+void main() {
+    std::print(SHAPES_LIMIT);                       // output: 64
+    std::print(SHAPES_BIG);                         // output: 5000000000
+    std::print(FLAGS);                              // output: 7
+
+    mut var a = Point(1, 2);
+    mut var b = point_make(3, 4);
+    std::print(point_dot(a, b));                    // output: 11
+    std::print(a == Point(1, 2));                   // output: true
+    std::print(a == b);                             // output: false
+    std::print(b.sum());                            // output: 7
+    b.shift(10);
+    std::print(b.x);                                // output: 13
+    std::print(b.doubled());                        // output: 54
+    unsafe {
+        var p = point_new(1, 2);
+        point_scale(p, 3);
+        std::print(p[0].y);                         // output: 6
+        a = p[0];
+        point_free(p);
+    }
+
+    unsafe {
+        var counter = counter_create(41);
+        counter_next(counter);
+        std::print(counter_next(counter));          // output: 42
+        counter_destroy(counter);
+    }
+
+    mut var value = value_of_float(1.5f);
+    unsafe {
+        std::print(value.asInt);                    // output: 1069547520
+        std::print(value.bytes[3]);                 // output: 63
+    }
+    value.asInt = 1077936128;
+    std::print(value_float(value));                 // output: 3.0
+
+    std::print(color_code(Shade.Blue));             // output: 30
+    std::print(color_next(3));                      // output: 1
+    String text = "four";
+    unsafe {
+        std::print(text_length(text.cstr()));       // output: 4
+        std::print(String.fromCString(text_greeting()));   // output: hello from C++
+    }
+    std::print(twice(21));                          // output: 42
+    std::print(widen(5));                           // output: 70005
+    std::print(pick(4));                            // output: 5
+    std::print(pickDouble(0.5));                    // output: 5
+
+    var box = Box(Point(2, 0), 40);
+    std::print(box_area(box));                      // output: 42
+    std::print(box.origin.x);                       // output: 2
+    var points = new List<Point>();
+    points.add(a);
+    std::print(points[0].x);                        // output: 3
+}
