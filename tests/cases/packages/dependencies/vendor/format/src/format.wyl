@@ -1,0 +1,3 @@
+pub String bracket(String text) {
+    return $"[{util::name()} {text}]";
+}

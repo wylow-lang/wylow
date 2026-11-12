@@ -1,0 +1,4 @@
+void main() {
+    parser::internal();                             // error[WYL0054]: function 'internal' is not visible here
+    util::name();                                   // error[WYL0047]: cannot find module 'util' in this scope
+}

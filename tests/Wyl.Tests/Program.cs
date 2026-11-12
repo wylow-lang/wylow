@@ -357,8 +357,11 @@ static partial class TestCase
         }
     }
 
-    /// <summary>A case's sources, what its comments expect, and the file with every marker but errors.</summary>
-    sealed record Case(PackageSources Sources, Expectations Expected, string MainFile, string MainName, string Text, string? Problem);
+    /// <summary>
+    /// A case's sources, what its comments expect, the file with every marker but errors, and the
+    /// name that a panic reports for the file of its <c>// panic-here:</c> marker.
+    /// </summary>
+    sealed record Case(PackageSources Sources, Expectations Expected, string MainFile, string MainName, string PanicName, string Text, string? Problem);
 
     /// <summary>
     /// A file on its own, or a package directory, whose <c>// error:</c> comments come from all of its
@@ -370,22 +373,35 @@ static partial class TestCase
         if (!Directory.Exists(path))
         {
             var file = Path.GetFullPath(path);
-            return new Case(PackageSources.Of(SourceText.FromFile(file)), Parse(file), file, Path.GetFileName(file), File.ReadAllText(file), null);
+            return new Case(PackageSources.Of(SourceText.FromFile(file)), Parse(file), file, Path.GetFileName(file), Path.GetFileName(file), File.ReadAllText(file), null);
         }
         var sources = PackageSources.Load(path);
-        var files = Directory.GetFiles(path, "*.wyl", SearchOption.AllDirectories).Order(StringComparer.Ordinal)
-            .Prepend(Path.Combine(path, Manifest.FileName))
+        // A library that the test depends on is in a package directory inside it, and its files' markers count too.
+        var manifest = Path.Combine(path, Manifest.FileName);
+        var files = Directory.GetFiles(path, Manifest.FileName, SearchOption.AllDirectories).Where(f => f != manifest).Order(StringComparer.Ordinal)
+            .Concat(Directory.GetFiles(path, "*.wyl", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+            .Prepend(manifest)
             .Select(Path.GetFullPath)
             .ToList();
         var parsed = files.Select(f => (File: f, Expected: Parse(f))).ToList();
-        var marked = parsed.Where(p => p.Expected is { Output.Count: > 0 } or { Panic: not null } or { Warnings.Count: > 0 } or { Release: true }
-            or { Optimized: true } or { Stack.Count: > 0 } or { InPlace.Count: > 0 }).ToList();
-        string? problem = marked.Count > 1
-            ? $"only the file with 'main' may have markers other than // error:, but {string.Join(" and ", marked.Select(m => Path.GetRelativePath(path, m.File)))} do"
+        // A panic in a library is marked in the library's file, which has no other marker but errors.
+        static bool OnlyPanicHere(Expectations e) => e is { PanicLine: not null, Output.Count: 0, Warnings.Count: 0, Release: false,
+            Optimized: false, Stack.Count: 0, InPlace.Count: 0 };
+        var panicking = parsed.Where(p => OnlyPanicHere(p.Expected)).ToList();
+        var marked = parsed.Where(p => !OnlyPanicHere(p.Expected) && p.Expected is { Output.Count: > 0 } or { Panic: not null } or { Warnings.Count: > 0 }
+            or { Release: true } or { Optimized: true } or { Stack.Count: > 0 } or { InPlace.Count: > 0 }).ToList();
+        string? problem = marked.Count > 1 || panicking.Count > 1 || (panicking.Count == 1 && marked.Any(m => m.Expected.Panic is not null))
+            ? $"only the file with 'main' may have markers other than // error:, and one other file a // panic-here:, but {string.Join(" and ", marked.Concat(panicking).Select(m => Path.GetRelativePath(path, m.File)))} do"
             : null;
         var (mainFile, main) = marked.Count > 0 ? marked[0] : (files[0], parsed[0].Expected);
-        var mainName = sources.Files.FirstOrDefault(f => Path.GetFullPath(f.Path) == mainFile)?.Name ?? Path.GetFileName(mainFile);
-        return new Case(sources, main with { Errors = [.. parsed.SelectMany(p => p.Expected.Errors)], CompileWarnings = [.. parsed.SelectMany(p => p.Expected.CompileWarnings)] }, mainFile, mainName,
+        string NameOf(string file) => sources.Files.FirstOrDefault(f => Path.GetFullPath(f.Path) == file)?.Name ?? Path.GetFileName(file);
+        var panicName = NameOf(mainFile);
+        if (panicking.Count == 1)
+        {
+            main = main with { Panic = panicking[0].Expected.Panic, PanicLine = panicking[0].Expected.PanicLine };
+            panicName = NameOf(panicking[0].File);
+        }
+        return new Case(sources, main with { Errors = [.. parsed.SelectMany(p => p.Expected.Errors)], CompileWarnings = [.. parsed.SelectMany(p => p.Expected.CompileWarnings)] }, mainFile, NameOf(mainFile), panicName,
             string.Join("\n", files.Select(File.ReadAllText)), problem);
     }
 
@@ -414,7 +430,7 @@ static partial class TestCase
         if (expected.Errors.Count > 0)
             return null;
         if (test.Sources.Files.Count > 1 && compilation.Program?.Main?.Declaration?.Location.Source is { } mainSource
-            && Path.GetFullPath(mainSource.Path) != test.MainFile && (expected.Output.Count > 0 || expected.Panic is not null))
+            && Path.GetFullPath(mainSource.Path) != test.MainFile && (expected.Output.Count > 0 || (expected.Panic is not null && test.PanicName == test.MainName)))
             return $"the markers are in {test.MainName}, but 'main' is in {mainSource.Name}";
 
         var build = Driver.BuildExecutable(
@@ -458,7 +474,7 @@ static partial class TestCase
             problems.Add($"sanitizer: {report}\n{stderr}");
         if (expected.Panic is not null)
         {
-            var at = expected.PanicLine is { } line ? $"\n    at {test.MainName}:{line}:" : "";
+            var at = expected.PanicLine is { } line ? $"\n    at {test.PanicName}:{line}:" : "";
             if (run.ExitCode == 0 || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
                 problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got exit code {run.ExitCode} and stderr: {stderr}");
         }

@@ -61,7 +61,7 @@ public static partial class Catalog
     public static IReadOnlySet<string> WarningNames { get; } = descriptors.Values.Select(d => d.WarningName).OfType<string>().ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Codes no longer emitted, which are never given to another diagnostic.</summary>
-    public static IReadOnlyList<int> Retired { get; } = [35, 94, 198, 245, 385, 425, 426, 428, 430, 444];
+    public static IReadOnlyList<int> Retired { get; } = [31, 35, 94, 198, 245, 385, 425, 426, 428, 430, 444];
 
     static Dictionary<string, DiagnosticDescriptor> Describe()
     {

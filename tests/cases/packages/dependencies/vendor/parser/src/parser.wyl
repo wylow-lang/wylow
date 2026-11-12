@@ -1,0 +1,7 @@
+import std::print;
+
+pub int count(String text) {
+    // The library's own warning, which a program that depends on the library does not report.
+    print("counting");
+    return text.byteLength();
+}

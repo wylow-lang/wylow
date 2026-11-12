@@ -23,5 +23,17 @@ public sealed record PackageVersion(BigInteger Major, BigInteger Minor, BigInteg
         static bool IsNumber(string part) => part.Length > 0 && part.All(char.IsAsciiDigit) && (part.Length == 1 || part[0] != '0');
     }
 
+    /// <summary>
+    /// Whether this version, a library's, satisfies <paramref name="stated"/>, the version that a
+    /// dependency entry states: it is not lower, and it has the same major number, and below 1.0 the
+    /// same minor number too.
+    /// </summary>
+    public bool Satisfies(PackageVersion stated)
+    {
+        if (Major != stated.Major || (stated.Major == 0 && Minor != stated.Minor))
+            return false;
+        return (Minor, Patch).CompareTo((stated.Minor, stated.Patch)) >= 0;
+    }
+
     public override string ToString() => $"{Major}.{Minor}.{Patch}";
 }

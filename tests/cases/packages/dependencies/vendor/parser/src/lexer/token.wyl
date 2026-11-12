@@ -1,0 +1,7 @@
+pub struct Token {
+    pub String text;
+}
+
+pub Token first(String text) {
+    return Token(text);
+}

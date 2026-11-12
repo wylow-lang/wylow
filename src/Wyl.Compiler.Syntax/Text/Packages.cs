@@ -9,10 +9,11 @@ public enum PackageKind { Program, Library }
 /// </summary>
 public sealed class Package
 {
-    Package(string? name, PackageKind kind)
+    Package(string? name, PackageKind kind, IReadOnlyDictionary<string, Package>? dependencies = null)
     {
         Name = name;
         Kind = kind;
+        Dependencies = dependencies ?? new Dictionary<string, Package>();
         Root = new Module(this, null, "");
     }
 
@@ -23,13 +24,16 @@ public sealed class Package
     public static Package Unnamed() => new(null, PackageKind.Program);
 
     /// <summary>A package with a manifest; its name was checked against the manifest's rules (spec programs.manifest).</summary>
-    public static Package Named(string name, PackageKind kind) =>
-        name == Std.Name ? throw new ArgumentException("only the standard library is 'std'", nameof(name)) : new(name, kind);
+    public static Package Named(string name, PackageKind kind, IReadOnlyDictionary<string, Package> dependencies) =>
+        name == Std.Name ? throw new ArgumentException("only the standard library is 'std'", nameof(name)) : new(name, kind, dependencies);
 
     /// <summary>The name other packages write it by, or null for a lone file.</summary>
     public string? Name { get; }
 
     public PackageKind Kind { get; }
+
+    /// <summary>The libraries the package sees, by name, each a path root in its files (spec programs.manifest.dependencies).</summary>
+    public IReadOnlyDictionary<string, Package> Dependencies { get; }
 
     public bool IsStd => this == Std;
 

@@ -25,7 +25,7 @@ static class BuildCacheSelfTests
         var compiler = NativeCompiler.Find(null, out var error);
         if (compiler is null)
             return [new("build-cache/key", error)];
-        return [CppKey(compiler), SourceKey(compiler), Replay(outputDirectory), Native(compiler, outputDirectory), NativeRebuild(outputDirectory), NativeObjects(outputDirectory)];
+        return [CppKey(compiler), SourceKey(compiler), Dependencies(compiler, outputDirectory), Replay(outputDirectory), Native(compiler, outputDirectory), NativeRebuild(outputDirectory), NativeObjects(outputDirectory)];
     }
 
     static TestResult CppKey(NativeCompiler compiler)
@@ -63,6 +63,49 @@ static class BuildCacheSelfTests
         if (Key("a/main.wyl", Source, release: true) == key)
             problems.Add("the key ignores --release");
         return new("build-cache/source-key", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    /// <summary>
+    /// The source key covers every package of the program: each library's sources, and each
+    /// package's manifest, whose kind and versions decide whether the program builds at all.
+    /// </summary>
+    static TestResult Dependencies(NativeCompiler compiler, string outputDirectory)
+    {
+        var directory = Path.Combine(outputDirectory, "build-cache", "dependencies");
+        if (Directory.Exists(directory))
+            Directory.Delete(directory, recursive: true);
+        Write(directory, "package.wylcfg", """
+            name = "dependencies";
+            dependencies {
+                parser { path = "vendor/parser"; }
+            }
+            """);
+        Write(directory, "src/main.wyl", "void main() { std::print(parser::depth()); }\n");
+        Write(directory, "vendor/parser/package.wylcfg", "name = \"parser\"; kind = \"library\"; version = \"1.0.0\";\n");
+        Write(directory, "vendor/parser/src/parser.wyl", "pub int depth() { return 1; }\n");
+        string? Key() => Driver.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
+
+        if (PackageSources.Load(directory).Diagnostics is { Count: > 0 } diagnostics)
+            return new("build-cache/dependencies", $"the package does not load: {string.Join('\n', diagnostics)}");
+        List<string> problems = [];
+        void Changed(string what, Action change)
+        {
+            var key = Key();
+            change();
+            if (Key() == key)
+                problems.Add($"the source key ignores {what}");
+        }
+        Changed("a changed source of a library", () => Write(directory, "vendor/parser/src/parser.wyl", "pub int depth() { return 2; }\n"));
+        Changed("a changed manifest of a library", () => Write(directory, "vendor/parser/package.wylcfg", "name = \"parser\"; kind = \"library\"; version = \"1.1.0\";\n"));
+        Changed("a changed manifest of the program", () => Write(directory, "package.wylcfg", """
+            name = "dependencies";
+            kind = "library";
+            version = "1.0.0";
+            dependencies {
+                parser { path = "vendor/parser"; }
+            }
+            """));
+        return new("build-cache/dependencies", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     /// <summary>

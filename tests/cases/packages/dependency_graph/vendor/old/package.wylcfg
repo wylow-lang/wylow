@@ -1,0 +1,3 @@
+name = "old";
+kind = "library";
+version = "1.5.0";

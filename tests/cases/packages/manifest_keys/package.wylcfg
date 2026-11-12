@@ -3,8 +3,9 @@ name = "manifest_keys";
 name = "again";                         // error[WYL0024]: 'name' is already given
 version = "1.0";                        // error[WYL0528]: version '1.0' does not have the form 'major.minor.patch'
 
-dependencies {                          // error[WYL0031]: manifest key 'dependencies' cannot be used
+dependencies {
     engine { path = "../engine"; }
+    engine { path = "../engine2"; }     // error[WYL0024]: 'engine' is already given
     tools = "../tools";                 // error[WYL0029]: dependency 'tools' is not a block
     empty { }                           // error[WYL0030]: dependency 'empty' has no 'path'
     other { path = ["../other"]; }      // error[WYL0025]: 'path' takes a string

@@ -47,7 +47,8 @@ binds). A test imports the types it uses and calls functions through their modul
 `import std::collections::List;` and `std::print(x)`, or `import std::threading;` and `threading::spawn(...)`. A
 bare call of an imported function draws warning `WYL0480`; a test about imports themselves turns it off
 with `@SuppressWarnings("unqualified-call")` on the import or the declaration (decision 0073). A directory with a
-`package.wylcfg` (`tests/cases/packages/`) is one test of all its files. A package test of interop
+`package.wylcfg` (`tests/cases/packages/`) is one test of all its files. A library that the test
+depends on is a package directory inside it, such as `vendor/parser/`, and is part of that test. A package test of interop
 (`tests/cases/interop/`) keeps its C++ headers and sources in its own `native/` directory. If a
 `// native` test lists errors and binds without any, the runner builds it and compares the errors
 of the C++ build, such as a failed signature or layout check.

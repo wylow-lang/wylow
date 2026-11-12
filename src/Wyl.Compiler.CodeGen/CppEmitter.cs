@@ -262,18 +262,22 @@ public sealed partial class CppEmitter
     /// What a top-level name's C++ name starts with, so equal names in different modules differ in
     /// C++: each name of its module's path after its length, with the package's for the standard
     /// library (<c>3std5panic</c>), then, for a file-private name in a module of several files,
-    /// which may each have one of that name, <c>0</c> and the file's place in the module. Nothing at
-    /// all in a lone file, or in the program's root module but for those private names. No two
-    /// prefixes are equal, and none can begin a plain name, since an identifier never starts with a
-    /// digit. Only the program's own package goes unnamed, so a dependency's names will be qualified
-    /// by its package like <c>std</c>'s.
+    /// which may each have one of that name, <c>0</c> and the file's place in the module. A library
+    /// that the program depends on starts with <c>00</c> and its name (<c>006parser5lexer</c>),
+    /// because the program may have a module of the library's name if it does not depend on the
+    /// library itself. Nothing at all in a lone file, or in the program's root module but for those
+    /// private names. No two prefixes are equal, and none can begin a plain name, since an identifier
+    /// never starts with a digit. A prefix of the program's root module starts with <c>0</c> only
+    /// before a file's place, which is never followed by a digit after <c>00</c>.
     /// </summary>
     static string ModulePrefix(Declaration declaration)
     {
         var source = declaration.Location.Source;
         var module = source.Module;
-        IEnumerable<string> names = module.Package.IsStd ? ["std", .. module.Path] : module.Path;
-        var prefix = string.Concat(names.Select(n => $"{n.Length}{n}"));
+        var package = module.Package;
+        // The emitter runs only on a program, so every library but std is a dependency.
+        var start = package.IsStd ? "3std" : package.Kind == PackageKind.Library ? $"00{package.Name!.Length}{package.Name}" : "";
+        var prefix = start + string.Concat(module.Path.Select(n => $"{n.Length}{n}"));
         if (declaration.Visibility == Visibility.File && module.Files.Count > 1)
             prefix += "0" + module.Files.ToList().IndexOf(source).ToString(CultureInfo.InvariantCulture);
         return prefix.Length == 0 ? "" : prefix + "_";

@@ -64,7 +64,7 @@ static partial class TestCase
         var stderr = result.Error.Trim().Replace("\r\n", "\n");
         if (expected.Panic is not null)
         {
-            var at = expected.PanicLine is { } line ? $"\n    at {test.MainName}:{line}:" : "";
+            var at = expected.PanicLine is { } line ? $"\n    at {test.PanicName}:{line}:" : "";
             if (result.Status != InterpretationStatus.Panicked || !stderr.Contains("panic: " + expected.Panic) || !stderr.Contains(at))
                 problems.Add($"expected panic '{expected.Panic}'{(at.Length > 0 ? $" at line {expected.PanicLine}" : "")}, got {result.Status} and stderr: {stderr}");
         }

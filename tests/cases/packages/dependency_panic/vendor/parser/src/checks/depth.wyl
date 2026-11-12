@@ -1,0 +1,5 @@
+pub void depth(int value) {
+    if (value < 0) {
+        std::panic("negative depth");               // panic-here: negative depth
+    }
+}

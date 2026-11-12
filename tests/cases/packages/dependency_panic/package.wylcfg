@@ -1,0 +1,5 @@
+name = "dependency_panic";
+
+dependencies {
+    parser { path = "vendor/parser"; }
+}

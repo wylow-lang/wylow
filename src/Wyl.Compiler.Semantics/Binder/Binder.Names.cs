@@ -110,7 +110,8 @@ public sealed partial class Binder
 
     /// <summary>
     /// The module a path's first name means where it is used: a submodule of the file's module, one
-    /// its module re-exports, one the file imports, or else the package <c>std</c>, which every file sees.
+    /// its module re-exports, one the file imports, or else the root module of a dependency of the
+    /// file's package or of <c>std</c>, which the file sees without an import.
     /// </summary>
     Module? ResolveModule(string name, Location use)
     {
@@ -126,6 +127,8 @@ public sealed partial class Binder
             if (FromAll(imports, name, from, use)?.Module is { } all)
                 return all;
         }
+        if (from.Module.Package.Dependencies.GetValueOrDefault(name) is { } dependency)
+            return dependency.Root;
         return name == Package.Std.Name ? Package.Std.Root : null;
     }
 

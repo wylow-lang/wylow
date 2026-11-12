@@ -1,0 +1,4 @@
+// The program's own type of the name of a type of a library.
+pub struct Token {
+    pub String text;
+}

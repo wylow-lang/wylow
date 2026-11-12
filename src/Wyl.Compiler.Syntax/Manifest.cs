@@ -7,7 +7,6 @@ namespace Wyl.Compiler.Syntax;
 /// What a package's <c>package.wylcfg</c> says (spec programs.manifest), read with
 /// Wylow's own lexer: a list of entries, each <c>key = value;</c> or <c>key { entries }</c>, whose
 /// value is a string or a list of strings. The keys are fixed, so a misspelled one is an error.
-/// <c>dependencies</c> is read to its shape and reported as an error.
 /// </summary>
 public sealed record Manifest(string Name, Location NameLocation)
 {
@@ -21,6 +20,21 @@ public sealed record Manifest(string Name, Location NameLocation)
 
     /// <summary>The package's version, or null if the manifest gives none.</summary>
     public PackageVersion? Version { get; init; }
+
+    /// <summary>The key of the <c>version</c> entry, or null if the manifest has none.</summary>
+    public Location? VersionLocation { get; init; }
+
+    /// <summary>The entries of <c>dependencies</c>, in the order the manifest gives them.</summary>
+    public IReadOnlyList<Dependency> Dependencies { get; init; } = [];
+
+    /// <summary>
+    /// An entry of <c>dependencies</c>: the library's name, the directory that <c>path</c> gives as
+    /// the manifest writes it, and the version that the entry states, if it states one.
+    /// </summary>
+    public sealed record Dependency(string Name, Location KeyLocation, string Path, Location PathLocation, StatedVersion? Version);
+
+    /// <summary>The version that a dependency entry states, with its text as the manifest writes it.</summary>
+    public sealed record StatedVersion(PackageVersion Version, string Text, Location Location);
 
     /// <summary>The platforms that a <c>native</c> block may hold a block for.</summary>
     public static readonly string[] Platforms = ["windows", "linux", "macos"];
@@ -69,10 +83,17 @@ public sealed record Manifest(string Name, Location NameLocation)
         if (kind == PackageKind.Library && !keys.ContainsKey("version"))
             diagnostics.Add(Catalog.LibraryWithoutVersion(keys["kind"].KeyLocation));
 
+        List<Dependency> dependencyList = [];
         if (keys.GetValueOrDefault("dependencies") is BlockEntry dependencies)
         {
+            var seen = new Dictionary<string, Location>(StringComparer.Ordinal);
             foreach (var dependency in dependencies.Entries)
             {
+                if (!seen.TryAdd(dependency.Key, dependency.KeyLocation))
+                {
+                    diagnostics.Add(Catalog.DuplicateManifestKey(dependency.KeyLocation, dependency.Key, seen[dependency.Key]));
+                    continue;
+                }
                 if (dependency is not BlockEntry block)
                 {
                     diagnostics.Add(Catalog.DependencyNotBlock(dependency.KeyLocation, dependency.Key));
@@ -81,9 +102,13 @@ public sealed record Manifest(string Name, Location NameLocation)
                 var given = Check(block.Entries, [("path", ValueKind.String), ("version", ValueKind.String)], diagnostics);
                 if (!block.Entries.Any(e => e.Key == "path"))
                     diagnostics.Add(Catalog.DependencyWithoutPath(block.KeyLocation, block.Key));
-                ReadVersion(given.GetValueOrDefault("version"), patchOptional: true, diagnostics);
+                var stated = given.GetValueOrDefault("version") as ValueEntry;
+                var statedVersion = ReadVersion(stated, patchOptional: true, diagnostics) is { } read
+                    ? new StatedVersion(read, stated!.Text!, stated.KeyLocation)
+                    : null;
+                if (given.GetValueOrDefault("path") is ValueEntry { Text: { } path } pathEntry)
+                    dependencyList.Add(new Dependency(block.Key, block.KeyLocation, path, pathEntry.KeyLocation, statedVersion));
             }
-            diagnostics.Add(Catalog.UnusableManifestKey(dependencies.KeyLocation, "dependencies"));
         }
         List<NativeList> nativeLists = [];
         if (keys.GetValueOrDefault("native") is BlockEntry native)
@@ -113,6 +138,8 @@ public sealed record Manifest(string Name, Location NameLocation)
             Kind = kind,
             KindLocation = keys.GetValueOrDefault("kind")?.KeyLocation,
             Version = version,
+            VersionLocation = keys.GetValueOrDefault("version")?.KeyLocation,
+            Dependencies = dependencyList,
             Native = nativeLists,
         };
 

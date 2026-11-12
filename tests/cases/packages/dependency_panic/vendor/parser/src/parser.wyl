@@ -1,0 +1,3 @@
+pub void check(int value) {
+    checks::depth(value);
+}

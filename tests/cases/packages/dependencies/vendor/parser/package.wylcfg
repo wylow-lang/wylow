@@ -1,0 +1,7 @@
+name = "parser";
+kind = "library";
+version = "1.4.2";
+
+dependencies {
+    util { path = "../util"; }
+}

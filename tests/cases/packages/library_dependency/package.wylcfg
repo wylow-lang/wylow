@@ -1,0 +1,8 @@
+// A library may depend on another library and re-export its names.
+name = "library_dependency";
+kind = "library";                                   // error[WYL0530]: cannot build or run library 'library_dependency'
+version = "0.1.0";
+
+dependencies {
+    shapes { path = "vendor/shapes"; }
+}

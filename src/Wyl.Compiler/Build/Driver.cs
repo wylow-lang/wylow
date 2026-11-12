@@ -144,6 +144,11 @@ public static class Driver
             Add(path);
             Add(Convert.ToBase64String(bytes));
         }
+        foreach (var manifest in sources.Manifests)
+        {
+            Add(manifest.Path);
+            Add(manifest.Text);
+        }
         foreach (var file in sources.Files)
         {
             Add(file.Path);

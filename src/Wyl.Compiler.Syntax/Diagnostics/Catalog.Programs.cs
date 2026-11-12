@@ -46,9 +46,35 @@ public static partial class Catalog
     public static Diagnostic DependencyWithoutPath(Location at, string name) =>
         Make(at, $"dependency '{name}' has no 'path'");
 
-    [Error(31, "programs.manifest")]
-    public static Diagnostic UnusableManifestKey(Location at, string key) =>
-        Make(at, $"manifest key '{key}' cannot be used");
+    [Error(531, "programs.manifest.dependencies")]
+    public static Diagnostic DependencyNotPackage(Location at, string path) =>
+        Make(at, $"'{path}' does not hold a package").Note($"a package's directory holds a '{Manifest.FileName}'");
+
+    [Error(532, "programs.manifest.dependencies")]
+    public static Diagnostic DependencyNameMismatch(Location at, string key, string name) =>
+        Make(at, $"dependency '{key}' names package '{name}'")
+            .Help($"write the entry as '{name} {{ ... }}', and import it as 'import {name} as {key};' where another name is needed");
+
+    [Error(533, "programs.manifest.dependencies")]
+    public static Diagnostic DependencyNotLibrary(Location at, string name, Location manifest) =>
+        Make(at, $"dependency '{name}' is not a library").Note(manifest, "the package's manifest has no 'kind = \"library\";'");
+
+    [Error(534, "programs.manifest.dependencies")]
+    public static Diagnostic DependencyCycle(Location at, IReadOnlyList<string> cycle) =>
+        Make(at, $"dependencies form a cycle: {string.Join(" -> ", cycle.Select(n => $"'{n}'"))}");
+
+    [Error(535, "programs.manifest.dependencies")]
+    public static Diagnostic DuplicatePackageName(Location at, string name, Location other) =>
+        Make(at, $"another package of the program is named '{name}'").Note(other, "the other package is named here");
+
+    [Error(536, "programs.manifest.dependencies")]
+    public static Diagnostic DependencyModuleName(Location at, string name) =>
+        Make(at, $"dependency '{name}' has the name of a module directly in 'src/'")
+            .Note($"a path that starts with '{name}' could mean either one");
+
+    [Error(537, "programs.manifest.versions")]
+    public static Diagnostic UnsatisfiedVersion(Location at, string name, PackageVersion version, string stated, Location given) =>
+        Make(at, $"library '{name}' has version '{version}', which does not satisfy '{stated}'").Note(given, "the library's version is given here");
 
     [Error(526, "programs.manifest")]
     public static Diagnostic UnknownPackageKind(Location at, string kind) =>

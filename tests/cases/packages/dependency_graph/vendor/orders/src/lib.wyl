@@ -1,0 +1,1 @@
+pub int value() { return 1; }

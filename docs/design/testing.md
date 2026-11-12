@@ -118,6 +118,14 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   `// native` test lists errors and binds without any, the runner builds it and compares the
   errors that the C++ build reports, such as a failed signature or layout check
   (`interop/signature_mismatch`, `interop/layout_mismatch`).
+- **Libraries.** A package test that depends on a library keeps the library in a package directory
+  inside the test's own directory, such as `vendor/parser/`, and names it with a relative `path`.
+  The runner treats only the outermost package directory as a test (`TestCases.Packages`), so a
+  library inside a test is never a test of its own. The runner reads the error markers of every
+  file under the test's directory, the libraries' manifests and sources among them. A panic in a
+  library is marked with `// panic-here:` in the library's file, which has no other marker but
+  errors. The runner then expects the panic's location to name that file as a panic names it,
+  such as `parser::checks/depth.wyl` (`packages/dependency_panic`).
 - **Sanitizers.** `--cc asan` uses the clang-cl of Visual Studio (runtime.md, "Toolchains"). Any
   report fails the test, and the runner checks that both sanitizers still report a deliberate bug
   (`sanitizers/live`). ASan finds a use after free even if the freed memory still holds the old

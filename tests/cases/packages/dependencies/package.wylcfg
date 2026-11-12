@@ -1,0 +1,9 @@
+// A program that depends on two libraries. Both depend on 'util', through two spellings of one
+// path, so the program compiles 'util' once.
+name = "dependencies";
+version = "1.0.0";
+
+dependencies {
+    parser { path = "vendor/parser"; version = "1.4"; }
+    format { path = "vendor/format"; }
+}

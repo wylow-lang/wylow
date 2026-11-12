@@ -38,9 +38,12 @@ public sealed partial class Binder
     static ImportTable TableIn<TKey>(Dictionary<TKey, ImportTable> tables, TKey key) where TKey : notnull =>
         tables.TryGetValue(key, out var table) ? table : tables[key] = new();
 
-    /// <summary>A path's first name in an import: a top-level module of the package, or a package, which <c>std</c> always is.</summary>
+    /// <summary>
+    /// A path's first name in an import: a top-level module of the package, or the root module of a
+    /// package, which is one of the package's dependencies or <c>std</c>.
+    /// </summary>
     static Module? TopLevel(string name, Package package) =>
-        name == Package.Std.Name ? Package.Std.Root : package.Root.FindChild(name);
+        name == Package.Std.Name ? Package.Std.Root : package.Root.FindChild(name) ?? package.Dependencies.GetValueOrDefault(name)?.Root;
 
     /// <summary>What an import stands for, seen from <paramref name="from"/>.</summary>
     Entry Target(Imported imported, SourceText from, int depth = 0)

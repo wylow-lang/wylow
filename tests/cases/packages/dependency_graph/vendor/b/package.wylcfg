@@ -1,0 +1,6 @@
+name = "b";
+kind = "library";
+version = "1.0.0";
+dependencies {
+    a { path = "../a"; }                            // error[WYL0534]: dependencies form a cycle: 'a' -> 'b' -> 'a'
+}

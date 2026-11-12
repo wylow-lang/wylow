@@ -3,8 +3,8 @@
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
 binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
 smaller gaps that the binding found. Step 4 wrote a safe layer over the binding, and step 5 designed
-the manifest's `dependencies` with the user. Step 6 built the manifest's new keys and libraries, and
-steps 7 to 9 build the rest of that design.
+the manifest's `dependencies` with the user. Steps 6 and 7 built the manifest's new keys, libraries,
+and dependencies, and steps 8 and 9 build the rest of that design.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -128,7 +128,7 @@ WSL").
 - A panic in a dependency names its file as `parser::lexer/tokens.wyl:3:5`.
 - The compiler reports a dependency's errors and not its warnings.
 - `tests/cases/packages/manifest_keys` pins today's behavior: `version` is not a key (`WYL0023`), and
-  `dependencies` cannot be used (`WYL0031`). Step 6 changes both lines of the test.
+  `dependencies` cannot be used (`WYL0031`). Step 6 changed the first line, and step 7 the second.
 - Later, and not designed: code that reads its own package's version, such as for a `--version`
   flag. The user suggested a preprocessor definition that a function of `std` reads.
 
@@ -136,10 +136,9 @@ WSL").
 
 - `Manifest.Read` reads `kind`, `version`, and the `version` of a dependency entry.
   `Manifest.Kind`, `Manifest.KindLocation`, and `Manifest.Version` hold what it read, and
-  `PackageSources.Manifest` keeps the manifest. The compiler does not keep a dependency entry's
-  version yet, because `dependencies` still draws `WYL0031`. Step 7 keeps it.
+  `PackageSources.Manifest` keeps the manifest.
 - `PackageVersion.Parse` reads a version. Each number is a `BigInteger`, so a version has no largest
-  number. `PackageVersion` has no comparison yet, and step 7 adds the rule of satisfaction to it.
+  number.
 - `Package.Kind` is `PackageKind.Program` or `PackageKind.Library`. `std` is a library, and a file
   compiled on its own is a program.
 - The new errors are `WYL0526` (a `kind` that is neither kind), `WYL0527` (a library without a
@@ -155,22 +154,41 @@ WSL").
   `manifest_kind`, `manifest_versions`, `library_no_version`, `library_main`, and `program_kind`.
   `manifest_keys` now lists `WYL0528` for its `version` line.
 
-## 7. Loading and naming dependencies
+## Facts from step 7
 
-`PackageSources` loads each dependency's sources into a `Package` of its own, and identifies a
-package by its full directory path. Each error of `programs.manifest.dependencies` that concerns the
-graph gets a code and a test: a path that holds no package, a key that is not the library's name, a
-dependency that is a program, a cycle, two packages of one name, a module that has a dependency's
-name, and a version that the library does not satisfy. The binder's `ResolveModule` looks for a
-dependency after imports and before `std`, and `Reach` already keeps `package` names inside their
-package. `CppEmitter.ModulePrefix` must qualify a dependency's root module by its package, because
-the program's root module has no prefix. A panic location in a dependency carries the package's
-name. The build reports a dependency's errors and drops its warnings. The source key of
-`Driver.Build` must hash every package's sources.
-
-The runner treats each directory with a `package.wylcfg` under `tests/cases/packages/` as one test.
-A test with a dependency keeps the library in a directory that the runner skips, which this step
-decides and records in `testing.md`.
+- `PackageSources.Load` reads the program and every library that it depends on (`Loader`). It
+  identifies a package by the full path of its directory, and compares paths without case on
+  Windows. `PackageSources.Files` holds the files of every package, and `PackageSources.Package` is
+  the package that was asked for. `PackageSources.Manifests` holds every manifest that was read.
+- `Package.Dependencies` maps each name of a package's `dependencies` to its library. `Manifest`
+  keeps each entry as a `Manifest.Dependency`, and `PackageVersion.Satisfies` decides a stated
+  version. A dependency that breaks a rule is reported and left out of the graph, so the binder
+  never sees it.
+- The graph's errors are `WYL0531` (a path that holds no package), `WYL0532` (a key that is not the
+  library's name), `WYL0533` (a program as a dependency), `WYL0534` (a cycle), `WYL0535` (two
+  packages of one name), `WYL0536` (a dependency with the name of a module directly in `src/`), and
+  `WYL0537` (an unsatisfied version). `WYL0031` is retired. `WYL0029` and `WYL0030` have pages now.
+  A key given twice in `dependencies` is `WYL0024`.
+- The binder's `TopLevel` and `ResolveModule` find a dependency's root module. `ResolveModule` looks
+  for it after imports and before `std`. The warning `WYL0480` suggests a path through a dependency,
+  such as `parser::count`, only for a dependency of the calling file's own package.
+- `CppEmitter.ModulePrefix` writes `00`, the library's name with its length, and then the module
+  path: `006parser5lexer`. The prefix must differ from the program's own module of the library's
+  name, which the program may have if only another library depends on that library
+  (`packages/dependencies`, whose program has a module `util`).
+- A file of a library is named `parser::lexer/token.wyl` when `PackageSources` reads it, so panics
+  and messages name it that way without other code.
+- `Compilation.Lower` drops each warning whose location is outside the program's own package.
+- `Driver.SourceKey` hashes every manifest and every package's files (`build-cache/dependencies`).
+- A package test keeps its libraries in package directories inside it, which `testing.md`
+  ("Libraries") describes. `TestCases.Packages` skips a package directory inside another one. The
+  runner reads markers from every manifest and source under the test, and a library's file may
+  hold the test's `// panic-here:` marker.
+- The tests are `packages/dependencies`, `dependency_panic`, `dependency_names`, `dependency_graph`,
+  and `library_dependency`.
+- The manifest reader checks the keys of a dependency's `native` block, but nothing checks its paths
+  or uses it yet. The program's build uses only the program's own native settings, so a library
+  with an extern block does not build inside a program until step 8.
 
 ## 8. Native settings of dependencies
 

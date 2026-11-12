@@ -1,0 +1,4 @@
+// The program's own module 'util' has the name of a library that the program does not depend on.
+pub String name() {
+    return "program util";
+}

@@ -1,0 +1,14 @@
+// Each entry breaks a rule about the graph of dependencies.
+name = "dependency_graph";
+
+dependencies {
+    missing { path = "vendor/missing"; }            // error[WYL0531]: 'vendor/missing' does not hold a package
+    wrong { path = "vendor/named"; }                // error[WYL0532]: dependency 'wrong' names package 'named'
+    tool { path = "vendor/tool"; }                  // error[WYL0533]: dependency 'tool' is not a library
+    old { path = "vendor/old"; version = "2.0"; }   // error[WYL0537]: library 'old' has version '1.5.0', which does not satisfy '2.0'
+    young { path = "vendor/young"; version = "0.3.1"; } // error[WYL0537]: library 'young' has version '0.4.0', which does not satisfy '0.3.1'
+    orders { path = "vendor/orders"; }              // error[WYL0536]: dependency 'orders' has the name of a module directly in 'src/'
+    a { path = "vendor/a"; }
+    common { path = "vendor/common"; }
+    left { path = "vendor/left"; }
+}

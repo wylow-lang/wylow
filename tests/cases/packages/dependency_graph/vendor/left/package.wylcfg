@@ -1,0 +1,6 @@
+name = "left";
+kind = "library";
+version = "1.0.0";
+dependencies {
+    common { path = "../other"; }                   // error[WYL0535]: another package of the program is named 'common'
+}

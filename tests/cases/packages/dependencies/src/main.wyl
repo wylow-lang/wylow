@@ -1,0 +1,13 @@
+import parser::lexer::Token as Lexeme;
+import parser as text;
+
+void main() {
+    Lexeme lexeme = parser::lexer::first("wylow");
+    std::print(lexeme.text);                        // output: wylow
+    // output: counting
+    std::print(text::count("abc"));                 // output: 3
+    std::print(format::bracket("x"));               // output: [util x]
+    std::print(util::name());                       // output: program util
+    Token own = Token("own");
+    std::print(own.text);                           // output: own
+}

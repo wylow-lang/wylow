@@ -6,13 +6,17 @@ using Wyl.Compiler.Text;
 namespace Wyl.Compiler;
 
 /// <summary>
-/// The files of one package, each in its module (spec programs.modules), and the errors found
-/// reading them: a package directory with its manifest and <c>src/</c>, or one file on its own.
+/// The files of a package and of every library it depends on, each in its module (spec
+/// programs.modules), and the errors found reading them: a package directory with its manifest and
+/// <c>src/</c>, or one file on its own. <see cref="Package"/> is the package that was asked for.
 /// </summary>
 public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> Files, IReadOnlyList<Diagnostic> Diagnostics)
 {
     /// <summary>The package's manifest, or null for a file compiled on its own.</summary>
     public Manifest? Manifest { get; init; }
+
+    /// <summary>The manifest of every package that was read, the package's own among them.</summary>
+    public IReadOnlyList<SourceText> Manifests { get; init; } = [];
 
     /// <summary>The package's <c>native/</c> directory and the manifest's <c>native</c> lists for this platform.</summary>
     public NativeInputs Native { get; init; } = NativeInputs.None;
@@ -24,36 +28,139 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
     public static bool IsPackage(string path) => File.Exists(Path.Combine(path, Manifest.FileName));
 
     /// <summary>
-    /// Reads the package in <paramref name="directory"/>: its manifest, then every <c>.wyl</c> file
-    /// under <c>src/</c>, each directory of them a module named by its path. Directories without any
-    /// are no modules, and neither are those whose names start with '.', like a build's output.
+    /// Reads the package in <paramref name="directory"/> and every library it depends on: each one's
+    /// manifest, then every <c>.wyl</c> file under its <c>src/</c>, each directory of them a module
+    /// named by its path. Directories without any are no modules, and neither are those whose names
+    /// start with '.', like a build's output.
     /// </summary>
     public static PackageSources Load(string directory)
     {
-        var diagnostics = new DiagnosticBag();
-        var manifestText = SourceText.FromFile(Path.Combine(directory, Manifest.FileName));
-        if (Manifest.Read(manifestText, diagnostics) is not { } manifest)
-            return new PackageSources(Package.Unnamed(), [], diagnostics.Sorted());
+        var loader = new Loader();
+        if (loader.LoadRoot(directory) is not var (package, manifest))
+            return new PackageSources(Package.Unnamed(), [], loader.Diagnostics.Sorted()) { Manifests = loader.Manifests };
+        var native = loader.Files.Any(f => f.Module.Package == package) ? ReadNative(directory, manifest, loader.Diagnostics) : NativeInputs.None;
+        return new PackageSources(package, loader.Files, loader.Diagnostics.Sorted()) { Manifest = manifest, Manifests = loader.Manifests, Native = native };
+    }
 
-        var package = Package.Named(manifest.Name, manifest.Kind);
-        var src = Path.Combine(directory, "src");
-        if (!Directory.Exists(src))
+    /// <summary>
+    /// Reads a package and its dependencies, each directory once, and checks the graph of
+    /// dependencies (spec programs.manifest.dependencies). A package is identified by its directory's
+    /// full path. A dependency that breaks a rule is reported and left out of the graph.
+    /// </summary>
+    sealed class Loader
+    {
+        static readonly StringComparer PathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+        public readonly DiagnosticBag Diagnostics = new();
+        public readonly List<SourceText> Files = [];
+        public readonly List<SourceText> Manifests = [];
+        readonly Dictionary<string, Manifest?> manifests = new(PathComparer);
+        readonly Dictionary<string, Package> loaded = new(PathComparer);
+        readonly Dictionary<string, (string Directory, Location At)> named = new(StringComparer.Ordinal);
+        // The packages whose dependencies are being read, from the program down, to find a cycle.
+        readonly List<(string Directory, string Name)> loading = [];
+
+        static string Identity(string directory) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+
+        public (Package, Manifest)? LoadRoot(string directory)
         {
-            diagnostics.Add(Catalog.MissingSourceDirectory(manifest.NameLocation));
-            return new PackageSources(package, [], diagnostics.Sorted()) { Manifest = manifest };
+            if (ReadManifest(directory) is not { } manifest)
+                return null;
+            named[manifest.Name] = (Identity(directory), manifest.NameLocation);
+            return (Load(directory, manifest, root: true), manifest);
         }
-        var files = new List<SourceText>();
-        AddModule(src, package.Root, files, diagnostics);
-        if (files.Count == 0)
-            diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
-        var native = ReadNative(directory, manifest, diagnostics);
-        return new PackageSources(package, files, diagnostics.Sorted()) { Manifest = manifest, Native = native };
 
-        void AddModule(string path, Module module, List<SourceText> into, DiagnosticBag bag)
+        Manifest? ReadManifest(string directory)
+        {
+            var identity = Identity(directory);
+            if (!manifests.TryGetValue(identity, out var manifest))
+            {
+                var text = SourceText.FromFile(Path.Combine(directory, Manifest.FileName));
+                Manifests.Add(text);
+                manifests[identity] = manifest = Manifest.Read(text, Diagnostics);
+            }
+            return manifest;
+        }
+
+        Package Load(string directory, Manifest manifest, bool root)
+        {
+            loading.Add((Identity(directory), manifest.Name));
+            var dependencies = new Dictionary<string, Package>(StringComparer.Ordinal);
+            foreach (var dependency in manifest.Dependencies)
+            {
+                if (Resolve(directory, dependency) is { } library)
+                    dependencies[dependency.Name] = library;
+            }
+            loading.RemoveAt(loading.Count - 1);
+
+            var package = Package.Named(manifest.Name, manifest.Kind, dependencies);
+            loaded[Identity(directory)] = package;
+            ReadFiles(directory, package, manifest, root ? "" : manifest.Name + "::");
+            // So that a path's first name has one meaning (spec programs.paths).
+            foreach (var dependency in manifest.Dependencies.Where(d => package.Root.FindChild(d.Name) is not null))
+                Diagnostics.Add(Catalog.DependencyModuleName(dependency.KeyLocation, dependency.Name));
+            return package;
+        }
+
+        /// <summary>The library that a dependency entry names, or null after reporting why it is not one.</summary>
+        Package? Resolve(string from, Manifest.Dependency dependency)
+        {
+            var identity = Identity(Path.Combine(from, dependency.Path));
+            // Messages name a dependency's files as the package's own: relative if the package's directory was.
+            var directory = Path.IsPathRooted(from) ? identity : Path.GetRelativePath(".", identity);
+            if (!IsPackage(directory))
+            {
+                Diagnostics.Add(Catalog.DependencyNotPackage(dependency.PathLocation, dependency.Path));
+                return null;
+            }
+            if (ReadManifest(directory) is not { } manifest)
+                return null;
+            if (manifest.Name != dependency.Name)
+            {
+                Diagnostics.Add(Catalog.DependencyNameMismatch(dependency.KeyLocation, dependency.Name, manifest.Name));
+                return null;
+            }
+            if (manifest.Kind != PackageKind.Library)
+            {
+                Diagnostics.Add(Catalog.DependencyNotLibrary(dependency.KeyLocation, dependency.Name, manifest.NameLocation));
+                return null;
+            }
+            if (dependency.Version is { } stated && manifest.Version is { } version && !version.Satisfies(stated.Version))
+                Diagnostics.Add(Catalog.UnsatisfiedVersion(stated.Location, manifest.Name, version, stated.Text, manifest.VersionLocation!.Value));
+            if (loading.FindIndex(l => PathComparer.Equals(l.Directory, identity)) is >= 0 and var start)
+            {
+                Diagnostics.Add(Catalog.DependencyCycle(dependency.KeyLocation, [.. loading.Skip(start).Select(l => l.Name), manifest.Name]));
+                return null;
+            }
+            if (named.TryGetValue(manifest.Name, out var other) && !PathComparer.Equals(other.Directory, identity))
+            {
+                Diagnostics.Add(Catalog.DuplicatePackageName(dependency.KeyLocation, manifest.Name, other.At));
+                return null;
+            }
+            named[manifest.Name] = (identity, manifest.NameLocation);
+            return loaded.TryGetValue(identity, out var package) ? package : Load(directory, manifest, root: false);
+        }
+
+        /// <summary>Reads the package's files, each named by its path under <c>src/</c> after <paramref name="prefix"/>, which is a library's name and <c>::</c>.</summary>
+        void ReadFiles(string directory, Package package, Manifest manifest, string prefix)
+        {
+            var src = Path.Combine(directory, "src");
+            if (!Directory.Exists(src))
+            {
+                Diagnostics.Add(Catalog.MissingSourceDirectory(manifest.NameLocation));
+                return;
+            }
+            int first = Files.Count;
+            AddModule(src, src, prefix, package.Root, Files, Diagnostics);
+            if (Files.Count == first)
+                Diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
+        }
+
+        static void AddModule(string src, string path, string prefix, Module module, List<SourceText> into, DiagnosticBag bag)
         {
             foreach (var file in Directory.GetFiles(path, "*.wyl").Order(StringComparer.Ordinal))
             {
-                var name = Path.GetRelativePath(src, file).Replace('\\', '/');
+                var name = prefix + Path.GetRelativePath(src, file).Replace('\\', '/');
                 into.Add(SourceText.FromFile(file, module, name));
             }
             foreach (var child in Directory.GetDirectories(path).Order(StringComparer.Ordinal))
@@ -62,7 +169,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                 if (name.StartsWith('.') || Directory.GetFiles(child, "*.wyl", SearchOption.AllDirectories).Length == 0)
                     continue;
                 int first = into.Count;
-                AddModule(child, module.Child(name), into, bag);
+                AddModule(src, child, prefix, module.Child(name), into, bag);
                 // Reported in the module's first file, since a directory has no text to point at.
                 var at = new Location(into[first], new TextSpan(0, 0));
                 if (!Lexer.IsIdentifier(name))

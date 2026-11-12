@@ -1,6 +1,4 @@
 # Codes whose page is not written yet. The catalog test fails if a code with a page is listed,
 # or a code without one is not, so this list only shrinks.
 WYL0022
-WYL0029
-WYL0030
 WYL0436

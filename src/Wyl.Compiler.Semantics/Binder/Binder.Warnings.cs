@@ -97,22 +97,26 @@ public sealed partial class Binder
     }
 
     /// <summary>
-    /// The path that names an imported function through its module: <c>std::print</c>,
-    /// <c>std::threading::spawn</c>, <c>orders::format::text</c>. Null for a name of a package's root
-    /// module other than <c>std</c>'s, which no path reaches.
+    /// The path that names an imported function through its module, as a file of
+    /// <paramref name="package"/> writes it: <c>std::print</c>, <c>std::threading::spawn</c>,
+    /// <c>orders::format::text</c>, <c>parser::parse</c>. Null for a name of the package's own root
+    /// module, which no path reaches, and for a name of a package that the file does not see.
     /// </summary>
-    static string? QualifiedPath(ImportVia via)
+    static string? QualifiedPath(ImportVia via, Package package)
     {
-        if (via.From is not { } module || (module.IsRoot && !module.Package.IsStd))
+        if (via.From is not { } module)
             return null;
-        IEnumerable<string> modules = module.Package.IsStd ? [Package.Std.Name!, .. module.Path] : module.Path;
-        return string.Join("::", [.. modules, via.Name]);
+        if (module.Package == package)
+            return module.IsRoot ? null : string.Join("::", [.. module.Path, via.Name]);
+        if (!module.Package.IsStd && package.Dependencies.GetValueOrDefault(module.Package.Name!) != module.Package)
+            return null;
+        return string.Join("::", [module.Package.Name!, .. module.Path, via.Name]);
     }
 
     /// <summary>A call of a function by a bare name that an import brought in, which a reader can't place (decision 0073).</summary>
     void CheckQualifiedCall(NameExpr name, Entry entry)
     {
-        if (entry is { Type: null, Via: { } via } && QualifiedPath(via) is { } path)
+        if (entry is { Type: null, Via: { } via } && QualifiedPath(via, name.Location.Source.Module.Package) is { } path)
             Warn(Catalog.UnqualifiedCall(name.Location, name.Name, path), via.Decl.Annotations);
     }
 }

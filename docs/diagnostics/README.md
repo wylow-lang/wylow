@@ -32,8 +32,7 @@ instead: each of its blocks names its file after the language, as in ```` ```wyl
 and ```` ```wyl src/main.wyl ````, and the test writes them out and compiles the package. Codes whose
 page is not written are in `without-pages.txt`, which only shrinks. A code stays there when no
 example can produce it alone: `WYL0022` (the interpolated string leaves a value another rule
-rejects), `WYL0029` and `WYL0030` (a `dependencies` entry is itself `WYL0031`), and `WYL0436` (it
-is about a file's bytes, and an example is text). A retired code keeps its page, which says that
+rejects), and `WYL0436` (it is about a file's bytes, and an example is text). A retired code keeps its page, which says that
 the compiler no longer emits it, and the catalog lists the code as retired so that no other
 diagnostic takes it.
 

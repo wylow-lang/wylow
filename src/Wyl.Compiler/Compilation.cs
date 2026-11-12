@@ -89,19 +89,23 @@ public static class Compilation
         diagnostics.AddRange(sources.Diagnostics);
         // Binding a broken tree mostly produces noise, so stop at syntax errors and a broken package.
         if (diagnostics.HasErrors)
-            return new LowerResult(diagnostics.Sorted(), null, null, null);
+            return new LowerResult(Reported(), null, null, null);
         var units = Stdlib.Sources.Concat(sources.Files).Select(s => new Parser(s, diagnostics).ParseCompilationUnit()).ToList();
         if (diagnostics.HasErrors)
-            return new LowerResult(diagnostics.Sorted(), null, null, null);
+            return new LowerResult(Reported(), null, null, null);
 
         var program = new Binder(diagnostics).BindProgram(sources.Package, units);
         // Only a program that binds is lowered, where the flow analysis finds the errors about order and flow.
         if (diagnostics.HasErrors)
-            return new LowerResult(diagnostics.Sorted(), program, null, null);
+            return new LowerResult(Reported(), program, null, null);
 
         var ir = IrLowering.Lower(program);
         var optimized = Pipeline.Run(ir, diagnostics, options.Optimize);
-        return new LowerResult(diagnostics.Sorted(), program, ir, optimized);
+        return new LowerResult(Reported(), program, ir, optimized);
+
+        // A dependency's warnings are its author's to see, by checking the library on its own (decision 0101).
+        IReadOnlyList<Diagnostic> Reported() =>
+            [.. diagnostics.Sorted().Where(d => d.Severity == DiagnosticSeverity.Error || d.Location.Source.Module.Package == sources.Package)];
     }
 
     public static LowerResult Lower(SourceText source, CompileOptions? options = null) => Lower(PackageSources.Of(source), options);

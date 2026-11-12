@@ -1,0 +1,5 @@
+pub import shapes::Point;
+
+pub int sum(Point point) {
+    return point.x + point.y;
+}

@@ -3,7 +3,7 @@ name = "manifest_versions";
 kind = "program";
 version = "0.10.2";
 
-dependencies {                                  // error[WYL0031]: manifest key 'dependencies' cannot be used
+dependencies {
     a { path = "../a"; version = "1.4"; }
     b { path = "../b"; version = "0.0.0"; }
     c { path = "../c"; version = "123456789012345678901234567890.0"; }

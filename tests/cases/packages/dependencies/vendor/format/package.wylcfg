@@ -1,0 +1,7 @@
+name = "format";
+kind = "library";
+version = "0.2.0";
+
+dependencies {
+    util { path = "../util/"; }
+}

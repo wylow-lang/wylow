@@ -1,0 +1,3 @@
+package void internal() {
+    int count = "one";                              // error[WYL0079]: expected 'int', found 'String'
+}
