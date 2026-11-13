@@ -134,3 +134,4 @@ history and a reason can be found without searching the spec.
 | [0104](0104-non-escaping-fields.md) | A `ref struct` may hold a non-escaping function, and a pointer may point to a `ref struct` |
 | [0105](0105-native-downloads.md) | A manifest's `fetch` block names a native file to download, and the compiler caches the file by its hash |
 | [0106](0106-fetch-limits.md) | A download and its extracted files have size limits, and a fetched path is a file name on every platform |
+| [0107](0107-start-thread.md) | A thread starts with `threading::startThread`, not a free `spawn` |

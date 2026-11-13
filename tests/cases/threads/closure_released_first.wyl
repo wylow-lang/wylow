@@ -40,7 +40,7 @@ shared fn() -> int makeBody(Receiver<int> start) {
 void main() {
     var channel = new Channel<int>();
     var sender = channel.sender();
-    var thread = threading::spawn(makeBody(channel.receiver()));
+    var thread = threading::startThread(makeBody(channel.receiver()));
     sender.send(0);
     thread.join();
     std::print("joined");

@@ -23,13 +23,13 @@ class Log {
 
 void main() {
     var log = new Mutex<Log>(Isolated<Log>(() -> new Log()));
-    var first = threading::spawn(() -> {
+    var first = threading::startThread(() -> {
         for (mut int i = 0; i < 100; i++) {
             log.lock(l -> l.add(1));
         }
         return log.lock(l -> l.count());
     });
-    var second = threading::spawn(() -> {
+    var second = threading::startThread(() -> {
         for (mut int i = 0; i < 100; i++) {
             log.lock(l -> l.add(2));
         }

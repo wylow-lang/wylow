@@ -17,7 +17,7 @@ class Node {
 }
 
 void main() {
-    var thread = threading::spawn(() -> {
+    var thread = threading::startThread(() -> {
         var first = new Node(1);
         var second = new Node(2);
         first.next = second;

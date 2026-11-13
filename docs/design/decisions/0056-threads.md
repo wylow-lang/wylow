@@ -1,6 +1,6 @@
 # 0056. Threads: a unique handle, a free `spawn`, and a by-value `join`
 
-- Status: accepted (2026-11-05); its interpreter bullet is superseded by [0057](0057-interpreter-interleaving.md) (2026-11-06)
+- Status: accepted (2026-11-05); its interpreter bullet is superseded by [0057](0057-interpreter-interleaving.md) (2026-11-06); superseded by [0107](0107-start-thread.md) (2026-11-13)
 - Spec: `programs.execution`, `concurrency.confinement`, `concurrency.sendable`,
   `concurrency.shared-functions`, `concurrency.panics`, `memory.cycles`, `library.thread`
 

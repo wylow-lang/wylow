@@ -45,7 +45,7 @@ void main() {
     mut int a = 1;
     replace(ref a, 2);
     std::print(a);                  // output: 2
-    var thread = spawn(() -> 3);
+    var thread = startThread(() -> 3);
     std::print(thread.join());      // output: 3
 
     mut int? n = 4;

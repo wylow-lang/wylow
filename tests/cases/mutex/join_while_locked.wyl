@@ -5,7 +5,7 @@ import std::threading::Mutex;
 
 void main() {
     var counter = new Mutex<int>(1);
-    counter.lock(n -> threading::spawn(() -> 2).join()); // panic-here: cannot wait for a thread while this thread holds a lock
+    counter.lock(n -> threading::startThread(() -> 2).join()); // panic-here: cannot wait for a thread while this thread holds a lock
 }
 
 // tsan

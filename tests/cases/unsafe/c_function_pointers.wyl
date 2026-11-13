@@ -99,7 +99,7 @@ void main() {
     }
     std::print(sum);                                        // output: 20
 
-    var thread = threading::spawn(() -> {
+    var thread = threading::startThread(() -> {
         unsafe {
             return f(null, 9);
         }

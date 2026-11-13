@@ -31,7 +31,7 @@ void main() {
     var channel = new Channel<Isolated<Graph>>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = threading::spawn(() -> {
+    var worker = threading::startThread(() -> {
         mut var box = receiver.receive();
         if (box != null) {
             mut var received = box!;

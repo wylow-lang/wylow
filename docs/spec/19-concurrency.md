@@ -211,7 +211,7 @@ thread holds the lock.
 
 ```java unchecked
 var index = new Mutex<Index>(Isolated<Index>(() -> new Index()));
-var worker = spawn(() -> index.lock(i -> i.addEntry(7, "alpha")));  // 'lock' returns 'Unit'
+var worker = startThread(() -> index.lock(i -> i.addEntry(7, "alpha")));  // 'lock' returns 'Unit'
 worker.join();
 int count = index.lock(i -> i.count());
 ```
@@ -266,7 +266,7 @@ class Requests {
 }
 
 var stop = new AtomicBool(false);
-var worker = spawn(() -> {
+var worker = startThread(() -> {
     while (!stop.get()) {
         Requests.SERVED.add(1L);
     }
@@ -309,7 +309,7 @@ class Tables {
     }
 }
 
-var reader = spawn(() -> Tables.SQUARES[9]);
+var reader = startThread(() -> Tables.SQUARES[9]);
 ```
 
 <a id="concurrency.panics"></a>

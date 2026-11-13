@@ -2,7 +2,7 @@ import std::threading;
 
 void main() {
     var name = "thread";
-    var thread = threading::spawn(() -> name.byteLength());
+    var thread = threading::startThread(() -> name.byteLength());
     std::print(thread.join());
     // output: 6
 }

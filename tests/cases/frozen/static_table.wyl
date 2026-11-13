@@ -25,8 +25,8 @@ int sum() {
 }
 
 void main() {
-    var first = threading::spawn(() -> sum());
-    var second = threading::spawn(() -> sum());
+    var first = threading::startThread(() -> sum());
+    var second = threading::startThread(() -> sum());
     std::print(first.join());                 // output: 328350
     std::print(second.join());                // output: 328350
     std::print(Tables.SQUARES[99]);           // output: 9801

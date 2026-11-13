@@ -7,7 +7,7 @@ int boom() {
 }
 
 void main() {
-    var thread = threading::spawn(() -> boom());
+    var thread = threading::startThread(() -> boom());
     thread.join();
 }
 

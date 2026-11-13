@@ -18,7 +18,7 @@ unique struct Buffer {
 
 void main() {
     var slot = new Mutex<Buffer?>(Buffer(7));
-    var worker = threading::spawn(() -> {
+    var worker = threading::startThread(() -> {
         Buffer? taken = slot.lock(b -> std::take(ref b));
         std::print($"child took {taken!.length}");
     });

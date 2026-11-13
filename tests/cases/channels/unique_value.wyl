@@ -17,7 +17,7 @@ void main() {
     var channel = new Channel<Buffer>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = threading::spawn(() -> {
+    var worker = threading::startThread(() -> {
         mut var value = receiver.receive();
         if (value != null) {
             var buffer = value!;

@@ -5,7 +5,7 @@ void main() {
     var channel = new Channel<int>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = threading::spawn(() -> {
+    var worker = threading::startThread(() -> {
         sender.send(6);
         return 0;
     });

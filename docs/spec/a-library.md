@@ -23,7 +23,7 @@ these of its declarations, and on nothing else in it:
 | `Isolated<T>`, `collections::List.isolate` | Isolated object graphs ([`Isolated<T>`](#library.isolated)) |
 | `std::panic` | Panics ([`std::panic`](#library.panic)) |
 | `std::memory` | Raw memory and the cycle collector, and `ElementOwner<T>` and `ElementVisitor<T>`, through which the collector visits values in raw memory ([`std::memory`](#library.memory)) |
-| `Thread<T>`, `spawn`, `join` | Threads ([Threads](#library.thread)) |
+| `Thread<T>`, `startThread`, `join` | Threads ([Threads](#library.thread)) |
 | `Channel<T>`, `Sender<T>`, `Receiver<T>` | Channels ([Channels](#library.channel)) |
 | `Mutex<T>` | Mutexes and the lock rule ([`Mutex<T>`](#library.mutex)) |
 | `Atomic<T>`, `AtomicBool` | Atomics ([`Atomic<T>` and `AtomicBool`](#library.atomic)) |
@@ -335,11 +335,11 @@ The module declares the type that a running thread is and the functions that sta
 
 ```java unchecked
 pub unique struct Thread<T> { ... }
-pub Thread<T> spawn<T extends sendable>(escaping shared fn() -> T body);
+pub Thread<T> startThread<T extends sendable>(escaping shared fn() -> T body);
 pub T join(this Thread<T> thread);
 ```
 
-- `spawn` starts a thread that runs `body`, and returns a `Thread<T>` that refers to it.
+- `startThread` starts a thread that runs `body`, and returns a `Thread<T>` that refers to it.
 - `join` waits for the body to return and returns its result. It takes its receiver by value, so a
   thread is joined at most once ([By-value receivers](07-structs.md#structs.methods.by-value)).
 - `join` panics if the thread was never started. The default value of `Thread<T>` is such a thread.
@@ -352,9 +352,9 @@ pub T join(this Thread<T> thread);
 - The result's type must be sendable, since the value leaves the thread
   ([Sendable types](19-concurrency.md#concurrency.sendable)).
 - A panic in the body ends the program ([Panics on threads](19-concurrency.md#concurrency.panics)).
-- `spawn` panics if the program calls it before `main` begins
-  ([Statics](06-variables.md#variables.statics)). `spawn` also panics if the system cannot start
-  another thread.
+- `startThread` panics if the program calls it before `main` begins
+  ([Statics](06-variables.md#variables.statics)). `startThread` also panics if the system cannot
+  start another thread.
 
 <a id="library.channel"></a>
 ### A.10.2 Channels

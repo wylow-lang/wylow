@@ -9,7 +9,7 @@ unique struct Marker {
 }
 
 void main() {
-    var thread = threading::spawn(() -> Marker(9));
+    var thread = threading::startThread(() -> Marker(9));
     std::print("main");
     // output: main
     // output: marker 9

@@ -4,7 +4,7 @@ import std::threading::Channel;
 void main() {
     var channel = new Channel<int>();
     var receiver = channel.receiver();
-    var worker = threading::spawn(() -> {
+    var worker = threading::startThread(() -> {
         var first = channel.sender();
         var second = channel.sender();
         first.send(1);

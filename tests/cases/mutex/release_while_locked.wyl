@@ -7,7 +7,7 @@ import std::threading::Mutex;
 void main() {
     var counter = new Mutex<int>(1);
     counter.lock(n -> {
-        var worker = threading::spawn(() -> 2);
+        var worker = threading::startThread(() -> 2);
     });
 }
 

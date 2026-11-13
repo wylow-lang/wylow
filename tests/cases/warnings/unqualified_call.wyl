@@ -19,7 +19,7 @@ void main() {
     replace(ref a, 3);              // warning[WYL0480]: function 'replace' is called without its module
     swap(ref a, ref b);             // warning[WYL0480]: function 'swap' is called without its module
     std::print($"{a} {b}");         // output: 2 3
-    var thread = spawn(() -> 4);    // warning[WYL0480]: function 'spawn' is called without its module
+    var thread = startThread(() -> 4);    // warning[WYL0480]: function 'startThread' is called without its module
     std::print(thread.join());      // output: 4
 
     // The module's own functions, types, and static methods are not imported, so they need no module.

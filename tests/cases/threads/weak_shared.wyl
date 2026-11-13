@@ -23,7 +23,7 @@ shared class Target {
 void main() {
     var work = new Channel<Weak<Target>>();
     var receiver = work.receiver();
-    var reader = threading::spawn(() -> {
+    var reader = threading::startThread(() -> {
         mut int wrong = 0;
         loop {
             var weak = receiver.receive();

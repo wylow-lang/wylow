@@ -14,7 +14,7 @@ int length(Name name) {
 
 void main() {
     var name = new Name("worker");
-    var thread = threading::spawn(() -> length(name));
+    var thread = threading::startThread(() -> length(name));
     std::print(thread.join());
     // output: 6
 }

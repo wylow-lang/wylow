@@ -19,8 +19,8 @@ Unit addMany(Atomic<int> total, int times) {
 void main() {
     var total = new Atomic<int>(0);
     var done = new AtomicBool(false);
-    var first = threading::spawn(() -> addMany(total, 1000));
-    var second = threading::spawn(() -> {
+    var first = threading::startThread(() -> addMany(total, 1000));
+    var second = threading::startThread(() -> {
         addMany(total, 1000);
         return done.exchange(true);
     });

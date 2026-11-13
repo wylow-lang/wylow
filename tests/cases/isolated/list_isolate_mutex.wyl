@@ -24,7 +24,7 @@ void main() {
     buffers.add(Buffer(2));
     var guarded = new Mutex<List<Buffer>>(buffers.isolate());
     std::print(buffers.count());                                  // output: 0
-    var worker = threading::spawn(() -> guarded.lock(b -> b.add(Buffer(3))));
+    var worker = threading::startThread(() -> guarded.lock(b -> b.add(Buffer(3))));
     worker.join();
     std::print(guarded.lock(b -> b.count()));                      // output: 3
     std::print(guarded.lock(b -> b[2].length));                    // output: 3

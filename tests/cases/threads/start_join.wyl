@@ -1,7 +1,7 @@
 import std::threading;
 
 void main() {
-    var thread = threading::spawn(() -> 42);
+    var thread = threading::startThread(() -> 42);
     std::print(thread.join());
     // output: 42
 }

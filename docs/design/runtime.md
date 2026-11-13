@@ -292,7 +292,7 @@ creation counter after that counter had been reset.
   it: that thread adds the chunk to its own size class and then frees the slot. The main thread
   reports the cycles it never freed instead.
 - `wyl::Init` marks the main thread's state, and `wyl::BeginMain` marks that `main` has begun after
-  every static is initialized. `spawn` panics before that mark.
+  every static is initialized. `startThread` panics before that mark.
 - `std::threading`'s `Thread<T>` holds a `byte*` to a `wyl::threading::HandleOf<T>`, which the global heap
   holds: the operating-system thread, and an `Optional<T>` for its result. `spawnThread` moves the
   body, a `wyl::Function<T()>`, into a new thread, which makes the thread's state first and ends it last.

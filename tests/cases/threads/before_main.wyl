@@ -6,7 +6,7 @@ class Early {
     static int VALUE = start();
 
     static int start() {
-        var thread = threading::spawn(() -> 1);
+        var thread = threading::startThread(() -> 1);
         return thread.join();
     }
 }

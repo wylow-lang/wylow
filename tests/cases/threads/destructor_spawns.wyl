@@ -11,9 +11,9 @@ shared class Worker {
     }
 
     ~Worker() {
-        var joined = threading::spawn(() -> this.id * 2);
+        var joined = threading::startThread(() -> this.id * 2);
         std::print(joined.join());
-        var released = threading::spawn(() -> this.id * 3);
+        var released = threading::startThread(() -> this.id * 3);
     }
 }
 

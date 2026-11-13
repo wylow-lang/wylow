@@ -98,7 +98,7 @@ public sealed partial class Binder
 
     /// <summary>
     /// The path that names an imported function through its module, as a file of
-    /// <paramref name="package"/> writes it: <c>std::print</c>, <c>std::threading::spawn</c>,
+    /// <paramref name="package"/> writes it: <c>std::print</c>, <c>std::threading::startThread</c>,
     /// <c>orders::format::text</c>, <c>parser::parse</c>. Null for a name of the package's own root
     /// module, which no path reaches, and for a name of a package that the file does not see.
     /// </summary>

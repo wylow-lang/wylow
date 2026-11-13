@@ -2,7 +2,7 @@ import std::threading;
 import std::Unit;
 
 void main() {
-    var thread = threading::spawn(() -> {
+    var thread = threading::startThread(() -> {
         std::print("body");
         return Unit();
     });

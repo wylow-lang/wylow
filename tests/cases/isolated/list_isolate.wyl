@@ -19,7 +19,7 @@ void main() {
     var channel = new Channel<Isolated<List<String>>>();
     var sender = channel.sender();
     var receiver = channel.receiver();
-    var worker = threading::spawn(() -> {
+    var worker = threading::startThread(() -> {
         List<String> received = receiver.receive()!.take();
         for (String name : received) {
             std::print(name);

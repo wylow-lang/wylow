@@ -32,7 +32,7 @@ pub unique struct Thread<T> {
 ///
 /// If the program starts a thread before `main` begins.
 @CallerLocation
-pub Thread<T> spawn<T extends sendable>(escaping shared fn() -> T body) {
+pub Thread<T> startThread<T extends sendable>(escaping shared fn() -> T body) {
     unsafe {
         return Thread<T>(spawnThread<T>(body));
     }
