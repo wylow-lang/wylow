@@ -1,0 +1,33 @@
+/// SQLite's primary result codes that report an error. The low byte of an extended result code is
+/// its primary code.
+@Repr(int)
+pub enum ResultCode {
+    Error = 1,
+    Internal,
+    Perm,
+    Abort,
+    Busy,
+    Locked,
+    NoMem,
+    ReadOnly,
+    Interrupt,
+    IoErr,
+    Corrupt,
+    NotFound,
+    Full,
+    CantOpen,
+    Protocol,
+    Empty,
+    Schema,
+    TooBig,
+    Constraint,
+    Mismatch,
+    Misuse,
+    NoLfs,
+    Auth,
+    Format,
+    Range,
+    NotADb,
+    Notice,
+    Warning,
+}

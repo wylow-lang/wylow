@@ -96,7 +96,13 @@ Built: `E.tryFrom(x)` binds to a conversion from the integer to `E?`, which no c
 cast's `from_value` calls it. The argument may have any integer type, as a cast's may. An enum
 without data cannot declare a method named `tryFrom` (`WYL0541`). The spec also defines
 `T.tryFrom(x)` for an integer type `T` (`types.primitives`), and the compiler does not build it.
-The decision about the layer's `Error` is still open.
+The user chose that the layer's `Error` keeps the extended code as an `int` and adds the primary
+code as a `ResultCode?`, a public `@Repr(int)` enum that `ResultCode.tryFrom(code & 0xFF)` gives.
+The value is null only for a primary code that a newer SQLite adds. The layer turns extended result
+codes on when it opens a connection.
+
+The user noted that `Result<Unit, Error>` reads poorly, and the layer writes it for each fallible
+function that returns nothing. A shorter way to write that result type is not designed.
 
 ## 4. Statics as patterns, and extern statics with values
 

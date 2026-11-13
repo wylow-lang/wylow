@@ -5,8 +5,18 @@ import std::collections::List;
 /// An error that SQLite reported, with its result code and its message. Text that is not valid UTF-8
 /// is an error with the code `SQLITE_MISMATCH`.
 pub struct Error implements Printable {
+    /// The primary result code, or null if this version of the layer does not list it.
+    pub ResultCode? primary;
+    /// The extended result code, whose low byte is the primary code.
     pub int code;
     pub String message;
+
+    /// Makes the error of the extended result code `code`.
+    module Error(int code, String message) {
+        primary = ResultCode.tryFrom(code & 0xFF);
+        this.code = code;
+        this.message = message;
+    }
 
     /// Returns the result code and the message.
     pub String toString() {
@@ -35,6 +45,8 @@ pub final class Database {
                 _ = sqlite3_close(handle);
                 return Err(Error(code, message));
             }
+            // A failed call then returns an extended result code, which names the failure exactly.
+            _ = sqlite3_extended_result_codes(handle, 1);
             return Ok(new Database(handle));
         }
     }

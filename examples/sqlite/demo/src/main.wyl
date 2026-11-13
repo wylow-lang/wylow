@@ -1,11 +1,12 @@
 // A program that uses SQLite through the safe layer of the `sqlite` library, without unsafe code. It
 // opens an in-memory database, creates a table, inserts rows with bound text, integers, doubles, and
 // blobs, and prints each row of a query. A query runs through `forEachRow`, which SQLite's
-// `sqlite3_exec` calls back for each row. The last queries read text that is not valid UTF-8, which
-// the layer returns as an error.
+// `sqlite3_exec` calls back for each row. An insert breaks a constraint, and the program reads the
+// error's primary code as an enum. The last queries read text that is not valid UTF-8, which the
+// layer returns as an error.
 
 import std::Unit;
-import sqlite::{Database, Error, Statement, Value};
+import sqlite::{Database, Error, ResultCode, Statement, Value};
 
 /// A row to insert: a name, a count, a weight, and a tag of raw bytes.
 struct Order {
@@ -84,6 +85,13 @@ Result<Unit, Error> run() {
     switch (database.execute("INSERT INTO missing VALUES (1)")) {
         case Ok(_) -> std::print("the insert ran");
         case Err(var error) -> std::print($"{error}");
+    }
+    // A second row with the same key breaks the UNIQUE constraint. The error's primary code is
+    // Constraint, and its extended code, SQLITE_CONSTRAINT_UNIQUE, is 2067.
+    try database.execute("CREATE TABLE keys (key TEXT UNIQUE)");
+    try database.execute("INSERT INTO keys VALUES ('a')");
+    if (database.execute("INSERT INTO keys VALUES ('a')") is Err(var duplicate)) {
+        std::print($"constraint: {duplicate.primary == ResultCode.Constraint}, code {duplicate.code}");
     }
     // The blob x'61FF' cast to text is not valid UTF-8, so reading it returns an error.
     String invalid = "SELECT CAST(x'61FF' AS TEXT) AS text";
