@@ -155,6 +155,13 @@ public sealed partial class Binder
             Visibility = constant.Visibility,
             Block = constant.Block,
         };
+        BoundLiteral? value = null;
+        if (constant.Value is { } valueSyntax && type != WylType.Error)
+        {
+            value = LiteralValue(valueSyntax, type);
+            if (value is null)
+                Error(Catalog.ExternConstantValue(valueSyntax.Location, constant.Name, type.ToString(), IsLiteralPatternType(type)));
+        }
         var function = new FunctionSymbol(constant.Name, [], type)
         {
             Declaration = decl,
@@ -162,6 +169,7 @@ public sealed partial class Binder
             BuiltinCppName = BlockMemberCppName(constant, constant.Name, constant.Block!),
             IsPure = true,
             IsExternConstant = true,
+            ConstantValue = value,
         };
         AddTopLevelFunction(function, decl);
         return function;

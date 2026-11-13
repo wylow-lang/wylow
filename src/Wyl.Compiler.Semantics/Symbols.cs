@@ -184,6 +184,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     public bool IsExternConstant { get; init; }
 
     /// <summary>
+    /// The value that an extern constant's declaration gives it, which a pattern naming the constant
+    /// matches (spec <c>interop.extern.constants</c>).
+    /// </summary>
+    public BoundLiteral? ConstantValue { get; init; }
+
+    /// <summary>
     /// A static or top-level function marked <c>@CCallback</c>, whose reference converts to an
     /// <c>extern fn</c> type (spec <c>interop.callbacks</c>).
     /// </summary>
@@ -380,6 +386,13 @@ public sealed class FieldSymbol(string name, WylType type, TypeSymbol owner, Fie
     public bool IsStatic => (Declaration.Modifiers & Modifiers.Static) != 0;
 
     public BoundExpression? Initializer { get; set; }
+
+    /// <summary>
+    /// The value of a static whose initializer is a literal of its type, which is an integer type,
+    /// <c>char</c>, or <c>bool</c>: the value that a pattern naming the static matches (spec
+    /// <c>patterns.kinds</c>). The binder sets it.
+    /// </summary>
+    public BoundLiteral? ConstantValue { get; internal set; }
 
     /// <summary>Whether a constructor must assign it before using <c>this</c> and before returning.</summary>
     public bool RequiresAssignment => !this.HasDefault(TypeMap.Empty);

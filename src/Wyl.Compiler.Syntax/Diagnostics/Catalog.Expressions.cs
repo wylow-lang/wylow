@@ -101,6 +101,14 @@ public static partial class Catalog
     public static Diagnostic LiteralPatternKind(Location at) =>
         Make(at, "only integer, character, and 'bool' literals can be patterns");
 
+    [Error(542, "patterns.kinds")]
+    public static Diagnostic StaticNotPattern(Location at, string name, string? otherType, bool isExtern, bool hasInitializer) =>
+        Make(at, $"static '{name}' cannot be a pattern").Note(
+            otherType is not null ? $"its type is '{otherType}', and only a static of an integer type, 'char', or 'bool' is a pattern"
+            : isExtern ? "an extern constant is a pattern only if its declaration gives its value, as in 'static int LIMIT = 8;'"
+            : hasInitializer ? "a static is a pattern only if its initializer is a literal"
+            : "a static is a pattern only if its initializer is a literal, and this static has none");
+
     [Error(377, "patterns.kinds")]
     public static Diagnostic NoSuchVariantInPattern(Location at, string type, string variant) =>
         Make(at, $"cannot find variant '{variant}' in enum '{type}'");

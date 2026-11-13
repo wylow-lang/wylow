@@ -1,0 +1,75 @@
+// A static whose initializer is a literal is a pattern that matches the static's value (spec
+// patterns.kinds).
+
+class Codes {
+    pub static int OK = 0;
+    pub static int ROW = 100;
+    pub static int NEGATIVE = -7;
+    pub static byte HIGH = 200;
+    pub static long BIG = -5000000000L;
+    pub static char QUOTE = '"';
+    pub static bool YES = true;
+    static int OWN = 42;
+
+    // Inside the type, a lone name names its static.
+    pub static String describe(int code) {
+        return switch (code) {
+            case OWN -> "own";
+            case ROW -> "row";
+            case _ -> "other";
+        };
+    }
+
+    pub static bool isOwn(int code) {
+        return code is OWN;
+    }
+}
+
+struct Reply {
+    pub int code;
+    pub String text;
+}
+
+String name(int code) {
+    return switch (code) {
+        case Codes.OK -> "ok";
+        case Codes.ROW -> "row";
+        case Codes.NEGATIVE -> "negative";
+        case 5 -> "five";
+        case _ -> "other";
+    };
+}
+
+void main() {
+    std::print(name(0));                                // output: ok
+    std::print(name(100));                              // output: row
+    std::print(name(-7));                               // output: negative
+    std::print(name(5));                                // output: five
+    std::print(name(6));                                // output: other
+    std::print(Codes.describe(42));                     // output: own
+    std::print(Codes.describe(100));                    // output: row
+    std::print(Codes.isOwn(42));                        // output: true
+
+    // An is pattern, and statics of each kind of type.
+    int code = 100;
+    std::print(code is Codes.ROW);                      // output: true
+    std::print(code is Codes.OK);                       // output: false
+    byte b = 200;
+    std::print(b is Codes.HIGH);                        // output: true
+    long big = -5000000000L;
+    std::print(big is Codes.BIG);                       // output: true
+    std::print('"' is Codes.QUOTE);                     // output: true
+    std::print(false is Codes.YES);                     // output: false
+
+    // An int static matches a long value, as the literal would.
+    long wide = 100L;
+    std::print(wide is Codes.ROW);                      // output: true
+
+    // A static inside a struct pattern.
+    Reply reply = Reply(100, "done");
+    switch (reply) {
+        case Reply(Codes.OK, var text) -> std::print($"ok: {text}");
+        case Reply(Codes.ROW, var text) -> std::print($"row: {text}");     // output: row: done
+        case _ -> std::print("other");
+    }
+}

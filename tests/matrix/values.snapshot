@@ -49,6 +49,10 @@ exit 0
 out zero
 exit 0
 
+=== zero/static-switch
+out zero
+exit 0
+
 === one/arithmetic
 out 2
 out 0
@@ -94,6 +98,10 @@ out [1       ]
 exit 0
 
 === one/switch
+out one
+exit 0
+
+=== one/static-switch
 out one
 exit 0
 
@@ -146,6 +154,10 @@ exit 0
 out minus one
 exit 0
 
+=== minus-one/static-switch
+out minus one
+exit 0
+
 === max/arithmetic
 out 2147483646
 out 1073741823
@@ -190,6 +202,10 @@ out [2147483647]
 exit 0
 
 === max/switch
+out other
+exit 0
+
+=== max/static-switch
 out other
 exit 0
 
@@ -240,6 +256,10 @@ exit 0
 out other
 exit 0
 
+=== min/static-switch
+out other
+exit 0
+
 === long-past-int/arithmetic
 out 2147483649
 out 2147483647
@@ -277,6 +297,10 @@ out [  2147483648]
 exit 0
 
 === long-past-int/switch
+out past int
+exit 0
+
+=== long-past-int/static-switch
 out past int
 exit 0
 
@@ -632,6 +656,10 @@ exit 0
 out e acute
 exit 0
 
+=== char-multibyte/static-switch
+out e acute
+exit 0
+
 === bool/arithmetic
 out false
 out true
@@ -653,6 +681,10 @@ out [true  ]
 exit 0
 
 === bool/switch
+out yes
+exit 0
+
+=== bool/static-switch
 out yes
 exit 0
 
@@ -695,6 +727,10 @@ out [  null]
 exit 0
 
 === null-reference/switch
+out null
+exit 0
+
+=== null-reference/static-switch
 out null
 exit 0
 

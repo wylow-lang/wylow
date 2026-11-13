@@ -311,6 +311,7 @@ public sealed partial class Binder
             TakesLanguageName(decl.Name, decl.NameLocation);
             if (field.IsStatic)
             {
+                field.ConstantValue = LiteralValue(decl.Initializer, type);
                 CheckStaticField(field, s);
                 s.StaticFields.Add(field);
             }

@@ -158,6 +158,9 @@ static class Mutations
         new("expression-array", SiteKind.Expression, Wrappable, ExpressionArrayBuild),
         new("expression-eval", SiteKind.Expression, Wrappable, EvalBuild),
         new("expression-read", SiteKind.Expression, Wrappable, ReadBuild),
+        // Names a literal pattern's value by a static that the literal initializes, which matches the
+        // same values: the case keeps its place in the duplicate check and the C++ switch.
+        new("pattern-static", SiteKind.Expression, site => site.InPattern && PatternStaticType(site.Node) is not null, PatternStaticBuild),
         new("integer-edge", SiteKind.IntegerLiteral, IntegerEdgeApplies, IntegerEdgeBuild),
         new("float-edge", SiteKind.FloatLiteral, FloatEdgeApplies, FloatEdgeBuild),
         new("char-edge", SiteKind.CharLiteral, CharEdgeApplies, CharEdgeBuild),
@@ -540,6 +543,33 @@ static class Mutations
         [
             new Edit(site.Span.Start, site.Span.End, name + "(" + context.Slice(site.Span) + ")"),
             MutationContext.Append(helper, context.Text),
+        ]);
+    }
+
+    /// <summary>The type of a literal pattern's value, which a static of that type holds, or null for another pattern value.</summary>
+    static string? PatternStaticType(Node value) => value switch
+    {
+        IntLiteralExpr literal => literal.Suffix switch
+        {
+            IntegerSuffix.Unsigned => "uint",
+            IntegerSuffix.Long => "long",
+            IntegerSuffix.UnsignedLong => "ulong",
+            _ => "int",
+        },
+        UnaryExpr { Operator: TokenKind.Minus, Operand: IntLiteralExpr operand } => PatternStaticType(operand),
+        CharLiteralExpr => "char",
+        BoolLiteralExpr => "bool",
+        _ => null,
+    };
+
+    static Candidate? PatternStaticBuild(MutationContext context, Site site)
+    {
+        var owner = context.UniqueName("WylFuzzStatics");
+        var declaration = $"class {owner} {{\n    pub static {PatternStaticType(site.Node)} VALUE = {context.Slice(site.Span)};\n}}";
+        return new Candidate("pattern-static",
+        [
+            new Edit(site.Span.Start, site.Span.End, owner + ".VALUE"),
+            MutationContext.Append(declaration, context.Text),
         ]);
     }
 

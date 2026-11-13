@@ -9,16 +9,16 @@ extern {
     @CppName("sqlite3_stmt")
     module struct PreparedStatement;
 
-    module static int SQLITE_OK;
-    module static int SQLITE_MISMATCH;
-    module static int SQLITE_MISUSE;
-    module static int SQLITE_ROW;
-    module static int SQLITE_DONE;
-    module static int SQLITE_INTEGER;
-    module static int SQLITE_FLOAT;
-    module static int SQLITE_TEXT;
-    module static int SQLITE_BLOB;
-    module static int SQLITE_NULL;
+    module static int SQLITE_OK = 0;
+    module static int SQLITE_MISMATCH = 20;
+    module static int SQLITE_MISUSE = 21;
+    module static int SQLITE_ROW = 100;
+    module static int SQLITE_DONE = 101;
+    module static int SQLITE_INTEGER = 1;
+    module static int SQLITE_FLOAT = 2;
+    module static int SQLITE_TEXT = 3;
+    module static int SQLITE_BLOB = 4;
+    module static int SQLITE_NULL = 5;
     module static extern fn(void*) -> void SQLITE_TRANSIENT;
 
     module int sqlite3_open(byte* filename, Connection** connection);

@@ -4,6 +4,7 @@
 @Include("codec.h")
 extern {
     static int CODEC_LIMIT;                     // error[WYL0511]: type 'int' of constant 'CODEC_LIMIT' does not match the type of C++ 'CODEC_LIMIT'
+    static uint CODEC_LIMIT_VALUE = 12u;           // error[WYL0544]: value 12 of constant 'CODEC_LIMIT_VALUE' does not match the value of C++ 'CODEC_LIMIT_VALUE'
     int codec_encode(int value);                // error[WYL0510]: return type 'int' of 'codec_encode' does not match the C++ function 'codec_encode'
     int codec_decode(int value);                // error[WYL0510]: type 'int' of parameter 'value' of 'codec_decode' does not match the C++ function 'codec_decode'
     int codec_check(int value);                 // error[WYL0510]: the number of parameters of 'codec_check' does not match the C++ function 'codec_check'

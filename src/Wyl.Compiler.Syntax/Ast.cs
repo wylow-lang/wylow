@@ -134,8 +134,11 @@ public sealed record TypeDecl(
     public bool IsUnion { get; init; }
 }
 
-/// <summary><c>static T NAME;</c> in an extern block: a C++ constant read as a value of the type (spec <c>interop.extern.constants</c>).</summary>
-public sealed record ExternConstantDecl(Location Location, Modifiers Modifiers, TypeSyntax Type, string Name, Location NameLocation)
+/// <summary>
+/// <c>static T NAME;</c> in an extern block: a C++ constant read as a value of the type. <see cref="Value"/>
+/// is the value that <c>static T NAME = value;</c> gives it (spec <c>interop.extern.constants</c>).
+/// </summary>
+public sealed record ExternConstantDecl(Location Location, Modifiers Modifiers, TypeSyntax Type, string Name, Location NameLocation, Expr? Value)
     : Declaration(Location, Modifiers);
 
 /// <summary>An enum variant. <see cref="Fields"/> is null when the variant carries no data.</summary>

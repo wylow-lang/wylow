@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #define CODEC_LIMIT 10u
+#define CODEC_LIMIT_VALUE 10u
 
 int64_t codec_encode(int32_t value);
 int32_t codec_decode(int64_t value);

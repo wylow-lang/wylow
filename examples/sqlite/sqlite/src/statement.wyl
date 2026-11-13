@@ -83,13 +83,11 @@ pub unique struct Statement {
         unsafe {
             int code = sqlite3_step(handle);
             onRow = code == SQLITE_ROW;
-            if (onRow) {
-                return Ok(true);
-            }
-            if (code == SQLITE_DONE) {
-                return Ok(false);
-            }
-            return Err(database.error(code));
+            return switch (code) {
+                case SQLITE_ROW -> Ok(true);
+                case SQLITE_DONE -> Ok(false);
+                case _ -> Err(database.error(code));
+            };
         }
     }
 
@@ -134,28 +132,25 @@ pub unique struct Statement {
         }
         checkColumn(column);
         unsafe {
-            int type = sqlite3_column_type(handle, column);
-            if (type == SQLITE_INTEGER) {
-                return Ok(Value.Integer(sqlite3_column_int64(handle, column)));
+            switch (sqlite3_column_type(handle, column)) {
+                case SQLITE_INTEGER -> return Ok(Value.Integer(sqlite3_column_int64(handle, column)));
+                case SQLITE_FLOAT -> return Ok(Value.Float(sqlite3_column_double(handle, column)));
+                case SQLITE_TEXT -> {
+                    // SQLite's documentation reads the pointer before the length.
+                    byte* data = sqlite3_column_text(handle, column);
+                    int length = sqlite3_column_bytes(handle, column);
+                    return switch (String.fromUtf8(ReadOnlySpan<byte>(data, length))) {
+                        case Ok(var text) -> Ok(Value.Text(text));
+                        case Err(var error) -> Err(invalidText(column, error));
+                    };
+                }
+                case SQLITE_BLOB -> {
+                    byte* data = (byte*) sqlite3_column_blob(handle, column);
+                    int length = sqlite3_column_bytes(handle, column);
+                    return Ok(Value.Blob(ReadOnlySpan<byte>(data, length).toArray()));
+                }
+                case _ -> return Ok(Value.Null);
             }
-            if (type == SQLITE_FLOAT) {
-                return Ok(Value.Float(sqlite3_column_double(handle, column)));
-            }
-            if (type == SQLITE_TEXT) {
-                // SQLite's documentation reads the pointer before the length.
-                byte* data = sqlite3_column_text(handle, column);
-                int length = sqlite3_column_bytes(handle, column);
-                return switch (String.fromUtf8(ReadOnlySpan<byte>(data, length))) {
-                    case Ok(var text) -> Ok(Value.Text(text));
-                    case Err(var error) -> Err(invalidText(column, error));
-                };
-            }
-            if (type == SQLITE_BLOB) {
-                byte* data = (byte*) sqlite3_column_blob(handle, column);
-                int length = sqlite3_column_bytes(handle, column);
-                return Ok(Value.Blob(ReadOnlySpan<byte>(data, length).toArray()));
-            }
-            return Ok(Value.Null);
         }
     }
 

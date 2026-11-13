@@ -146,6 +146,17 @@ public static partial class Catalog
     public static Diagnostic ConstantMismatch(Location at, string constant, string type, string cppName) =>
         Make(at, $"type '{type}' of constant '{constant}' does not match the type of C++ '{cppName}'");
 
+    [Error(543, "interop.extern.constants")]
+    public static Diagnostic ExternConstantValue(Location at, string constant, string type, bool literalType) =>
+        literalType
+            ? Make(at, $"value of constant '{constant}' must be a literal of type '{type}'")
+            : Make(at, $"value of constant '{constant}' must be a literal of type '{type}'")
+                .Note("only a constant of an integer type, 'char', or 'bool' gives its value");
+
+    [Error(544, "interop.extern.constants")]
+    public static Diagnostic ConstantValueMismatch(Location at, string constant, string value, string cppName) =>
+        Make(at, $"value {value} of constant '{constant}' does not match the value of C++ '{cppName}'");
+
     [Error(512, "interop.blittable.layout")]
     public static Diagnostic LayoutMismatch(Location at, string part, string kind, string type, string cppName) =>
         Make(at, $"{part} of {kind} '{type}' does not match the C++ type '{cppName}'");

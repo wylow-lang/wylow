@@ -1,0 +1,40 @@
+// native
+// An extern constant that gives its value is a pattern, and a read of it gives C++'s value, which a
+// static_assert keeps equal to the declared one (spec interop.extern.constants, patterns.kinds).
+@Include("codes.h")
+extern {
+    static int CODE_OK = 0;
+    static int CODE_ROW = 100;
+    static int CODE_DONE = 101;
+    static int CODE_BUSY = 5;
+    static long CODE_WIDE = -5000000000L;
+    static bool CODE_STRICT = true;
+    // A constant without a value is read as before.
+    static int CODE_LIMIT;
+
+    @Safe int code_next(int step);
+}
+
+String describe(int code) {
+    return switch (code) {
+        case CODE_OK -> "ok";
+        case CODE_ROW -> "row";
+        case CODE_DONE -> "done";
+        case CODE_BUSY -> "busy";
+        case _ -> $"unknown {code}";
+    };
+}
+
+void main() {
+    for (int step : 0..4) {
+        std::print(describe(code_next(step)));
+        // output: row
+        // output: busy
+        // output: done
+        // output: unknown 7
+    }
+    std::print(CODE_ROW + CODE_LIMIT);                  // output: 164
+    long wide = -5000000000L;
+    std::print(wide is CODE_WIDE);                      // output: true
+    std::print(CODE_STRICT);                            // output: true
+}

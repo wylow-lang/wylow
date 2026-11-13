@@ -13,7 +13,7 @@ package exports.
 ExternBlock    = { Annotation } "extern" "{" { ExternMember } "}" .
 ExternMember   = ExternConstant | OpaqueStruct | StructDeclaration | UnionDeclaration
                | FunctionDeclaration .
-ExternConstant = { Annotation } [ Visibility ] "static" Type Identifier ";" .
+ExternConstant = { Annotation } [ Visibility ] "static" Type Identifier [ "=" Expression ] ";" .
 OpaqueStruct   = { Annotation } [ Visibility ] "struct" Identifier ";" .
 ```
 
@@ -63,6 +63,17 @@ name, read as a value of type `T`.
 - Reading an extern constant needs no unsafe code.
 - It is a compile-time error if the type of an extern constant is not blittable
   ([Blittable types](#interop.blittable)).
+
+`static T NAME = value;` also gives the constant's value, so that a pattern may name the constant
+([Kinds of patterns](15-patterns.md#patterns.kinds)):
+
+- It is a compile-time error if `T` is not an integer type, `char`, or `bool`, or if `value` is not a
+  literal of type `T`. A literal of type `T` is what a static's initializer must be for a pattern to
+  name the static.
+- A read of the constant gives the value of the C++ constant, and a pattern that names the constant
+  matches the declared value.
+- The build checks that the C++ constant equals the declared value, and reports a difference at the
+  declaration, as it reports a type that does not match.
 
 <a id="interop.extern.c-structs"></a>
 ### 21.1.2 Structs and unions

@@ -5,14 +5,15 @@
 // iterator adapters and terminal operations over an empty list, a one-element list, and the
 // one-element element iterators, the last index, the empty and multi-byte strings, the code point past ASCII,
 // true, null as a value and as a reference, and an unequal pair. An operation is arithmetic,
-// comparison, indexing, iteration, conversion, formatting, or switch. A row only pairs with the
+// comparison, indexing, iteration, conversion, formatting, switch, or static-switch, which is the
+// switch with each literal pattern replaced by a static of that value. A row only pairs with the
 // operations its value supports, so each cell is a meaningful program; a cell where the spec calls
 // for an error or a panic records that instead.
 static class MatrixValues
 {
     static readonly string[] Operations =
     [
-        "arithmetic", "comparison", "indexing", "iteration", "conversion", "formatting", "switch",
+        "arithmetic", "comparison", "indexing", "iteration", "conversion", "formatting", "switch", "static-switch",
     ];
 
     public static Matrix Build()
@@ -22,9 +23,15 @@ static class MatrixValues
         {
             foreach (var operation in Operations)
             {
-                if (!row.Bodies.TryGetValue(operation, out var body))
+                var declarations = row.Declarations;
+                string? body;
+                if (operation == "static-switch")
+                    (body, declarations) = row.Bodies.TryGetValue("switch", out var literal) ? WithStatics(row, literal) : (null, "");
+                else
+                    row.Bodies.TryGetValue(operation, out body);
+                if (body is null)
                     continue;
-                var source = $"// matrix: values x operations, cell: {row.Name}/{operation}\n\n{Fixture}\n\nvoid main() {{\n{row.Setup}\n{body}\n}}{row.Declarations}";
+                var source = $"// matrix: values x operations, cell: {row.Name}/{operation}\n\n{Fixture}\n\nvoid main() {{\n{row.Setup}\n{body}\n}}{declarations}";
                 cells.Add(new MatrixCell($"{row.Name}/{operation}", source));
             }
         }
@@ -32,6 +39,22 @@ static class MatrixValues
             "values",
             "values x operations: a value at an edge, crossed with what is done with it.",
             cells);
+    }
+
+    /// <summary>
+    /// A row's switch with each literal pattern replaced by a static of the value's type that the
+    /// literal initializes, and the class that declares the statics after the row's own types.
+    /// </summary>
+    static (string Body, string Declarations) WithStatics(ValueRow row, string body)
+    {
+        var type = row.Setup[..row.Setup.IndexOf(" value", StringComparison.Ordinal)];
+        var statics = new List<string>();
+        var replaced = System.Text.RegularExpressions.Regex.Replace(body, @"case (-?[0-9][0-9a-zA-Z]*|'[^']+'|true|false) ->", match =>
+        {
+            statics.Add($"    pub static {type} C{statics.Count} = {match.Groups[1].Value};");
+            return $"case Codes.C{statics.Count - 1} ->";
+        });
+        return (replaced, $"{row.Declarations}\n\nclass Codes {{\n{string.Join("\n", statics)}\n}}\n");
     }
 
     /// <param name="Declarations">Types only the row uses, after <c>main</c>, so that the lines of every other cell stay where they are.</param>

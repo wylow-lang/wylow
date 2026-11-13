@@ -1,0 +1,35 @@
+// The errors of a static as a pattern (spec patterns.kinds).
+
+@Include("codes.h")
+extern {
+    static int CODE_LIMIT;
+}
+
+class Codes {
+    pub static int ROW = 100;
+    pub static int TWO = 1 + 1;
+    pub static int NONE;
+    pub static String TEXT = "a";
+    pub static int LARGE = 300;
+}
+
+void main() {
+    int code = 2;
+    switch (code) {
+        case Codes.TWO -> std::print("two");        // error[WYL0542]: static 'Codes.TWO' cannot be a pattern
+        case Codes.NONE -> std::print("none");      // error[WYL0542]: static 'Codes.NONE' cannot be a pattern
+        case CODE_LIMIT -> std::print("limit");     // error[WYL0542]: static 'CODE_LIMIT' cannot be a pattern
+        case _ -> std::print("other");
+    }
+    String text = "a";
+    std::print(text is Codes.TEXT);                 // error[WYL0542]: static 'Codes.TEXT' cannot be a pattern
+    byte b = 1;
+    std::print(b is Codes.LARGE);                   // error[WYL0380]: pattern 'Codes.LARGE' can never match a value of type 'byte'
+
+    // Two cases of one value, a static and a literal.
+    switch (code) {
+        case Codes.ROW -> std::print("row");
+        case 100 -> std::print("hundred");          // error[WYL0391]: case can never be reached
+        case _ -> std::print("other");
+    }
+}

@@ -66,8 +66,9 @@ public sealed partial class Parser
         if (isStatic && !At(TokenKind.OpenParen) && !At(TokenKind.Less))
         {
             Disallow(modifiers, ~Modifiers.Static, token => Catalog.ModifierOnExternConstant(Loc(token.Span), token.Text));
+            var value = Accept(TokenKind.Assign) ? ParseExpression() : null;
             Expect(TokenKind.Semicolon, "';'");
-            return new ExternConstantDecl(LocationFrom(start), modifiers.Flags, type, name.Text, Loc(name.Span))
+            return new ExternConstantDecl(LocationFrom(start), modifiers.Flags, type, name.Text, Loc(name.Span), value)
             {
                 Annotations = annotations,
                 Visibility = modifiers.Visibility,

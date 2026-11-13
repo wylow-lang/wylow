@@ -129,3 +129,4 @@ history and a reason can be found without searching the spec.
 | [0099](0099-c-native-sources.md) | A package's `native/` directory may hold C sources, which compile as C17 into kept objects |
 | [0100](0100-repr-enum-results.md) | An extern function may return a `@Repr` enum, and the call panics on an unknown value |
 | [0101](0101-dependencies-libraries-and-versions.md) | Dependencies are local paths, a library declares its kind and version, and a version is a check |
+| [0102](0102-statics-as-patterns.md) | A static whose initializer is a literal is a pattern, and an extern static may give its value |

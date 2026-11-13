@@ -1,0 +1,17 @@
+// The value that an extern constant's declaration gives must be a literal of its type, which is an
+// integer type, char, or bool (spec interop.extern.constants).
+
+@Include("codes.h")
+extern {
+    static int SUM = 1 + 2;                 // error[WYL0543]: value of constant 'SUM' must be a literal of type 'int'
+    static int FLAG = true;                 // error[WYL0543]: value of constant 'FLAG' must be a literal of type 'int'
+    static byte LARGE = 256;                // error[WYL0543]: value of constant 'LARGE' must be a literal of type 'byte'
+    static int WIDE = 5L;                   // error[WYL0543]: value of constant 'WIDE' must be a literal of type 'int'
+    static double RATE = 1.5;               // error[WYL0543]: value of constant 'RATE' must be a literal of type 'double'
+    static byte SMALL = 255;
+    static char LETTER = 'a';
+    static bool ON = false;
+    static long NEGATIVE = -1;
+}
+
+void main() { }

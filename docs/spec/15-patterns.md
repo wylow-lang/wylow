@@ -30,6 +30,7 @@ A pattern either always matches or tests the value. These are the patterns:
 | `null` | Null: a switch's nullable value, or a nullable field, in a case |
 | `Type name`, `Type` | A class or interface value that is not null and is a `Type`. For a value type, only its own type |
 | `42`, `-1`, `'a'`, `true` | An integer, `char`, or `bool` equal to the literal |
+| `LIMIT`, `Type.LIMIT` | An integer, `char`, or `bool` equal to the static's value |
 
 - The qualifier in `Enum.Variant` is the matched value's enum. Type arguments may be left out, since
   the value determines them: `case Result.Ok(var value)`.
@@ -37,7 +38,14 @@ A pattern either always matches or tests the value. These are the patterns:
   converts to it where it fits, so matching a `byte` writes `case 200`, and matching a `long` with a
   value past the maximum of an `int` writes `case 2147483648L`
   ([Integer constants](05-conversions.md#conversions.constants)).
-- A lone name is a variant when it matches an enum, and otherwise a type.
+- A lone name is a variant when the matched value is an enum. Otherwise the name is a static if a
+  static of that name is visible as a value there ([Statics](06-variables.md#variables.statics),
+  [Extern constants](21-interop.md#interop.extern.constants)), and otherwise a type. `Type.NAME`
+  names a static of `Type` when the matched value is not an enum.
+- A static is a pattern if its type is an integer type, `char`, or `bool`, and its initializer is a
+  literal of that type: an integer literal, which may be negated, a `char` literal, `true`, or
+  `false`. An extern constant is a pattern if its declaration gives its value. The pattern matches
+  what the literal would match.
 - A struct pattern deconstructs a struct value. The value is always of the pattern's own type, so
   the pattern matches when its field patterns do; nested, it tests the fields of a field
   (`Moved(Point(var x, _, _))`). On a nullable value it also tests that the value is not null. Every
@@ -55,6 +63,9 @@ A pattern either always matches or tests the value. These are the patterns:
   number of fields other than the variant's.
 - It is a compile-time error to write a literal pattern of a type that is not an integer, `char`, or
   `bool`.
+- It is a compile-time error for a pattern to name a static that is not a pattern: a static of
+  another type, a static whose initializer is not a literal or that has none, or an extern constant
+  whose declaration does not give its value.
 
 **Example:**
 

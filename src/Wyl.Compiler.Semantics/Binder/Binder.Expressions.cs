@@ -69,15 +69,25 @@ public sealed partial class Binder
         return new BoundErrorExpression(diagnostic.Location);
     }
 
+    static WylType IntegerLiteralType(IntLiteralExpr e) => e.Suffix switch
+    {
+        IntegerSuffix.Unsigned => WylType.UInt,
+        IntegerSuffix.Long => WylType.Long,
+        IntegerSuffix.UnsignedLong => WylType.ULong,
+        _ => WylType.Int,
+    };
+
+    /// <summary>The value of an integer literal, negated if <paramref name="negated"/>, or null where <see cref="BindIntegerLiteral"/> reports an error.</summary>
+    static BoundLiteral? IntegerLiteralValue(IntLiteralExpr e, bool negated)
+    {
+        var type = IntegerLiteralType(e);
+        Int128 value = negated ? -(Int128)e.Value : e.Value;
+        return (negated && !type.IsSigned) || !type.Range!.Value.Contains(value) ? null : BoundLiteral.Number(e.Location, type, value);
+    }
+
     BoundExpression BindIntegerLiteral(IntLiteralExpr e, Location location, bool negated)
     {
-        var type = e.Suffix switch
-        {
-            IntegerSuffix.Unsigned => WylType.UInt,
-            IntegerSuffix.Long => WylType.Long,
-            IntegerSuffix.UnsignedLong => WylType.ULong,
-            _ => WylType.Int,
-        };
+        var type = IntegerLiteralType(e);
         if (negated && !type.IsSigned)
             return ErrorExpression(Catalog.UnaryOperatorNotApplicable(location, "-", type.ToString()));
 

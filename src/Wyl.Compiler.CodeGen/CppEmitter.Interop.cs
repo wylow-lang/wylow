@@ -214,6 +214,13 @@ public sealed partial class CppEmitter
         var wrapper = externWrappers[constant] = $"wyl_extern_{interopRegions.Count}";
         StaticAssert($"wyl::interop::Matches<{BoundaryCppType(constant.ReturnType)}, decltype({cppName})>()",
             Catalog.ConstantMismatch(constant.Declaration!.NameLocation, constant.Name, constant.ReturnType.ToString(), cppName));
+        // A pattern that names the constant matches the value that its declaration gives.
+        if (constant.ConstantValue is { } value)
+        {
+            var written = value.Value switch { bool b => b ? "true" : "false", System.Text.Rune r => $"'{r}'", var other => $"{other}" };
+            StaticAssert($"static_cast<{type}>({cppName}) == {Literal(value)}",
+                Catalog.ConstantValueMismatch(constant.Declaration!.NameLocation, constant.Name, written, cppName));
+        }
         Line($"inline {type} {wrapper}() noexcept {{ return wyl::interop::Convert<{type}>({cppName}); }}");
     }
 

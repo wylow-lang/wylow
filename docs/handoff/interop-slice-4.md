@@ -133,6 +133,17 @@ The user agreed to this design, which needs a decision record before the spec an
   `case`. Add the pattern to the patterns matrix, and a fuzzer mutation that replaces a literal
   pattern with a static of the same value.
 
+Built, with decision 0102. The user chose that the initializer must be a literal, for a Wylow static
+and for an extern constant alike, because a constant expression would need a compile-time
+evaluator that states the arithmetic rules a second time. A static's value is
+`FieldSymbol.ConstantValue` or `FunctionSymbol.ConstantValue`, and a pattern that names the static
+binds to the `BoundConstantPattern` that the literal would make, so the duplicate check and the C++
+`switch` needed no change. The errors are `WYL0542` (a static that is not a pattern), `WYL0543` (an
+extern constant's value that is not a literal of its type), and `WYL0544` (a value that does not
+match C++). The suite has no patterns matrix, so the values matrix gained a `static-switch` column,
+which is each row's `switch` with its literal patterns replaced by statics. The fuzzer's
+`pattern-static` mutation replaces a literal pattern with a static of the same value.
+
 ## 5. A header outside the block's own package
 
 Design this step with the user, and record the decision before the code. Today, a block whose

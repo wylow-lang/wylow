@@ -52,7 +52,8 @@ public sealed partial class Binder
             DeclareErrorBindings(e.Pattern);
             return new BoundErrorExpression(e.Location);
         }
-        bool isTypeTest = e.Pattern is TypePatternSyntax || (e.Pattern is VariantPatternSyntax { Enum: null, Fields: null } && !operand.Type.IsEnum);
+        bool isTypeTest = e.Pattern is TypePatternSyntax
+            || (e.Pattern is VariantPatternSyntax { Enum: null, Fields: null } lone && !operand.Type.IsEnum && NamedStatic(lone) is null);
         if (isTypeTest && !operand.Type.IsReference && !operand.Type.IsNullableValue)
         {
             DeclareErrorBindings(e.Pattern);
@@ -114,6 +115,9 @@ public sealed partial class Binder
                 return BindConstantPattern(c, type);
             case TypePatternSyntax t:
                 return BindTypePattern(t.Location, t.Type, t.Name, t.NameLocation, type, canBind);
+            // A name that is not a variant may be a static (spec patterns.kinds).
+            case VariantPatternSyntax { Fields: null } v when !type.NonNull.IsEnum && NamedStatic(v) is { } named:
+                return BindStaticPattern(v, named, type);
             // Only a variant if the value is an enum: otherwise a lone name is a type test, as in `animal is Dog`.
             case VariantPatternSyntax { Enum: null, Fields: null } v when !type.IsEnum:
                 return BindTypePattern(v.Location, new TypeSyntax(v.NameLocation, v.Name, []), null, v.NameLocation, type, canBind);
@@ -229,11 +233,83 @@ public sealed partial class Binder
         };
         if (value is not BoundLiteral literalValue)
             return new BoundDiscardPattern(c.Location, type);
-        if (literalValue.Type == type)
-            return new BoundConstantPattern(c.Location, literalValue);
-        if (type.IsInteger && IsConvertibleConstant(literalValue, type))
-            return new BoundConstantPattern(c.Location, BoundLiteral.Number(c.Location, type, literalValue.Integer!.Value));
-        return ErrorPattern(c, type, Catalog.PatternNeverMatches(c.Location, TextOf(c.Location), type.ToString()));
+        return Converted(literalValue, type, c.Location) is { } converted
+            ? new BoundConstantPattern(c.Location, converted)
+            : ErrorPattern(c, type, Catalog.PatternNeverMatches(c.Location, TextOf(c.Location), type.ToString()));
+    }
+
+    /// <summary>
+    /// <paramref name="literal"/> as a constant of <paramref name="type"/> at <paramref name="location"/>:
+    /// the literal itself if it has the type, an integer constant that fits, or null.
+    /// </summary>
+    static BoundLiteral? Converted(BoundLiteral literal, WylType type, Location location) =>
+        literal.Type == type ? (literal.Integer is { } same ? BoundLiteral.Number(location, type, same) : new BoundLiteral(location, type, literal.Value))
+        : type.IsInteger && IsConvertibleConstant(literal, type) ? BoundLiteral.Number(location, type, literal.Integer!.Value)
+        : null;
+
+    /// <summary>Whether a literal of the type is a pattern, so that a static of the type may be one.</summary>
+    static bool IsLiteralPatternType(WylType type) => type.IsInteger || type == WylType.Char || type == WylType.Bool;
+
+    /// <summary>
+    /// The value of a static of <paramref name="type"/> whose initializer is a literal of that type,
+    /// an integer type, <c>char</c>, or <c>bool</c>; null for any other static (spec <c>patterns.kinds</c>).
+    /// The function reports nothing: the initializer's own errors are reported where it is bound.
+    /// </summary>
+    static BoundLiteral? LiteralValue(Expr? initializer, WylType type)
+    {
+        if (!IsLiteralPatternType(type))
+            return null;
+        BoundLiteral? literal = initializer switch
+        {
+            IntLiteralExpr i => IntegerLiteralValue(i, negated: false),
+            UnaryExpr { Operator: TokenKind.Minus, Operand: IntLiteralExpr i } => IntegerLiteralValue(i, negated: true),
+            BoolLiteralExpr b => new BoundLiteral(b.Location, WylType.Bool, b.Value),
+            CharLiteralExpr c => new BoundLiteral(c.Location, WylType.Char, c.Value),
+            _ => null,
+        };
+        return literal is null ? null : Converted(literal, type, literal.Location);
+    }
+
+    /// <summary>A static that a pattern names, and its value if it has one.</summary>
+    sealed record StaticName(string Text, WylType Type, BoundLiteral? Value, Reach Reach, bool IsExtern, bool HasInitializer);
+
+    /// <summary>
+    /// The static that a lone name or <c>Type.NAME</c> in a pattern names, found as an expression
+    /// finds it, or null if the name is not a static.
+    /// </summary>
+    StaticName? NamedStatic(VariantPatternSyntax v)
+    {
+        if (v.Enum is { } owner)
+        {
+            if (owner is not { TypeArguments.Count: 0, Modules.Count: 0 } || LookupTypeParameter(owner.Name) is not null
+                || LookupType(owner.Name, owner.Location) is not { } s || LookupStaticField(s.Type, v.Name) is not { } qualified)
+                return null;
+            return Of(qualified.Field, TextOf(v.Location));
+        }
+        if (scope!.Lookup(v.Name) is not null)
+            return null;
+        if (currentType is not null && LookupStaticField(currentType.Type, v.Name) is { } own)
+            return Of(own.Field, v.Name);
+        if (LookupFunctions(v.Name, v.Location) is [{ IsExternConstant: true } constant])
+            return new StaticName(v.Name, constant.ReturnType, constant.ConstantValue, constant.Reach, IsExtern: true, HasInitializer: false);
+        return null;
+
+        static StaticName Of(FieldSymbol field, string text) =>
+            new(text, field.Type, field.ConstantValue, field.Reach, IsExtern: false, HasInitializer: field.Declaration.Initializer is not null);
+    }
+
+    /// <summary>A static as a pattern: the constant pattern of its value (spec <c>patterns.kinds</c>).</summary>
+    BoundPattern BindStaticPattern(VariantPatternSyntax v, StaticName named, WylType type)
+    {
+        CheckVisible(v.Location, named.Reach, $"static '{named.Text}'");
+        if (named.Value is not { } value)
+        {
+            var otherType = IsLiteralPatternType(named.Type) || named.Type == WylType.Error ? null : named.Type.ToString();
+            return ErrorPattern(v, type, Catalog.StaticNotPattern(v.Location, named.Text, otherType, named.IsExtern, named.HasInitializer));
+        }
+        return Converted(value, type, v.Location) is { } converted
+            ? new BoundConstantPattern(v.Location, converted)
+            : ErrorPattern(v, type, Catalog.PatternNeverMatches(v.Location, named.Text, type.ToString()));
     }
 
     /// <summary>
