@@ -10,6 +10,12 @@ extern { }
 @CppNamespace                           // error[WYL0505]: '@CppNamespace' takes one string literal
 extern { }
 
+@Include("<first.h")                    // error[WYL0546]: '@Include' path '<first.h' does not name a system header
+extern { }
+
+@Include("<>")                          // error[WYL0546]: '@Include' path '<>' does not name a system header
+extern { }
+
 @Include("native.h")
 @SuppressWarnings("unqualified-call")   // error[WYL0432]: '@SuppressWarnings' can only be used on declarations, local variables, and imports
 extern { }

@@ -1,0 +1,9 @@
+@Include("codec.h")
+extern {
+    static int CODEC_LEVEL;
+}
+
+/// Returns the level that the library's header defines.
+pub int level() {
+    return CODEC_LEVEL;
+}

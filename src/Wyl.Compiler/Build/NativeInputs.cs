@@ -1,4 +1,6 @@
 using System.Text;
+using Wyl.Compiler.Diagnostics;
+using Wyl.Compiler.Semantics;
 using Wyl.Compiler.Text;
 
 namespace Wyl.Compiler.Build;
@@ -6,10 +8,12 @@ namespace Wyl.Compiler.Build;
 /// <summary>
 /// What one package gives a program's C++ build: the package's <c>native/</c> directory (spec
 /// <c>interop.native</c>) and the lists of its manifest's <c>native</c> block that apply on this
-/// platform (spec <c>programs.manifest</c>). Every path is absolute.
+/// platform (spec <c>programs.manifest</c>). Every path is absolute, and <see cref="Root"/> is the
+/// package's own directory.
 /// </summary>
 public sealed record PackageNative(
     Package Package,
+    string Root,
     string? Directory,
     IReadOnlyList<string> Include,
     IReadOnlyList<string> LibraryPaths,
@@ -110,12 +114,29 @@ public sealed record NativeInputs(IReadOnlyList<PackageNative> Packages)
     public IReadOnlyList<string> Copy => Distinct(Packages.SelectMany(p => p.Copy));
 
     /// <summary>
-    /// The path that the generated program includes an extern block's header by: its full path in
-    /// the include path of the block's own package, or the path as written if that package does not
-    /// hold it, as for the standard library's headers.
+    /// The full path that the generated program includes a header of an extern block's own package
+    /// by, which <see cref="CheckHeaders"/> found in the include path of that package.
     /// </summary>
-    public string HeaderPath(Package package, string header) =>
-        Packages.FirstOrDefault(p => p.Package == package)?.FindHeader(header)?.Replace('\\', '/') ?? header;
+    public string HeaderPath(ExternHeader header) =>
+        FindHeader(header)?.Replace('\\', '/') ?? throw new InvalidOperationException($"header '{header.Path}' was not checked");
+
+    /// <summary>
+    /// Reports each header of a package's extern blocks that the package's own include path does not
+    /// hold (spec <c>interop.native</c>). A system header and a header of the standard library, which
+    /// is the runtime's, are not searched for.
+    /// </summary>
+    public IEnumerable<Diagnostic> CheckHeaders(IEnumerable<ExternHeader> headers)
+    {
+        foreach (var header in headers.Where(h => !h.System && !h.Package.IsStd && FindHeader(h) is null))
+        {
+            var own = Packages.FirstOrDefault(p => p.Package == header.Package);
+            List<string> searched = own is null ? [] : [.. own.IncludeDirectories.Select(d => Path.GetRelativePath(own.Root, d).Replace('\\', '/') + "/")];
+            var elsewhere = Packages.FirstOrDefault(p => p.Package != header.Package && p.FindHeader(header.Path) is not null)?.Package.Name;
+            yield return Catalog.HeaderNotFound(header.At, header.Path, header.Package.Name, searched, elsewhere);
+        }
+    }
+
+    string? FindHeader(ExternHeader header) => Packages.FirstOrDefault(p => p.Package == header.Package)?.FindHeader(header.Path);
 
     /// <summary>Every package's lists, as text that differs whenever one of them does.</summary>
     public string Text => string.Concat(Packages.Select(p => p.Text));

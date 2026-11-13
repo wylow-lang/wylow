@@ -417,10 +417,12 @@ compiler runs on (`NativeInputs.Platform`), and it makes each path absolute from
 directory (`PackageNative`). `NativeInputs` holds the `PackageNative` of each package, the
 program's first. A package's include path is its `native/` directory, then each directory of its
 `include` list. The generated program includes each extern block's header by the full path that
-`NativeInputs.HeaderPath` finds in the include path of the block's own package, so two packages may
-each have a header of one path. If the block's package does not hold the header, the program
-includes the header by the path as written. The standard library's headers are included that way,
-since the runtime directory holds them. The generated program compiles with the include paths of
+`NativeInputs.FindHeader` finds in the include path of the block's own package, so two packages may
+each have a header of one path. `Compilation.Lower` asks `NativeInputs.CheckHeaders` for each
+header after binding, and a header that the block's package does not hold is an error (`WYL0545`)
+that lists the directories searched. The program includes a system header, written
+`@Include("<path>")`, as `#include <path>`, and the C++ compiler searches for it (decision 0103).
+The standard library's blocks include `wyl.h`, which every generated program includes first. The generated program compiles with the include paths of
 every package, in package order, so that a header finds the headers that it includes. It also
 compiles with the definitions of every package. `PackageSources.Load` reports two packages that
 define one name with different values (`WYL0538`). A definition could change what `wyl.h` means, so

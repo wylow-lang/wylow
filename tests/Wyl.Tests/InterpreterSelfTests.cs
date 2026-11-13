@@ -1424,7 +1424,7 @@ static class InterpreterSelfTests
     {
         const string name = "interpreter/native_call";
         var source = new SourceText("native.wyl", """
-            @Include("version.h")
+            @Include("<version.h>")
             extern {
                 @Safe
                 int version();

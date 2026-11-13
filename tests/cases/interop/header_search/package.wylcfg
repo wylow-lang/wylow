@@ -1,0 +1,6 @@
+// A program whose extern blocks name headers that its own package does not hold (spec
+// interop.native). The library 'codec' holds 'codec.h', and the program cannot include it.
+name = "header_search";
+dependencies {
+    codec { path = "vendor/codec"; }
+}

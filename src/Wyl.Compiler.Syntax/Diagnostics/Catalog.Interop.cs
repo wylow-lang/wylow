@@ -94,6 +94,26 @@ public static partial class Catalog
     public static Diagnostic DuplicateInclude(Location at, Location first) =>
         Make(at, "extern block has more than one '@Include'").Note(first, "first '@Include' here");
 
+    [Error(545, "interop.native")]
+    public static Diagnostic HeaderNotFound(Location at, string header, string? package, IReadOnlyList<string> searched, string? elsewhere)
+    {
+        var diagnostic = Make(at, package is null
+            ? $"cannot find header '{header}'"
+            : $"cannot find header '{header}' in package '{package}'");
+        diagnostic = package is null
+            ? diagnostic.Note("a file compiled on its own has no 'native/' directory")
+            : searched.Count == 0
+                ? diagnostic.Note($"package '{package}' has no 'native/' directory and no 'include' directories")
+                : searched.Aggregate(diagnostic, (d, directory) => d.Note($"searched '{directory}'"));
+        if (elsewhere is not null)
+            return diagnostic.Note($"package '{elsewhere}' has a header '{header}', which only its own extern blocks can include");
+        return diagnostic.Help($"write '@Include(\"<{header}>\")' if it is a system header");
+    }
+
+    [Error(546, "interop.extern")]
+    public static Diagnostic MalformedSystemHeader(Location at, string path) =>
+        Make(at, $"'@Include' path '{path}' does not name a system header").Help("write a system header as '@Include(\"<header.h>\")'");
+
     [Error(501, "interop.extern")]
     public static Diagnostic ExternStructModifier(Location at, string kind, string modifier) =>
         Make(at, $"{kind} in an extern block cannot be '{modifier}'");

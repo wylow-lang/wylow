@@ -95,6 +95,8 @@ public static class Compilation
             return new LowerResult(Reported(), null, null, null);
 
         var program = new Binder(diagnostics).BindProgram(sources.Package, units);
+        if (!diagnostics.HasErrors)
+            diagnostics.AddRange(sources.Native.CheckHeaders(program.Headers));
         // Only a program that binds is lowered, where the flow analysis finds the errors about order and flow.
         if (diagnostics.HasErrors)
             return new LowerResult(Reported(), program, null, null);
@@ -139,7 +141,7 @@ public static class Compilation
         if (lowered is not { Program: { } program, Ir: { } ir, Optimized: { } optimized })
             return new CompilationResult(lowered.Diagnostics, null) { Native = native };
         var emitter = new CppEmitter();
-        return new CompilationResult(lowered.Diagnostics, emitter.Emit(program, ir, optimized.Callees, optimized.Lambdas, h => native.HeaderPath(h.Package, h.Path), nest))
+        return new CompilationResult(lowered.Diagnostics, emitter.Emit(program, ir, optimized.Callees, optimized.Lambdas, native.HeaderPath, nest))
         {
             Native = native,
             Interop = emitter.Interop,

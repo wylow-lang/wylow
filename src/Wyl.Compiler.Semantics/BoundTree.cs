@@ -569,9 +569,11 @@ public static class BoundTree
 
 /// <summary>
 /// A header that an extern block includes, and the first <c>@Include</c> of a package that names it.
-/// The block's package searches for the header in its own directories (spec <c>interop.native</c>).
+/// The block's package searches for the header in its own directories (spec <c>interop.native</c>),
+/// unless the header is a system header, whose <see cref="Path"/> is written without its angle
+/// brackets and which the C++ compiler searches for.
 /// </summary>
-public sealed record ExternHeader(string Path, Location At)
+public sealed record ExternHeader(string Path, bool System, Location At)
 {
     public Package Package => At.Source.Module.Package;
 }

@@ -1,0 +1,20 @@
+// The compiler searches only the program's own 'native/' directory for these headers, and reports
+// each header that the directory does not hold before C++ runs.
+@Include("app.h")
+extern {
+    static int APP_LEVEL;
+}
+
+@Include("codec.h")                     // error[WYL0545]: cannot find header 'codec.h' in package 'header_search'
+extern {
+    static int CODEC_LEVEL;
+}
+
+@Include("missing.h")                   // error[WYL0545]: cannot find header 'missing.h' in package 'header_search'
+extern {
+    static int MISSING_LEVEL;
+}
+
+void main() {
+    std::print(APP_LEVEL + CODEC_LEVEL + MISSING_LEVEL + codec::level());
+}

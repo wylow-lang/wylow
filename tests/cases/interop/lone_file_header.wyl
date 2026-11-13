@@ -1,0 +1,10 @@
+// A file compiled on its own has no 'native/' directory, so the compiler finds no header that its
+// extern block names in quotes (spec interop.native).
+@Include("codes.h")                     // error[WYL0545]: cannot find header 'codes.h'
+extern {
+    static int CODE_LIMIT;
+}
+
+void main() {
+    std::print(CODE_LIMIT);
+}

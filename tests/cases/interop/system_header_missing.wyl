@@ -1,0 +1,11 @@
+// native
+// The compiler does not search for a system header, so the C++ compiler reports a missing one, and
+// the build reports its error at the '@Include'.
+@Include("<wyl_missing_header.h>")      // error[WYL0513]: the C++ compiler rejects '#include <wyl_missing_header.h>'
+extern {
+    @Safe int missing_value();
+}
+
+void main() {
+    std::print(missing_value());
+}

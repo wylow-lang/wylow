@@ -41,6 +41,11 @@ extern {
   method declared with a body is Wylow code, as a method of any struct is
   ([Methods](07-structs.md#structs.methods)).
 - It is a compile-time error if an extern block has no `@Include`, or has more than one.
+- `@Include("path")` names a header of the block's own package
+  ([Native source files](#interop.native)). `@Include("<path>")` names a **system header**, which
+  the C++ compiler finds in its own directories, as C's `#include <path>` does.
+- It is a compile-time error if the path of an `@Include` starts with `<` and does not end with
+  `>`, or names nothing between them.
 - It is a compile-time error if a function declared at the top level of an extern block has a body.
 - It is a compile-time error if a struct in an extern block is declared `unique` or `ref`.
 - A member of an extern block has the visibility written before it, as a declaration outside a block
@@ -336,7 +341,12 @@ An extern block's `@Include` path is searched for in the `native/` directory of 
 package, and then in that package's `include` directories, in the order the manifest lists them.
 The search does not look in the directories of another package of the program
 ([Dependencies](03-programs.md#programs.manifest.dependencies)), so two packages may each have a
-header of the same path.
+header of the same path. A system header is not searched for in this way.
+
+- It is a compile-time error if none of the directories of the block's package holds the header
+  that the block's `@Include` names, unless the header is a system header. A source file compiled
+  on its own has no `native/` directory and no manifest, so an extern block in the file can
+  include only a system header.
 
 An extern block includes its header into C++. A function that a C source defines has C linkage, so
 the header declares the function inside `extern "C"` when C++ includes the header. If C sources

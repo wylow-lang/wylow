@@ -42,7 +42,7 @@ record the workaround and the diagnostic that forced it in this handoff.
 - If the block's own package does not hold its header, the emitter writes the `@Include` path as
   written (`NativeInputs.HeaderPath`). The standard library's headers are found this way. A
   missing header is then a C++ error, `WYL0513` at the `@Include`, with the compiler's note, such
-  as `'sqlite3.h' file not found`.
+  as `'sqlite3.h' file not found`. Step 5 replaced this rule.
 
 ## 1. Strings from bytes
 
@@ -157,6 +157,15 @@ path, and the spec says nothing about that case. The rule decides two things.
   and the directories that the compiler searched. A library could also name, in its manifest, how
   to get its native files, so that the error tells the user to run `fetch-sqlite.ps1`.
 
+Built, with decision 0103. `@Include("path")` names a header of the block's own package, and
+`NativeInputs.CheckHeaders` reports a header that the package does not hold (`WYL0545`) after
+binding. The error's notes name each directory that the compiler searched, and another package that
+holds a header of that path. `@Include("<path>")` names a system header, which the C++ code includes
+as `#include <path>`, and a missing one stays `WYL0513`. A path that starts with `<` and does not
+end with `>` is `WYL0546`. A file compiled on its own can include only a system header. The user
+chose not to add a manifest entry that prints how to get missing files, because a library would
+still need a script of its own. Item 7 replaces the scripts instead.
+
 ## 6. A non-escaping function through a C context
 
 Design this step with the user in a session of its own. `forEachRow` takes an `escaping` function,
@@ -171,6 +180,31 @@ event APIs.
 - Another direction is an unsafe way to pass a non-escaping function as a pointer for the length of
   one call. The unsafe way makes the programmer responsible for C not keeping the pointer.
 - The design must keep the rule that what a reference points into stays alive while it is used.
+
+## 7. Native files that the compiler downloads
+
+The user chose this design for the native files that a library does not keep in its directory,
+such as SQLite's amalgamation. Design it in a session of its own, and record the decision before
+the code.
+
+- A manifest's `native` block names each archive or file to download by its URL and its hash, and
+  the files of the download that the package uses. A sketch:
+  `fetch { url = "..."; sha256 = "..."; files = ["sqlite3.c", "sqlite3.h"]; }`.
+- The compiler downloads each file once, checks its hash, and keeps it in a cache outside the
+  package. The fetched files join the package's include path and its native sources. The compiler
+  runs no code of the package.
+- Zig's package manifest names each dependency by a URL and a hash in the same way
+  ([build.zig.zon](https://github.com/ziglang/zig/blob/master/doc/build.zig.zon.md)).
+- `examples/sqlite` then loses `fetch-sqlite.ps1` and `fetch-sqlite.sh`.
+- The design decides where the cache is, what a build without a network does, how a hash mismatch
+  is reported, and whether `wyl` has a command that fetches without building.
+- A library whose C or C++ sources need a build system of their own, such as CMake, is not covered.
+  The user and the assistant left that case open.
+
+Before this item, split the build code. `NativeCompiler.cs` is over 700 lines, and the compiler is
+gaining the parts of a package manager: reading packages and their dependencies
+(`PackageSources`), native inputs (`NativeInputs`), the toolchains, and soon downloads and a cache.
+Propose the split to the user first.
 
 ## Later, and not planned in this slice
 

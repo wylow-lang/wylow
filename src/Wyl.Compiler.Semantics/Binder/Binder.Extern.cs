@@ -32,8 +32,9 @@ public sealed partial class Binder
                     else
                     {
                         include = annotation;
-                        if (header is not null && !headers.Any(h => h.Path == header && h.Package == annotation.Location.Source.Module.Package))
-                            headers.Add(new ExternHeader(header, annotation.Location));
+                        if (header is not null && Header(header, annotation.Location) is { } named
+                            && !headers.Any(h => h.Path == named.Path && h.System == named.System && h.Package == named.Package))
+                            headers.Add(named);
                     }
                 }
                 else if (annotation.Name == CppNamespaceName)
@@ -48,6 +49,21 @@ public sealed partial class Binder
             if (include is null)
                 Error(Catalog.MissingInclude(block.Location));
         }
+    }
+
+    /// <summary>
+    /// The header that an <c>@Include</c> path names: a system header if the path is written in angle
+    /// brackets, and otherwise a header of the block's own package (spec <c>interop.extern</c>). Null
+    /// after reporting a path that starts with <c>&lt;</c> and is not a system header.
+    /// </summary>
+    ExternHeader? Header(string path, Location at)
+    {
+        if (!path.StartsWith('<'))
+            return new ExternHeader(path, System: false, at);
+        if (path.Length > 2 && path.EndsWith('>'))
+            return new ExternHeader(path[1..^1], System: true, at);
+        Error(Catalog.MalformedSystemHeader(at, path));
+        return null;
     }
 
     /// <summary>The value of an annotation's one string literal, or null after reporting that it has none.</summary>

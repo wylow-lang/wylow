@@ -234,6 +234,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
             var native = Path.GetFullPath(Path.Combine(directory, "native"));
             return new PackageNative(
                 package,
+                Path.GetFullPath(directory),
                 Directory.Exists(native) ? native : null,
                 Paths("include", directories: true),
                 Paths("libraryPaths", directories: true),

@@ -1,0 +1,17 @@
+// native
+// A file compiled on its own has no 'native/' directory, so its extern block includes a system
+// header, which the C++ compiler finds in its own directories (spec interop.extern).
+@Include("<stdlib.h>")
+extern {
+    static int EXIT_FAILURE = 1;
+
+    @Safe int abs(int value);
+}
+
+void main() {
+    std::print(abs(-5));                            // output: 5
+    switch (abs(-1)) {
+        case EXIT_FAILURE -> std::print("failure"); // output: failure
+        default -> std::print("other");
+    }
+}
