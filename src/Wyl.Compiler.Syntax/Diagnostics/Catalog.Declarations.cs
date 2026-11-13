@@ -428,6 +428,11 @@ public static partial class Catalog
     public static Diagnostic VariantLiteralTooLarge(Location at, string type) =>
         Make(at, $"value does not fit in the enum's integer type '{type}'");
 
+    [Error(541, "enums.repr")]
+    public static Diagnostic TryFromDeclared(Location at, string name) =>
+        Make(at, $"enum '{name}' cannot declare a method named 'tryFrom'")
+            .Note("an enum whose variants carry no data has a 'tryFrom' of its own");
+
     [Error(139, "classes.constructors")]
     public static Diagnostic SuperCallWithoutBase(Location at, string type) =>
         Make(at, $"cannot call 'super(...)' in '{type}'").Note($"'{type}' has no base class");

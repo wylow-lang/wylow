@@ -1,0 +1,40 @@
+// The errors of E.tryFrom (spec enums.repr).
+
+enum Code {
+    Ok,
+    Busy;
+
+    static Code? tryFrom(int value) {           // error[WYL0541]: enum 'Code' cannot declare a method named 'tryFrom'
+        return null;
+    }
+}
+
+enum Shape {
+    Circle(double radius),
+    Square(double side);
+}
+
+// An enum whose variants carry data may declare its own 'tryFrom'.
+enum Parsed {
+    Number(int value),
+    Empty;
+
+    static Parsed tryFrom(int value) {
+        return Parsed.Number(value);
+    }
+}
+
+void main() {
+    mut int code = 1;
+    Code.tryFrom("1");                          // error[WYL0540]: argument 1 of 'Code.tryFrom': expected an integer type, found 'String'
+    Code.tryFrom(1.0);                          // error[WYL0540]: argument 1 of 'Code.tryFrom': expected an integer type, found 'double'
+    int? maybe = 1;
+    Code.tryFrom(maybe);                        // error[WYL0540]: argument 1 of 'Code.tryFrom': expected an integer type, found 'int?'
+    Code.tryFrom();                             // error[WYL0228]: argument count of 'Code.tryFrom': expected 1, found 0
+    Code.tryFrom(1, 2);                         // error[WYL0228]: argument count of 'Code.tryFrom': expected 1, found 2
+    Code.tryFrom<int>(1);                       // error[WYL0234]: no overload of 'Code.tryFrom' takes 1 type argument
+    Code.tryFrom(value: 1);                     // error[WYL0235]: no overload of 'Code.tryFrom' takes these named arguments
+    Code.tryFrom(ref code);                     // error[WYL0221]: argument 1 of 'Code.tryFrom' cannot be passed with 'ref'
+    Shape.tryFrom(1);                           // error[WYL0300]: cannot find method 'tryFrom' in 'Shape'
+    std::print(Parsed.tryFrom(3) is Number);
+}

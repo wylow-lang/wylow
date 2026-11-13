@@ -44,6 +44,10 @@ public static partial class Catalog
     public static Diagnostic ChoiceToNonFunction(Location at, string expected) =>
         Make(at, $"expected '{expected}', found a choice of lambdas").Note($"'{expected}' is not a function type");
 
+    [Error(540, "enums.repr")]
+    public static Diagnostic TryFromArgument(Location at, string function, string found) =>
+        Make(at, $"argument 1 of '{function}': expected an integer type, found '{found}'");
+
     [Error(83, "conversions.casts")]
     public static Diagnostic InvalidCast(Location at, string from, string to) =>
         Make(at, $"cannot cast '{from}' to '{to}'");

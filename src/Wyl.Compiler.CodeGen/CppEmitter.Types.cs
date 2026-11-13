@@ -362,15 +362,17 @@ public sealed partial class CppEmitter
     }
 
     /// <summary>
-    /// The checked conversion from an integer of any type, for casts to an enum without data. The
-    /// value is compared in a type that holds every variant, once it is known to fit in it.
+    /// The conversions from an integer of any type to an enum without data: <c>try_from_value</c> for
+    /// <c>E.tryFrom</c>, which gives null for a value that no variant has, and <c>from_value</c> for a
+    /// cast, which panics instead. The value is compared in a type that holds every variant, once it
+    /// is known to fit in it.
     /// </summary>
     void EmitFromValue(TypeSymbol s, string name, string tag)
     {
         var message = CppStringLiteral($"integer is not a value of enum '{s.DisplayName}'");
         var compared = s.UnderlyingType == WylType.ULong ? WylType.ULong : WylType.Long;
         Line("template <class T>");
-        Line($"static {name} from_value(T value, const char* location)");
+        Line($"static wyl::Optional<{name}> try_from_value(T value)");
         Line("{");
         Line($"    if (std::in_range<{CppType(compared)}>(value))");
         Line("    {");
@@ -382,7 +384,14 @@ public sealed partial class CppEmitter
         Line("        default: break;");
         Line("        }");
         Line("    }");
-        Line($"    wyl::RaisePanic({message}, location);");
+        Line("    return nullptr;");
+        Line("}");
+        Line("template <class T>");
+        Line($"static {name} from_value(T value, const char* location)");
+        Line("{");
+        Line("    auto result = try_from_value(value);");
+        Line($"    if (!result.HasValue()) wyl::RaisePanic({message}, location);");
+        Line("    return result.Assumed();");
         Line("}");
     }
 

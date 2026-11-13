@@ -91,6 +91,13 @@ stay unbuilt.
 - Tests: a value that a variant has, a value that no variant has, each integer type of `@Repr`, and
   the interpreter's result, which must match the native result.
 
+Built: `E.tryFrom(x)` binds to a conversion from the integer to `E?`, which no cast can write, so
+`Conversions.IsVariantOrNull` names it by its two types. The emitter writes `try_from_value`, and a
+cast's `from_value` calls it. The argument may have any integer type, as a cast's may. An enum
+without data cannot declare a method named `tryFrom` (`WYL0541`). The spec also defines
+`T.tryFrom(x)` for an integer type `T` (`types.primitives`), and the compiler does not build it.
+The decision about the layer's `Error` is still open.
+
 ## 4. Statics as patterns, and extern statics with values
 
 The user agreed to this design, which needs a decision record before the spec and the code.

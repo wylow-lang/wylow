@@ -176,6 +176,33 @@ public sealed partial class Binder
         return MakeCall(e.Location, function, null, functionArguments);
     }
 
+    /// <summary>The static method that every enum without data has, and none declares.</summary>
+    const string TryFrom = "tryFrom";
+
+    /// <summary>
+    /// <c>E.tryFrom(x)</c> of an enum without data: a conversion of the integer <c>x</c> to <c>E?</c>,
+    /// which is null if no variant has the value (spec <c>enums.repr</c>).
+    /// </summary>
+    BoundExpression BindTryFrom(CallExpr e, MemberAccessExpr member, WylType type, IReadOnlyList<WylType>? typeArguments, PendingArguments pending)
+    {
+        var arguments = pending.Bind(null);
+        if (AnyError(arguments))
+            return new BoundErrorExpression(e.Location);
+        string function = $"{type}.{TryFrom}";
+        if (typeArguments is { Count: var count })
+            return ErrorExpression(Catalog.NoOverloadForTypeArguments(member.NameLocation, $"overload of '{function}'", count));
+        if (arguments.Count != 1)
+            return ErrorExpression(Catalog.ArgumentCount(e.Location, function, 1, arguments.Count));
+        var argument = arguments[0];
+        if (argument.Name is not null)
+            return ErrorExpression(Catalog.NoOverloadForNames(argument.NameLocation, $"overload of '{function}'"));
+        if (argument.IsRef)
+            return ErrorExpression(Catalog.ArgumentNotRef(argument.Location, "argument 1", function));
+        if (!argument.Expression.Type.IsInteger)
+            return ErrorExpression(Catalog.TryFromArgument(argument.Location, function, argument.Expression.Type.ToString()));
+        return new BoundConversion(e.Location, type.Nullable, argument.Expression);
+    }
+
     BoundExpression BindMemberCall(CallExpr e, MemberAccessExpr member, PendingArguments pending, WylType? expected)
     {
         var typeArguments = BindTypeArguments(member.TypeArguments);
@@ -196,6 +223,8 @@ public sealed partial class Binder
         {
             if (type == WylType.Error)
                 return new BoundErrorExpression(e.Location);
+            if (type.IsEnum && !type.Symbol!.HasData && member.Name == TryFrom)
+                return BindTryFrom(e, member, type, typeArguments, pending);
             var s = stdlib.MemberHost(type).Symbol!;
             var staticCandidates = LookupMethods(type, member.Name);
             if (staticCandidates.Count == 0)

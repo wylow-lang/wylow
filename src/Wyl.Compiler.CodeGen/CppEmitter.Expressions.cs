@@ -98,6 +98,8 @@ public sealed partial class CppEmitter
             return $"{CppType(to)}::make({operand})";
         if (location is not null)
             return to.IsEnum ? $"{ObjectType(to)}::from_value({operand}, {location})" : $"wyl::ToChar({operand}, {location})";
+        if (Conversions.IsVariantOrNull(from, to))
+            return $"{ObjectType(to.NonNull)}::try_from_value({operand})";
         if (to.IsNullableValue)
             return $"{CppType(to)}({operand})";
         if (to.IsReference)

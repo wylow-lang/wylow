@@ -1,0 +1,118 @@
+// E.tryFrom converts an integer of any type to the variant of E with that value, or to null if no
+// variant has it (spec enums.repr).
+
+enum Direction {
+    North,
+    East = 5,
+    South,
+}
+
+@Repr(sbyte)
+enum Tiny {
+    Low = -128,
+    High = 127,
+}
+
+@Repr(byte)
+enum Small {
+    Zero = 0,
+    Top = 255,
+}
+
+@Repr(short)
+enum Medium {
+    Low = -32768,
+}
+
+@Repr(ushort)
+enum Port {
+    Http = 80,
+    Max = 65535,
+}
+
+@Repr(int)
+enum Code {
+    Ok = 0,
+    Busy = 5,
+    Row = 100,
+}
+
+@Repr(uint)
+enum Format {
+    Rgba = 4000000000,
+}
+
+@Repr(long)
+enum Big {
+    Negative = -9223372036854775808,
+}
+
+@Repr(ulong)
+enum Wide {
+    High = 0x8000000000000000,
+    Top = 0xFFFFFFFFFFFFFFFF,
+}
+
+@Repr(nint)
+enum Offset {
+    Back = -1,
+}
+
+@Repr(nuint)
+enum Size {
+    One = 1,
+}
+
+void main() {
+    // An enum without @Repr, whose integer type is int.
+    std::print(Direction.tryFrom(6) == Direction.South);    // output: true
+    std::print(Direction.tryFrom(1) == null);               // output: true
+
+    // Each integer type of @Repr, with a value that a variant has and one that none has.
+    sbyte minimum = -128;
+    std::print(Tiny.tryFrom(minimum) == Tiny.Low);          // output: true
+    std::print(Tiny.tryFrom(0) == null);                    // output: true
+    std::print(Small.tryFrom(255) == Small.Top);            // output: true
+    std::print(Small.tryFrom(1) == null);                   // output: true
+    std::print(Medium.tryFrom(-32768) == Medium.Low);       // output: true
+    std::print(Medium.tryFrom(32767) == null);              // output: true
+    std::print(Port.tryFrom(65535) == Port.Max);            // output: true
+    std::print(Port.tryFrom(443) == null);                  // output: true
+    std::print(Code.tryFrom(100) == Code.Row);              // output: true
+    std::print(Code.tryFrom(261) == null);                  // output: true
+    std::print(Format.tryFrom(4000000000u) == Format.Rgba); // output: true
+    std::print(Format.tryFrom(0u) == null);                 // output: true
+    long smallest = -9223372036854775807L - 1L;
+    std::print(Big.tryFrom(smallest) == Big.Negative);      // output: true
+    std::print(Big.tryFrom(0L) == null);                    // output: true
+    std::print(Wide.tryFrom(0x8000000000000000uL) == Wide.High);    // output: true
+    std::print(Wide.tryFrom(18446744073709551615uL) == Wide.Top);   // output: true
+    std::print(Wide.tryFrom(1uL) == null);                  // output: true
+    nint back = -1;
+    std::print(Offset.tryFrom(back) == Offset.Back);        // output: true
+    nuint one = 1;
+    std::print(Size.tryFrom(one) == Size.One);              // output: true
+    std::print(Size.tryFrom(0) == null);                    // output: true
+
+    // The argument may have any integer type. It is compared by its value, so a value outside the
+    // enum's integer type matches no variant, and a negative value matches no variant of an
+    // unsigned type.
+    std::print(Small.tryFrom(255L) == Small.Top);           // output: true
+    std::print(Small.tryFrom(511) == null);                 // output: true
+    std::print(Small.tryFrom(-1) == null);                  // output: true
+    std::print(Wide.tryFrom(-1L) == null);                  // output: true
+    std::print(Tiny.tryFrom(127uL) == Tiny.High);           // output: true
+
+    // The result is a nullable enum.
+    int received = 5;
+    if (Code.tryFrom(received) is Code code) {
+        std::print(code == Code.Busy);                      // output: true
+    }
+    Code fallback = Code.tryFrom(7) ?? Code.Ok;
+    std::print((int)fallback);                              // output: 0
+    switch (Code.tryFrom(100)) {
+        case Code.Row -> std::print("row");                 // output: row
+        case null -> std::print("unknown");
+        case _ -> std::print("other");
+    }
+}

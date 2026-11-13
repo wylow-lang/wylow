@@ -79,6 +79,11 @@ public sealed partial class Binder
         }
         if (s.UnderlyingType is { } type && s.Variants.FirstOrDefault(v => !type.HeldRange!.Value.Contains(v.Value)) is { } tooLarge)
             Error(Catalog.VariantValueTooLarge(tooLarge.Declaration.NameLocation, tooLarge.Name, type.ToString()));
+        if (!s.HasData)
+        {
+            foreach (var method in s.Declaration.Methods.Where(m => m.Name == TryFrom))
+                Error(Catalog.TryFromDeclared(method.NameLocation, s.Name));
+        }
     }
 
     Int128? VariantValue(Expr syntax, WylType underlying)

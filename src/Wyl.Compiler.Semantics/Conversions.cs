@@ -42,6 +42,14 @@ public static class Conversions
     static IntegerRange ExactIntegers(WylType floatingType) =>
         floatingType == WylType.Float ? new(-(1 << 24), 1 << 24) : new(-(1L << 53), 1L << 53);
 
+    /// <summary>
+    /// The conversion of <c>E.tryFrom</c>: an integer to a nullable enum without data, which gives the
+    /// variant with the integer's value, or null if no variant has it (spec <c>enums.repr</c>). No cast
+    /// converts to a nullable enum, so the types alone name this conversion.
+    /// </summary>
+    public static bool IsVariantOrNull(WylType from, WylType to) =>
+        from.IsInteger && to.IsNullableValue && to.NonNull.IsEnum && !to.NonNull.Symbol!.HasData;
+
     /// <summary>Casts: between numbers, between integers and <c>char</c>, and between integers and enums without data.</summary>
     public static bool IsExplicit(WylType from, WylType to, FunctionSymbol? function) =>
         IsImplicit(from, to, function)

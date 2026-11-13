@@ -165,6 +165,8 @@ internal static class RuntimeArithmetic
             if (to.IsPointer || to == WylType.Null) return NullValue.Instance;
             throw new InterpreterException($"cannot convert null to '{to}'");
         }
+        if (Conversions.IsVariantOrNull(from, to))
+            return new OptionalValue(Variant(to.NonNull, value) is { } variant ? new Cell(to.NonNull, variant) : null);
         if (to.IsNullableValue)
         {
             if (value is OptionalValue optional)
@@ -209,19 +211,18 @@ internal static class RuntimeArithmetic
 
     static Value FromValue(WylType to, Value value, string location)
     {
-        var number = ((IntValue)value).Bits;
-        bool compareUnsigned = to.Symbol!.UnderlyingType == WylType.ULong;
-        bool fits = compareUnsigned ? number >= 0 : number >= long.MinValue && number <= long.MaxValue;
-        if (fits)
-        {
-            foreach (var variant in to.Symbol!.Variants)
-            {
-                if (variant.Value == number)
-                    return new EnumValue(to, variant, []);
-            }
-        }
-        new Panic($"integer is not a value of enum '{to.Symbol.DisplayName}'", location).Raise();
+        if (Variant(to, value) is { } variant)
+            return variant;
+        new Panic($"integer is not a value of enum '{to.Symbol!.DisplayName}'", location).Raise();
         throw new UnreachableException();
+    }
+
+    /// <summary>The variant of the enum <paramref name="to"/> whose value is the integer <paramref name="value"/>, or null if none has it.</summary>
+    static EnumValue? Variant(WylType to, Value value)
+    {
+        var number = ((IntValue)value).Bits;
+        var variant = to.Symbol!.Variants.FirstOrDefault(v => v.Value == number);
+        return variant is null ? null : new EnumValue(to, variant, []);
     }
 
     static Int128 FloatToInteger(WylType type, double number)
