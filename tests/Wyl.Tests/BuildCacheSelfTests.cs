@@ -22,7 +22,7 @@ static class BuildCacheSelfTests
 
     public static List<TestResult> Run(string outputDirectory)
     {
-        var compiler = NativeCompiler.Find(null, out var error);
+        var compiler = Toolchains.Find(null, out var error);
         if (compiler is null)
             return [new("build-cache/key", error)];
         return [CppKey(compiler), SourceKey(compiler), Dependencies(compiler, outputDirectory), Replay(outputDirectory), Native(compiler, outputDirectory), NativeRebuild(outputDirectory), NativeObjects(outputDirectory)];
@@ -30,13 +30,13 @@ static class BuildCacheSelfTests
 
     static TestResult CppKey(NativeCompiler compiler)
     {
-        var key = compiler.BuildKey(release: false, Program);
+        var key = BuildKeys.BuildKey(compiler, release: false, Program);
         List<string> problems = [];
-        if (compiler.BuildKey(release: false, Program) != key)
+        if (BuildKeys.BuildKey(compiler, release: false, Program) != key)
             problems.Add("the same inputs give different keys");
-        if (compiler.BuildKey(release: false, Program + "\n") == key)
+        if (BuildKeys.BuildKey(compiler, release: false, Program + "\n") == key)
             problems.Add("the key ignores the generated C++");
-        if (compiler.BuildKey(release: true, Program) == key)
+        if (BuildKeys.BuildKey(compiler, release: true, Program) == key)
             problems.Add("the key ignores the build flags");
         return new("build-cache/key", problems.Count == 0 ? null : string.Join('\n', problems));
     }
@@ -44,7 +44,7 @@ static class BuildCacheSelfTests
     static TestResult SourceKey(NativeCompiler compiler)
     {
         string? Key(string path, string text, CompileOptions? options = null, bool release = false) =>
-            Driver.SourceKey(compiler, PackageSources.Of(new SourceText(path, text)), options ?? new CompileOptions(), release);
+            BuildKeys.SourceKey(compiler, PackageSources.Of(new SourceText(path, text)), options ?? new CompileOptions(), release);
 
         var key = Key("a/main.wyl", Source);
         List<string> problems = [];
@@ -83,7 +83,7 @@ static class BuildCacheSelfTests
         Write(directory, "src/main.wyl", "void main() { std::print(parser::depth()); }\n");
         Write(directory, "vendor/parser/package.wylcfg", "name = \"parser\"; kind = \"library\"; version = \"1.0.0\";\n");
         Write(directory, "vendor/parser/src/parser.wyl", "pub int depth() { return 1; }\n");
-        string? Key() => Driver.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
+        string? Key() => BuildKeys.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
 
         if (PackageSources.Load(directory).Diagnostics is { Count: > 0 } diagnostics)
             return new("build-cache/dependencies", $"the package does not load: {string.Join('\n', diagnostics)}");
@@ -155,8 +155,8 @@ static class BuildCacheSelfTests
             }
             """;
         Write(directory, "package.wylcfg", Manifest("\"BASE_ON\""));
-        string? Key() => Driver.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
-        string BuildKey() => compiler.BuildKey(release: false, Program, PackageSources.Load(directory).Native);
+        string? Key() => BuildKeys.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
+        string BuildKey() => BuildKeys.BuildKey(compiler, release: false, Program, PackageSources.Load(directory).Native);
 
         List<string> problems = [];
         if (PackageSources.Load(directory).Diagnostics is { Count: > 0 } diagnostics)

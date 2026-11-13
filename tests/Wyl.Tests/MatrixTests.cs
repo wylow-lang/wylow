@@ -88,7 +88,7 @@ static class MatrixTests
                 return new(cell.Name, lines, "timed out");
 
             var standardError = run.StandardError.Replace("\r\n", "\n");
-            if (NativeCompiler.SanitizerReport(standardError) is { } report)
+            if (Toolchains.SanitizerReport(standardError) is { } report)
                 return new(cell.Name, lines, $"sanitizer: {report}\n{standardError.Trim()}");
 
             foreach (var line in SuffixLines(run.StandardOutput))

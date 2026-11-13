@@ -3,23 +3,18 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 namespace Wyl.Compiler.Build;
 
-/// <summary>
-/// The C++ compiler a program is built with. <see cref="Clang"/> is clang-cl without sanitizers, the
-/// default on Windows. <see cref="ClangSanitized"/> is clang-cl with AddressSanitizer and UBSan, for
-/// testing: a program that runs clean under it does nothing undefined that they can see.
-/// </summary>
-public enum Toolchain { Msvc, Clang, Gcc, ClangSanitized, ThreadSanitized }
-
 public sealed record NativeBuildResult(bool Success, string Output);
 
+/// <summary>
+/// One C++ compiler, which compiles and links a program from its generated C++ and the native
+/// sources of its packages. <see cref="Toolchains.Find"/> makes one.
+/// </summary>
 public sealed class NativeCompiler
 {
     static readonly ConcurrentDictionary<string, Lazy<string?>> PrecompiledHeaders = new();
-    static readonly Lazy<IReadOnlyDictionary<string, string>?> MsvcEnvironment = new(CaptureMsvcEnvironment);
 
     static readonly string[] SanitizedFlags = ["/nologo", "/std:c++20", "/utf-8", "/EHsc", "-fsanitize=address,undefined"];
 
@@ -32,7 +27,7 @@ public sealed class NativeCompiler
     readonly string compilerPath;
     readonly IReadOnlyDictionary<string, string>? environment;
 
-    NativeCompiler(Toolchain toolchain, string compilerPath, IReadOnlyDictionary<string, string>? environment)
+    internal NativeCompiler(Toolchain toolchain, string compilerPath, IReadOnlyDictionary<string, string>? environment)
     {
         Toolchain = toolchain;
         this.compilerPath = compilerPath;
@@ -41,363 +36,9 @@ public sealed class NativeCompiler
 
     public Toolchain Toolchain { get; }
 
-    /// <summary>
-    /// Everything a build depends on besides the program's own directory: the generated C++, the flags,
-    /// the runtime headers, the C++ compiler itself, the <c>native</c> lists of every package's
-    /// manifest, and the files that <see cref="NativeInputs.Files"/> gives. Equal keys mean the executable a previous build
-    /// left is the one this build would produce.
-    /// </summary>
-    public string BuildKey(bool release, string cpp, NativeInputs? native = null)
-    {
-        native ??= NativeInputs.None;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{cpp}\n{native.Text}"));
-        foreach (var (path, bytes) in native.Files())
-        {
-            hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));
-            hash.AppendData(bytes);
-        }
-        return Convert.ToHexString(hash.GetHashAndReset());
-    }
-
-    /// <summary>What a build depends on besides the C++ it compiles: the toolchain, the mode, the C++ compiler itself, and the runtime headers.</summary>
-    internal string Identity(bool release)
-    {
-        var compiler = new FileInfo(compilerPath);
-        return $"{Toolchain}|{release}|{compilerPath}|{compiler.Length}|{compiler.LastWriteTimeUtc.Ticks}|{RuntimeContentHash.Value}";
-    }
-
-    static readonly Lazy<string> RuntimeContentHash = new(() =>
-    {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        foreach (var file in Directory.EnumerateFiles(RuntimeDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
-        {
-            hash.AppendData(Encoding.UTF8.GetBytes(Path.GetRelativePath(RuntimeDirectory, file)));
-            hash.AppendData(File.ReadAllBytes(file));
-        }
-        return Convert.ToHexString(hash.GetHashAndReset());
-    });
+    internal string CompilerPath => compilerPath;
 
     public static string RuntimeDirectory => Path.Combine(AppContext.BaseDirectory, "runtime");
-
-    /// <summary>
-    /// The compiler for <paramref name="preferred"/>, or with none preferred, the first of clang-cl,
-    /// MSVC, and g++ that this machine has in a supported version (decision 0098). Returns null, with
-    /// the reason in <paramref name="error"/>, if no such compiler is found or the one found is older
-    /// than <see cref="ToolchainVersions"/> allows.
-    /// </summary>
-    public static NativeCompiler? Find(Toolchain? preferred, out string? error)
-    {
-        error = null;
-        if (OperatingSystem.IsMacOS())
-        {
-            error = "wyl does not build programs on macOS; 'wyl interpret' runs them without a C++ compiler";
-            return null;
-        }
-        List<string> reasons = [];
-        foreach (var toolchain in preferred is { } one ? [one] : DefaultOrder)
-        {
-            var (compiler, reason) = Found.GetOrAdd(toolchain, t => new(() => Lookup(t))).Value;
-            if (compiler is not null)
-                return compiler;
-            reasons.Add(reason!);
-        }
-        error = reasons.Count == 1
-            ? reasons[0]
-            : "no supported C++ compiler found:\n" + string.Join('\n', reasons.Select(r => "  " + r));
-        return null;
-    }
-
-    static readonly Toolchain[] DefaultOrder = [Toolchain.Clang, Toolchain.Msvc, Toolchain.Gcc];
-
-    static readonly ConcurrentDictionary<Toolchain, Lazy<(NativeCompiler? Compiler, string? Reason)>> Found = new();
-
-    static (NativeCompiler?, string?) Lookup(Toolchain toolchain) => toolchain switch
-    {
-        Toolchain.Clang => FindClang(Toolchain.Clang),
-        Toolchain.ClangSanitized => FindClang(Toolchain.ClangSanitized),
-        Toolchain.Msvc => FindMsvc(),
-        Toolchain.Gcc => FindGcc(),
-        _ => ProbeThreadSanitized() is { } threaded
-            ? (threaded, null)
-            : (null, $"no C++ compiler here builds a program with ThreadSanitizer; it needs clang++ {ToolchainVersions.LinuxClang.Major} or g++ {ToolchainVersions.Gcc.Major} on Linux"),
-    };
-
-    /// <summary>
-    /// The clang-cl of the Visual Studio installation whose MSVC environment the build uses. That
-    /// clang-cl is released with the installation's standard library, so the two always match.
-    /// </summary>
-    static (NativeCompiler?, string?) FindClang(Toolchain toolchain)
-    {
-        if (Msvc() is not { } env)
-            return (null, MsvcRefusal("clang-cl"));
-        var clang = VisualStudioClang(env);
-        if (clang is null)
-            return (null, "could not find clang-cl in Visual Studio; install its 'C++ Clang tools for Windows' component");
-        if (toolchain == Toolchain.ClangSanitized)
-            AddSanitizerRuntimeToPath(clang);
-        return (new NativeCompiler(toolchain, clang, env), null);
-    }
-
-    static string? VisualStudioClang(IReadOnlyDictionary<string, string> env) =>
-        env.GetValueOrDefault("VSINSTALLDIR") is { Length: > 0 } installation
-        && Path.Combine(installation, "VC", "Tools", "Llvm", "x64", "bin", "clang-cl.exe") is var clang
-        && File.Exists(clang)
-            ? clang
-            : null;
-
-    static (NativeCompiler?, string?) FindMsvc()
-    {
-        if (Msvc() is not { } env)
-            return (null, MsvcRefusal("cl.exe"));
-        var cl = FindOnPath("cl.exe", env.GetValueOrDefault("PATH") ?? env.GetValueOrDefault("Path"));
-        return cl is null
-            ? (null, "could not find cl.exe in the MSVC environment")
-            : (new NativeCompiler(Toolchain.Msvc, cl, env), null);
-    }
-
-    /// <summary>The MSVC environment, or null if this is not Windows or its toolset is not supported.</summary>
-    static IReadOnlyDictionary<string, string>? Msvc() =>
-        OperatingSystem.IsWindows()
-        && MsvcEnvironment.Value is { } env
-        && ToolchainVersions.IsSupported(MsvcToolsetVersion(env), ToolchainVersions.MsvcToolset)
-            ? env
-            : null;
-
-    static string? MsvcToolsetVersion(IReadOnlyDictionary<string, string> env) => env.GetValueOrDefault("VCToolsVersion");
-
-    /// <summary>Why <see cref="Msvc"/> is null, for a compiler that needs the MSVC environment.</summary>
-    static string MsvcRefusal(string compiler)
-    {
-        if (!OperatingSystem.IsWindows())
-            return $"{compiler} needs MSVC, which exists only on Windows";
-        if (MsvcEnvironment.Value is not { } env)
-            return $"could not find MSVC, which {compiler} needs; install Visual Studio with the 'Desktop development with C++' workload";
-        return $"the MSVC toolset is version {MsvcToolsetVersion(env) ?? "unknown"}, and wyl needs {ToolchainVersions.MsvcToolset} or newer; update Visual Studio";
-    }
-
-    static (NativeCompiler?, string?) FindGcc()
-    {
-        var gcc = FindOnPath(OperatingSystem.IsWindows() ? "g++.exe" : "g++", Environment.GetEnvironmentVariable("PATH"));
-        if (gcc is null)
-            return (null, "could not find g++ on PATH");
-        var version = CompilerVersion(gcc, "-dumpfullversion");
-        return ToolchainVersions.IsSupported(version, ToolchainVersions.Gcc)
-            ? (new NativeCompiler(Toolchain.Gcc, gcc, null), null)
-            : (null, $"g++ is version {version ?? "unknown"}, and wyl needs {ToolchainVersions.Gcc.Major} or newer");
-    }
-
-    /// <summary>What a gcc-style compiler prints for <paramref name="flag"/>, or null if it can't be run.</summary>
-    static string? CompilerVersion(string compiler, string flag)
-    {
-        var query = new ProcessStartInfo(compiler);
-        query.ArgumentList.Add(flag);
-        var result = ProcessRunner.Run(query);
-        return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
-    }
-
-    static IEnumerable<NativeCompiler> ThreadSanitizedCandidates()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            if (Msvc() is { } env && VisualStudioClang(env) is { } clang)
-                yield return new NativeCompiler(Toolchain.ThreadSanitized, clang, env);
-            yield break;
-        }
-        foreach (var (name, flag, minimum) in new[] { ("clang++", "-dumpversion", ToolchainVersions.LinuxClang), ("g++", "-dumpfullversion", ToolchainVersions.Gcc) })
-        {
-            if (FindOnPath(name, Environment.GetEnvironmentVariable("PATH")) is { } compiler
-                && ToolchainVersions.IsSupported(CompilerVersion(compiler, flag), minimum))
-                yield return new NativeCompiler(Toolchain.ThreadSanitized, compiler, null);
-        }
-    }
-
-    static NativeCompiler? ProbeThreadSanitized()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "wyl-tsan-probe-" + Environment.ProcessId);
-        try
-        {
-            Directory.CreateDirectory(directory);
-            var cpp = Path.Combine(directory, "probe.cpp");
-            File.WriteAllText(cpp, "int main() { return 0; }\n");
-            var exe = Path.Combine(directory, "probe" + (OperatingSystem.IsWindows() ? ".exe" : ""));
-            foreach (var compiler in ThreadSanitizedCandidates())
-            {
-                if (!compiler.Build(cpp, exe, release: false, precompiledHeader: false).Success)
-                    continue;
-                var run = ProcessRunner.Run(new ProcessStartInfo(exe), TimeSpan.FromSeconds(30));
-                if (run is { ExitCode: 0 } and { TimedOut: false })
-                    return compiler;
-            }
-            return null;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-        finally
-        {
-            try
-            {
-                Directory.Delete(directory, recursive: true);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-            }
-        }
-    }
-
-    /// <summary>
-    /// Since LLVM 20, sanitized programs on Windows always load the ASan runtime as a DLL, which lives
-    /// in clang's resource directory rather than on PATH; every program this process starts inherits
-    /// its PATH, so the runner, the matrices, the fuzzer, and `wyl run` all find it.
-    /// </summary>
-    static void AddSanitizerRuntimeToPath(string clang)
-    {
-        var query = new ProcessStartInfo(clang);
-        query.ArgumentList.Add("/clang:-print-file-name=clang_rt.asan_dynamic-x86_64.dll");
-        var dll = ProcessRunner.Run(query).StandardOutput.Trim();
-        if (!Path.IsPathRooted(dll) || !File.Exists(dll))
-            return;
-        var directory = Path.GetDirectoryName(dll)!;
-        var path = Environment.GetEnvironmentVariable("PATH") ?? "";
-        if (!path.Split(Path.PathSeparator).Contains(directory, StringComparer.OrdinalIgnoreCase))
-            Environment.SetEnvironmentVariable("PATH", directory + Path.PathSeparator + path);
-    }
-
-    /// <summary>
-    /// The first report AddressSanitizer, UBSan, or ThreadSanitizer wrote to a program's standard
-    /// error, or null. UBSan and ThreadSanitizer report and continue, so the exit code doesn't show
-    /// either.
-    /// </summary>
-    public static string? SanitizerReport(string standardError) =>
-        standardError.Replace("\r\n", "\n").Split('\n')
-            .FirstOrDefault(l => l.Contains("ERROR: AddressSanitizer", StringComparison.Ordinal)
-                || l.Contains(": runtime error: ", StringComparison.Ordinal)
-                || l.Contains("WARNING: ThreadSanitizer:", StringComparison.Ordinal));
-
-    static string? FindOnPath(string fileName, string? path) =>
-        path?.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(dir => Path.Combine(dir, fileName))
-            .FirstOrDefault(File.Exists);
-
-    /// <summary>
-    /// cl.exe only works inside the environment that vcvars64.bat sets up. Running vcvars64.bat takes
-    /// seconds, so the environment it set up is kept on disk. The kept environment is used again while
-    /// the installation and the variables vcvars64.bat reads are unchanged, and while every include
-    /// and library directory it names still exists.
-    /// </summary>
-    static IReadOnlyDictionary<string, string>? CaptureMsvcEnvironment()
-    {
-        var vswhere = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-            "Microsoft Visual Studio", "Installer", "vswhere.exe");
-        if (!File.Exists(vswhere))
-            return null;
-
-        var find = new ProcessStartInfo(vswhere);
-        foreach (var arg in new[] { "-latest", "-products", "*", "-requires",
-                     "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath" })
-            find.ArgumentList.Add(arg);
-        var installation = ProcessRunner.Run(find).StandardOutput.Trim();
-        if (installation.Length == 0)
-            return null;
-
-        var vcvars = Path.Combine(installation, "VC", "Auxiliary", "Build", "vcvars64.bat");
-        if (!File.Exists(vcvars))
-            return null;
-
-        var key = MsvcEnvironmentKey(installation, vcvars);
-        if (ReadMsvcEnvironment(key) is { } kept)
-            return kept;
-
-        var capture = ProcessRunner.Run(new ProcessStartInfo("cmd.exe")
-        {
-            Arguments = $"/d /s /c \"\"{vcvars}\" >nul 2>&1 && set\"",
-        });
-        if (capture.ExitCode != 0)
-            return null;
-
-        var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var line in capture.StandardOutput.Split('\n'))
-        {
-            int separator = line.IndexOf('=');
-            if (separator > 0)
-                env[line[..separator]] = line[(separator + 1)..].TrimEnd('\r');
-        }
-        WriteMsvcEnvironment(key, env);
-        return env;
-    }
-
-    static string MsvcEnvironmentPath => Path.Combine(AppContext.BaseDirectory, "msvc-environment.json");
-
-    sealed record KeptMsvcEnvironment(string Key, Dictionary<string, string> Environment);
-
-    // The variables that vcvars64.bat appends to or takes its settings from, by name and by prefix.
-    static readonly string[] VcvarsReads = ["PATH", "INCLUDE", "LIB", "LIBPATH", "EXTERNAL_INCLUDE", "VSINSTALLDIR", "VCINSTALLDIR"];
-    static readonly string[] VcvarsReadPrefixes = ["VSCMD_", "VCTOOLS", "WINDOWSSDK", "UCRT"];
-
-    /// <summary>
-    /// Everything the environment vcvars64.bat sets up depends on: the installation, its default
-    /// toolset, and the variables of this process that vcvars64.bat reads.
-    /// </summary>
-    static string MsvcEnvironmentKey(string installation, string vcvars)
-    {
-        var text = new StringBuilder();
-        text.Append(installation).Append('\n').Append(File.GetLastWriteTimeUtc(vcvars).Ticks).Append('\n');
-        var toolset = Path.Combine(installation, "VC", "Auxiliary", "Build", "Microsoft.VCToolsVersion.default.txt");
-        if (File.Exists(toolset))
-            text.Append(File.ReadAllText(toolset).Trim()).Append('\n');
-        var variables = Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>()
-            .Select(e => (Name: ((string)e.Key).ToUpperInvariant(), Value: e.Value as string ?? ""))
-            .Where(e => VcvarsReads.Contains(e.Name) || VcvarsReadPrefixes.Any(e.Name.StartsWith))
-            .OrderBy(e => e.Name, StringComparer.Ordinal);
-        foreach (var (name, value) in variables)
-            text.Append(name).Append('=').Append(value).Append('\n');
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
-    }
-
-    static IReadOnlyDictionary<string, string>? ReadMsvcEnvironment(string key)
-    {
-        try
-        {
-            if (!File.Exists(MsvcEnvironmentPath)
-                || JsonSerializer.Deserialize<KeptMsvcEnvironment>(File.ReadAllText(MsvcEnvironmentPath)) is not { } kept
-                || kept.Key != key)
-                return null;
-            var env = new Dictionary<string, string>(kept.Environment, StringComparer.OrdinalIgnoreCase);
-            // An update of Visual Studio or the Windows SDK can remove directories that a kept environment names.
-            if (!env.ContainsKey("INCLUDE") || !env.ContainsKey("LIB"))
-                return null;
-            var directories = new[] { env["INCLUDE"], env["LIB"] }.SelectMany(list => list.Split(';', StringSplitOptions.RemoveEmptyEntries));
-            return directories.All(Directory.Exists) ? env : null;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return null;
-        }
-    }
-
-    static void WriteMsvcEnvironment(string key, Dictionary<string, string> env)
-    {
-        // Another process may be writing the same file, so each process writes its own and moves it into place.
-        var temporary = $"{MsvcEnvironmentPath}.{Environment.ProcessId}.tmp";
-        try
-        {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(new KeptMsvcEnvironment(key, env)));
-            File.Move(temporary, MsvcEnvironmentPath, overwrite: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            try
-            {
-                File.Delete(temporary);
-            }
-            catch (Exception again) when (again is IOException or UnauthorizedAccessException)
-            {
-            }
-        }
-    }
 
     string? PrecompiledDirectory(bool release) =>
         Toolchain == Toolchain.ThreadSanitized
@@ -581,7 +222,7 @@ public sealed class NativeCompiler
         var inputs = native.Packages.ToDictionary(p => p, p =>
         {
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{p.Text}"));
+            hash.AppendData(Encoding.UTF8.GetBytes($"{BuildKeys.Identity(this, release)}\n{p.Text}"));
             foreach (var (path, bytes) in p.IncludableFiles())
             {
                 hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));

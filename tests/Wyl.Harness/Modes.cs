@@ -14,9 +14,9 @@ public static class Modes
     /// <returns>False when no C++ compiler is installed; the caller reports that.</returns>
     public static bool TryAvailable(out IReadOnlyList<Mode> modes, bool release = false, bool threadSanitized = false)
     {
-        var preferred = NativeCompiler.Find(Toolchain.Clang, out _) is not null ? Toolchain.Clang
-            : NativeCompiler.Find(Toolchain.Gcc, out _) is not null ? Toolchain.Gcc
-            : NativeCompiler.Find(Toolchain.Msvc, out _) is not null ? Toolchain.Msvc
+        var preferred = Toolchains.Find(Toolchain.Clang, out _) is not null ? Toolchain.Clang
+            : Toolchains.Find(Toolchain.Gcc, out _) is not null ? Toolchain.Gcc
+            : Toolchains.Find(Toolchain.Msvc, out _) is not null ? Toolchain.Msvc
             : (Toolchain?)null;
         if (preferred is null)
         {
@@ -33,11 +33,11 @@ public static class Modes
         var other = preferred == Toolchain.Clang ? Toolchain.Gcc
             : preferred == Toolchain.Gcc ? Toolchain.Clang
             : (Toolchain?)null;
-        if (other is { } second && NativeCompiler.Find(second, out _) is not null)
+        if (other is { } second && Toolchains.Find(second, out _) is not null)
             result.Add(new(Name(second), second, new CompileOptions()));
-        if (NativeCompiler.Find(Toolchain.ClangSanitized, out _) is not null)
+        if (Toolchains.Find(Toolchain.ClangSanitized, out _) is not null)
             result.Add(new("asan", Toolchain.ClangSanitized, new CompileOptions()));
-        if (threadSanitized && NativeCompiler.Find(Toolchain.ThreadSanitized, out _) is not null)
+        if (threadSanitized && Toolchains.Find(Toolchain.ThreadSanitized, out _) is not null)
             result.Add(new("tsan", Toolchain.ThreadSanitized, new CompileOptions()));
         result.Add(new(name + "-no-nest", preferred.Value, new CompileOptions(Nest: false, Optimize: true)));
         if (release)

@@ -8,7 +8,7 @@ static class RuntimeSelfTests
 
     public static TestResult Pools(string root, string outputDirectory, Toolchain? toolchain)
     {
-        var compiler = NativeCompiler.Find(toolchain, out var error);
+        var compiler = Toolchains.Find(toolchain, out var error);
         if (compiler is null)
             return new(PoolsName, error);
         var directory = Path.Combine(outputDirectory, "runtime");
@@ -20,7 +20,7 @@ static class RuntimeSelfTests
         var run = ProcessRunner.Run(new ProcessStartInfo(exe), TimeSpan.FromSeconds(120));
         if (run.TimedOut)
             return new(PoolsName, "timed out");
-        if (NativeCompiler.SanitizerReport(run.StandardError) is { } report)
+        if (Toolchains.SanitizerReport(run.StandardError) is { } report)
             return new(PoolsName, report);
         return new(PoolsName, run.ExitCode == 0 ? null : run.StandardError.Trim());
     }

@@ -116,7 +116,7 @@ public sealed class StatusService
         {
             try
             {
-                var found = NativeCompiler.Find(toolchain, out var error);
+                var found = Toolchains.Find(toolchain, out var error);
                 return new(id, name, found is not null, found is null ? error : null);
             }
             catch (Exception ex)

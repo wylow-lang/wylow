@@ -7,7 +7,7 @@ static class SanitizerSelfTests
         List<string> problems = [];
         void Expect(string standardError, bool reported)
         {
-            var actual = NativeCompiler.SanitizerReport(standardError) is not null;
+            var actual = Toolchains.SanitizerReport(standardError) is not null;
             if (actual != reported)
                 problems.Add($"{standardError.Replace("\n", "\\n")}: expected {(reported ? "a report" : "no report")}, found {(actual ? "a report" : "no report")}");
         }

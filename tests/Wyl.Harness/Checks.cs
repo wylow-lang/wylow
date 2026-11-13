@@ -299,7 +299,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
                 continue;
             }
 
-            if (NativeCompiler.SanitizerReport(run.StandardError) is { } report)
+            if (Toolchains.SanitizerReport(run.StandardError) is { } report)
             {
                 var kind = SanitizerKind(report);
                 // A stack overflow is a program that recursed too far, which is the runaway-recursion

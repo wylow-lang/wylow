@@ -93,7 +93,7 @@ if (allModes)
     return RunAllModes(outputDirectory, filter, parallelism);
 }
 
-if (!interpret && NativeCompiler.Find(toolchain, out var toolchainError) is null)
+if (!interpret && Toolchains.Find(toolchain, out var toolchainError) is null)
 {
     Console.Error.WriteLine(toolchainError);
     return 1;
@@ -239,13 +239,13 @@ static TestResult SanitizersLive(string outputDirectory)
             return *freed;
         }
         """);
-    var compiler = NativeCompiler.Find(Toolchain.ClangSanitized, out _)!;
+    var compiler = Toolchains.Find(Toolchain.ClangSanitized, out _)!;
     var build = compiler.Build(cpp, Path.ChangeExtension(cpp, ".exe"), release: false, precompiledHeader: false);
     if (!build.Success)
         return new(name, build.Output);
     var run = ProcessRunner.Run(new ProcessStartInfo(Path.ChangeExtension(cpp, ".exe")), TimeSpan.FromSeconds(30));
     var missing = new[] { "runtime error: signed integer overflow", "heap-use-after-free" }.Where(r => !run.StandardError.Contains(r, StringComparison.Ordinal)).ToList();
-    if (NativeCompiler.SanitizerReport(run.StandardError) is null)
+    if (Toolchains.SanitizerReport(run.StandardError) is null)
         missing.Add("anything SanitizerReport finds");
     return new(name, missing.Count == 0 ? null : $"no report of: {string.Join(", ", missing)}; stderr: {run.StandardError.Trim()}");
 }
@@ -267,13 +267,13 @@ static TestResult ThreadSanitizersLive(string outputDirectory)
             return counter == 0;
         }
         """);
-    var compiler = NativeCompiler.Find(Toolchain.ThreadSanitized, out _)!;
+    var compiler = Toolchains.Find(Toolchain.ThreadSanitized, out _)!;
     var exe = Path.ChangeExtension(cpp, OperatingSystem.IsWindows() ? ".exe" : null);
     var build = compiler.Build(cpp, exe, release: false, precompiledHeader: false);
     if (!build.Success)
         return new(name, build.Output);
     var run = ProcessRunner.Run(new ProcessStartInfo(exe), TimeSpan.FromSeconds(60));
-    return NativeCompiler.SanitizerReport(run.StandardError) is null
+    return Toolchains.SanitizerReport(run.StandardError) is null
         ? new(name, $"no race report; stderr: {run.StandardError.Trim()}")
         : new(name, null);
 }
@@ -470,7 +470,7 @@ static partial class TestCase
         }
 
         var stderr = run.StandardError.Trim().Replace("\r\n", "\n");
-        if (NativeCompiler.SanitizerReport(stderr) is { } report)
+        if (Toolchains.SanitizerReport(stderr) is { } report)
             problems.Add($"sanitizer: {report}\n{stderr}");
         if (expected.Panic is not null)
         {

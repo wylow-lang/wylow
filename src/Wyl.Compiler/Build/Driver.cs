@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Wyl.Compiler.Diagnostics;
 
@@ -33,11 +31,11 @@ public static class Driver
     /// </summary>
     public static ProgramBuild Build(PackageSources sources, CompileOptions compileOptions, string name, string outputDirectory, BuildOptions options)
     {
-        var compiler = NativeCompiler.Find(options.Toolchain, out var error);
+        var compiler = Toolchains.Find(options.Toolchain, out var error);
         var exePath = ExePath(outputDirectory, name);
         var keyPath = Path.Combine(outputDirectory, name + ".source-key");
         var diagnosticsPath = Path.Combine(outputDirectory, name + ".diagnostics.json");
-        var key = compiler is null ? null : SourceKey(compiler, sources, compileOptions, options.Release);
+        var key = compiler is null ? null : BuildKeys.SourceKey(compiler, sources, compileOptions, options.Release);
         if (key is not null && File.Exists(exePath) && ReadText(keyPath) == key && ReadDiagnostics(diagnosticsPath) is { } kept)
             return new ProgramBuild(kept, 0, CopyNextTo(exePath, sources.Native));
 
@@ -67,7 +65,7 @@ public static class Driver
         if (compilation.Cpp is null)
             throw new ArgumentException("cannot build a compilation that has errors", nameof(compilation));
 
-        var compiler = NativeCompiler.Find(options.Toolchain, out var error);
+        var compiler = Toolchains.Find(options.Toolchain, out var error);
         if (compiler is null)
             return new ExecutableBuild(null, error);
         return BuildExecutable(compilation, compiler, name, outputDirectory, options.Release);
@@ -81,7 +79,7 @@ public static class Driver
         File.WriteAllText(cppPath, cpp);
         var exePath = ExePath(outputDirectory, name);
         var keyPath = Path.Combine(outputDirectory, name + ".key");
-        var key = compiler.BuildKey(release, cpp, compilation.Native);
+        var key = BuildKeys.BuildKey(compiler, release, cpp, compilation.Native);
         if (File.Exists(exePath) && ReadText(keyPath) == key)
             return CopyNextTo(exePath, compilation.Native);
 
@@ -113,67 +111,6 @@ public static class Driver
         }
         return new ExecutableBuild(exePath, null);
     }
-
-    /// <summary>
-    /// Everything a build from source depends on: the Wylow compiler, the options, every source file
-    /// with the path and module it has in messages, and what <see cref="NativeCompiler.BuildKey"/>
-    /// covers besides the C++. Equal keys mean that the executable a previous build left is the one
-    /// this build would produce. Null if the compiler's own files cannot be found to read.
-    /// </summary>
-    public static string? SourceKey(NativeCompiler compiler, PackageSources sources, CompileOptions compileOptions, bool release)
-    {
-        if (WylowCompilerHash.Value is not { } wylow)
-            return null;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        void Add(string text)
-        {
-            var bytes = Encoding.UTF8.GetBytes(text);
-            hash.AppendData(BitConverter.GetBytes(bytes.Length));
-            hash.AppendData(bytes);
-        }
-        Add(wylow);
-        Add(compiler.Identity(release));
-        // A record's text names every one of its properties, so an option added later is in the key too.
-        Add(compileOptions.ToString());
-        Add(sources.Package.Name ?? "");
-        foreach (var diagnostic in sources.Diagnostics)
-            Add(diagnostic.ToString());
-        Add(sources.Native.Text);
-        foreach (var (path, bytes) in sources.Native.Files())
-        {
-            Add(path);
-            Add(Convert.ToBase64String(bytes));
-        }
-        foreach (var manifest in sources.Manifests)
-        {
-            Add(manifest.Path);
-            Add(manifest.Text);
-        }
-        foreach (var file in sources.Files)
-        {
-            Add(file.Path);
-            Add(file.Name);
-            Add(file.Module.ToString());
-            Add(file.InvalidUtf8At?.ToString() ?? "");
-            Add(file.Text);
-        }
-        return Convert.ToHexString(hash.GetHashAndReset());
-    }
-
-    /// <summary>A hash of the compiler's assemblies, the standard library among them, or null where they aren't files.</summary>
-    static readonly Lazy<string?> WylowCompilerHash = new(() =>
-    {
-        var directory = Path.GetDirectoryName(typeof(Driver).Assembly.Location);
-        if (string.IsNullOrEmpty(directory))
-            return null;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        foreach (var file in Directory.EnumerateFiles(directory, "Wyl.Compiler*.dll").Order(StringComparer.Ordinal))
-        {
-            hash.AppendData(Encoding.UTF8.GetBytes(Path.GetFileName(file)));
-            hash.AppendData(File.ReadAllBytes(file));
-        }
-        return Convert.ToHexString(hash.GetHashAndReset());
-    });
 
     static string ExePath(string outputDirectory, string name) =>
         Path.Combine(outputDirectory, name + (OperatingSystem.IsWindows() ? ".exe" : ""));
