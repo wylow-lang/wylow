@@ -60,6 +60,12 @@ in `a-library.md`.
   (a stray continuation byte, a truncated sequence, an overlong encoding, a surrogate, and a value
   past U+10FFFF), each with the offset that the error reports.
 
+Done: `String.fromUtf8` returns `Result<String, Utf8Error>`, and `Utf8Error` holds the offset.
+The layer reports invalid text as an `Error` with the code `SQLITE_MISMATCH`. Writing the layer
+showed one awkward spot. `try` passes an error on only if its type is the function's error type, so
+the layer converts a `Utf8Error` to an `Error` with a `switch` at each of the two calls. A
+conversion of the error type in `try` is not designed.
+
 ## 2. Copying a span into an array
 
 `column` copies a blob into a `byte[]` one byte at a time, because the standard library has no

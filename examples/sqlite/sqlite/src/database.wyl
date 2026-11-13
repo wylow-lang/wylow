@@ -1,7 +1,9 @@
 import std::Unit;
+import std::Utf8Error;
 import std::collections::List;
 
-/// An error that SQLite reported: its result code and its message.
+/// An error that SQLite reported, with its result code and its message. Text that is not valid UTF-8
+/// is an error with the code `SQLITE_MISMATCH`.
 pub struct Error implements Printable {
     pub int code;
     pub String message;
@@ -64,15 +66,14 @@ pub final class Database {
 
     /// Runs `sql`, which may hold several statements, and calls `visit` with each row's column names
     /// and values. A null value is `null`. The run stops after a row for which `visit` returns
-    /// `false`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a name or a value is not valid UTF-8.
+    /// `false`, or at a name or a value that is not valid UTF-8, which the run returns as an error.
     pub Result<Unit, Error> forEachRow(String sql, escaping fn(List<String>, List<String?>) -> bool visit) {
         mut var context = ExecContext(visit);
         unsafe {
             int code = sqlite3_exec(handle, sql.cstr(), visitRow, &context, null);
+            if (context.failure is Error failure) {
+                return Err(failure);
+            }
             if (code != SQLITE_OK && !context.stopped) {
                 return Err(error(code));
             }
@@ -95,28 +96,62 @@ pub final class Database {
     }
 }
 
+/// Returns the error of a value of `column` that is not valid UTF-8.
+module Error invalidText(int column, Utf8Error error) {
+    return Error(SQLITE_MISMATCH, $"column {column} holds {error}");
+}
+
 /// What `forEachRow` gives `sqlite3_exec` as the callback's context.
 struct ExecContext {
     fn(List<String>, List<String?>) -> bool visit;
     bool stopped = false;
+    Error? failure = null;
 }
 
 /// Calls the function of the `ExecContext` that `context` points to with one row of
-/// `sqlite3_exec`'s result. Returns 1, which stops the run, if the function returns `false`.
+/// `sqlite3_exec`'s result. Returns 1, which stops the run, if the function returns `false` or a
+/// name or a value is not valid UTF-8.
 @CCallback
 int visitRow(void* context, int columns, byte** values, byte** names) {
-    mut var nameList = new List<String>();
-    mut var valueList = new List<String?>();
     unsafe {
-        for (mut int column = 0; column < columns; column++) {
-            nameList.add(String.fromCString(names[column]));
-            valueList.add(values[column] == null ? null : String.fromCString(values[column]));
-        }
         ExecContext* exec = (ExecContext*) context;
-        if (!exec[0].visit(nameList, valueList)) {
-            exec[0].stopped = true;
-            return 1;
+        switch (visitTexts(exec[0].visit, columns, values, names)) {
+            case Ok(var more) -> {
+                if (more) {
+                    return 0;
+                }
+                exec[0].stopped = true;
+            }
+            case Err(var error) -> exec[0].failure = error;
         }
     }
-    return 0;
+    return 1;
+}
+
+/// Returns what `visit` returns for the row's names and values, or the error of the first name or
+/// value that is not valid UTF-8.
+unsafe Result<bool, Error> visitTexts(fn(List<String>, List<String?>) -> bool visit, int columns, byte** values, byte** names) {
+    mut var nameList = new List<String>();
+    mut var valueList = new List<String?>();
+    for (mut int column = 0; column < columns; column++) {
+        nameList.add(try text(column, names[column]));
+        if (values[column] == null) {
+            valueList.add(null);
+        } else {
+            valueList.add(try text(column, values[column]));
+        }
+    }
+    return Ok(visit(nameList, valueList));
+}
+
+/// Returns the null-terminated text at `p`, the name or a value of `column`, as a string.
+unsafe Result<String, Error> text(int column, byte* p) {
+    mut int length = 0;
+    while (p[length] != 0) {
+        length += 1;
+    }
+    return switch (String.fromUtf8(ReadOnlySpan<byte>(p, length))) {
+        case Ok(var text) -> Ok(text);
+        case Err(var error) -> Err(invalidText(column, error));
+    };
 }

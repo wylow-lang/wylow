@@ -1,10 +1,11 @@
 // A program that uses SQLite through the safe layer of the `sqlite` library, without unsafe code. It
 // opens an in-memory database, creates a table, inserts rows with bound text, integers, doubles, and
-// blobs, and prints each row of a query. A last query runs through `forEachRow`, which SQLite's
-// `sqlite3_exec` calls back for each row.
+// blobs, and prints each row of a query. A query runs through `forEachRow`, which SQLite's
+// `sqlite3_exec` calls back for each row. The last queries read text that is not valid UTF-8, which
+// the layer returns as an error.
 
 import std::Unit;
-import sqlite::{Database, Error, Statement};
+import sqlite::{Database, Error, Statement, Value};
 
 /// A row to insert: a name, a count, a weight, and a tag of raw bytes.
 struct Order {
@@ -42,7 +43,8 @@ Result<Unit, Error> query(Database database, String sql) {
         mut String line = "";
         for (mut int column = 0; column < columns; column++) {
             String separator = column == 0 ? "" : ", ";
-            line = $"{line}{separator}{statement.columnName(column)} = {statement.column(column)}";
+            Value value = try statement.column(column);
+            line = $"{line}{separator}{statement.columnName(column)} = {value}";
         }
         std::print(line);
     }
@@ -81,6 +83,16 @@ Result<Unit, Error> run() {
     std::print($"forEachRow printed {count.rows} rows");
     switch (database.execute("INSERT INTO missing VALUES (1)")) {
         case Ok(_) -> std::print("the insert ran");
+        case Err(var error) -> std::print($"{error}");
+    }
+    // The blob x'61FF' cast to text is not valid UTF-8, so reading it returns an error.
+    String invalid = "SELECT CAST(x'61FF' AS TEXT) AS text";
+    switch (query(database, invalid)) {
+        case Ok(_) -> std::print("the text was read");
+        case Err(var error) -> std::print($"{error}");
+    }
+    switch (database.forEachRow(invalid, (names, values) -> true)) {
+        case Ok(_) -> std::print("the text was read");
         case Err(var error) -> std::print($"{error}");
     }
     return Ok(Unit());

@@ -10,6 +10,7 @@ extern {
     module struct PreparedStatement;
 
     module static int SQLITE_OK;
+    module static int SQLITE_MISMATCH;
     module static int SQLITE_MISUSE;
     module static int SQLITE_ROW;
     module static int SQLITE_DONE;

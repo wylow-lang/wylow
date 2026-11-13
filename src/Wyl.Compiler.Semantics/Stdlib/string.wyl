@@ -44,6 +44,18 @@ extern {
             return copyString(text);
         }
 
+        /// Returns a copy of the UTF-8 text in `bytes`, or an error that gives the offset of the first
+        /// byte that does not belong to a valid character. A null byte in `bytes` is part of the
+        /// string.
+        pub static Result<String, Utf8Error> fromUtf8(ReadOnlySpan<byte> bytes) {
+            if (invalidOffset(bytes) is int offset) {
+                return Result.Err(Utf8Error(offset));
+            }
+            unsafe {
+                return Result.Ok(copyString(bytes));
+            }
+        }
+
         /// Returns whether the string has no bytes.
         pub bool isEmpty() {
             return byteLength() == 0;
@@ -237,4 +249,15 @@ extern {
     ///
     /// `bytes` must be valid UTF-8.
     package String copyString(ReadOnlySpan<byte> bytes);
+}
+
+/// The error of `String.fromUtf8`: bytes that are not valid UTF-8.
+pub struct Utf8Error implements Printable {
+    /// The offset of the first byte that does not belong to a valid character.
+    pub int offset;
+
+    /// Returns a message that names the offset.
+    pub String toString() {
+        return $"invalid UTF-8 at byte offset {offset}";
+    }
 }

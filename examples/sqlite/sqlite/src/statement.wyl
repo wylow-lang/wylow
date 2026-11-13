@@ -120,15 +120,14 @@ pub unique struct Statement {
         }
     }
 
-    /// Returns the value of `column`, counted from 0, in the current row. A text value ends at its
-    /// first null byte.
+    /// Returns the value of `column`, counted from 0, in the current row, or an error if the value is
+    /// text that is not valid UTF-8.
     ///
     /// # Panics
     ///
     /// Panics if the statement is not on a row, or if `column` is not one of its columns.
-    /// Panics if the value is text that is not valid UTF-8.
     @CallerLocation
-    pub Value column(int column) {
+    pub Result<Value, Error> column(int column) {
         if (!onRow) {
             std::panic("the statement is not on a row");
         }
@@ -136,25 +135,30 @@ pub unique struct Statement {
         unsafe {
             int type = sqlite3_column_type(handle, column);
             if (type == SQLITE_INTEGER) {
-                return Value.Integer(sqlite3_column_int64(handle, column));
+                return Ok(Value.Integer(sqlite3_column_int64(handle, column)));
             }
             if (type == SQLITE_FLOAT) {
-                return Value.Float(sqlite3_column_double(handle, column));
+                return Ok(Value.Float(sqlite3_column_double(handle, column)));
             }
             if (type == SQLITE_TEXT) {
-                return Value.Text(String.fromCString(sqlite3_column_text(handle, column)));
+                // SQLite's documentation reads the pointer before the length.
+                byte* data = sqlite3_column_text(handle, column);
+                int length = sqlite3_column_bytes(handle, column);
+                return switch (String.fromUtf8(ReadOnlySpan<byte>(data, length))) {
+                    case Ok(var text) -> Ok(Value.Text(text));
+                    case Err(var error) -> Err(invalidText(column, error));
+                };
             }
             if (type == SQLITE_BLOB) {
-                // SQLite's documentation reads the pointer before the length.
                 byte* data = (byte*) sqlite3_column_blob(handle, column);
                 int length = sqlite3_column_bytes(handle, column);
                 var bytes = new byte[length];
                 for (mut int i = 0; i < length; i++) {
                     bytes[i] = data[i];
                 }
-                return Value.Blob(bytes);
+                return Ok(Value.Blob(bytes));
             }
-            return Value.Null;
+            return Ok(Value.Null);
         }
     }
 

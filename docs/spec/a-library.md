@@ -515,3 +515,29 @@ pub Frozen<T> freeze() where T extends sendable & copyable;
 - `iterator` returns a `FrozenIterator<T>`, an `InIterator<T>` over the elements from first to last
   ([`std::iteration`](#library.iterator)). The iterator holds the frozen list.
 - Releasing the last reference to a frozen list releases its elements last to first.
+
+<a id="library.strings"></a>
+## A.11 Strings from bytes
+
+`String` declares a function that makes a string from bytes, and `std` declares its error type:
+
+```java unchecked
+// in String
+pub static Result<String, Utf8Error> fromUtf8(ReadOnlySpan<byte> bytes);
+
+pub struct Utf8Error implements Printable {
+    pub int offset;
+}
+```
+
+- `fromUtf8` returns a new string that holds a copy of `bytes`, if `bytes` is valid UTF-8.
+- If `bytes` is not valid UTF-8, `fromUtf8` returns a `Utf8Error`. Its `offset` is the offset in
+  `bytes` of the first byte that does not belong to a valid character.
+- A byte sequence is valid UTF-8 if it is the shortest encoding of a code point that is at most
+  U+10FFFF and is not a surrogate (U+D800 to U+DFFF). An overlong encoding, a surrogate, and a
+  value greater than U+10FFFF are therefore invalid. A continuation byte without a lead byte before
+  it is invalid. A lead byte is invalid if the span ends before all of its continuation bytes, or if
+  a byte that is not a continuation byte comes before them.
+- A null byte is a valid character. A null byte in `bytes` is part of the string, and the bytes
+  after it are part of the string too.
+- `Utf8Error`'s `toString` names the offset.

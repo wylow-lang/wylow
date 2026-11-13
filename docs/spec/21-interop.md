@@ -230,7 +230,9 @@ A `String` is stored null-terminated. Two members of `String` cross the boundary
   while the string is alive. It is unsafe, and it is undefined behavior to write through the
   pointer.
 - `String.fromCString(byte* p)` copies a null-terminated C string into a new `String`. It panics on
-  invalid UTF-8. It is unsafe.
+  invalid UTF-8. It is unsafe. `String.fromUtf8` returns an error instead of panicking, and it
+  copies the bytes of a span, so it takes text of a known length
+  ([Strings from bytes](a-library.md#library.strings)).
 
 <a id="interop.buffers"></a>
 ## 21.5 Buffers

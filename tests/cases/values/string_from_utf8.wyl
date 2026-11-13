@@ -1,0 +1,60 @@
+// String.fromUtf8 copies the UTF-8 bytes of a span into a new string. It returns an error that gives
+// the offset of the first invalid sequence, and it keeps a null byte as part of the string.
+
+import std::Utf8Error;
+
+// Prints the string that `bytes` holds, or the error's offset and message.
+void show(ReadOnlySpan<byte> bytes) {
+    switch (String.fromUtf8(bytes)) {
+        case Ok(var text) -> std::print($"{text.byteLength()} bytes: '{text}'");
+        case Err(var error) -> std::print($"{error.offset}: {error}");
+    }
+}
+
+void main() {
+    byte[6] valid = [0x68, 0xC3, 0xA9, 0x6C, 0x6C, 0x6F];
+    show(valid);                    // output: 6 bytes: 'héllo'
+    show("".bytes());               // output: 0 bytes: ''
+
+    // The null byte is the string's second byte, and the bytes after it are kept.
+    byte[3] nul = [0x61, 0, 0x62];
+    switch (String.fromUtf8(nul)) {
+        case Ok(var text) -> {
+            std::print(text.byteLength());          // output: 3
+            std::print(text.bytes()[1]);            // output: 0
+            std::print(text.slice(2, 1));           // output: b
+        }
+        case Err -> std::print("error");
+    }
+
+    // A continuation byte with no lead byte before it.
+    byte[3] stray = [0x61, 0x80, 0x62];
+    show(stray);                    // output: 1: invalid UTF-8 at byte offset 1
+    // A lead byte of three bytes with only one byte after it, at the end of the span.
+    byte[4] truncated = [0x61, 0x62, 0xE2, 0x82];
+    show(truncated);                // output: 2: invalid UTF-8 at byte offset 2
+    // A lead byte of three bytes, and an ASCII byte where its second continuation byte belongs.
+    byte[4] interrupted = [0xE2, 0x82, 0x61, 0x62];
+    show(interrupted);              // output: 0: invalid UTF-8 at byte offset 0
+    // '/' in two bytes, where one byte is enough.
+    byte[3] overlong = [0x61, 0xC0, 0xAF];
+    show(overlong);                 // output: 1: invalid UTF-8 at byte offset 1
+    // U+0800 in four bytes, where three are enough.
+    byte[4] overlong4 = [0xF0, 0x80, 0xA0, 0x80];
+    show(overlong4);                // output: 0: invalid UTF-8 at byte offset 0
+    // The surrogate U+D800.
+    byte[5] surrogate = [0x61, 0x62, 0xED, 0xA0, 0x80];
+    show(surrogate);                // output: 2: invalid UTF-8 at byte offset 2
+    // U+110000, one past the largest code point.
+    byte[5] past = [0x61, 0xF4, 0x90, 0x80, 0x80];
+    show(past);                     // output: 1: invalid UTF-8 at byte offset 1
+    // A lead byte that no character starts with.
+    byte[2] lead = [0x61, 0xFF];
+    show(lead);                     // output: 1: invalid UTF-8 at byte offset 1
+
+    // The error is a struct that a program may keep.
+    if (String.fromUtf8(past) is Err(var error)) {
+        Utf8Error kept = error;
+        std::print(kept.offset);    // output: 1
+    }
+}
