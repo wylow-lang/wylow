@@ -25,6 +25,31 @@ unique struct EmptyGuard {
     ~EmptyGuard() { }
 }
 
+// A nullable value is a union of its value and an empty byte, then a one-byte state, padded to the
+// value's alignment. A nullable extern function holds only the pointer, and a fixed array holds
+// its elements end to end.
+struct Counted {
+    pub int? count;
+    pub byte tag;
+}
+
+struct Flag {
+    pub bool? set;
+}
+
+struct Grid {
+    pub int[2]? cells;
+}
+
+struct Callback {
+    pub (extern fn(int) -> void)? f;
+}
+
+struct Cells {
+    pub int?[2] values;
+    pub byte tag;
+}
+
 void main() {
     mut int[3] ints = [1, 2, 3];
     Span<int> view = ints;
@@ -56,6 +81,30 @@ void main() {
     mut EmptyGuard[3] emptyGuards = [EmptyGuard(), EmptyGuard(), EmptyGuard()];
     Span<EmptyGuard> emptyGuardView = emptyGuards;
     std::print(emptyGuardView.byteLength());    // output: 3
+
+    mut Counted[2] counted = [Counted(1, 2), Counted(null, 3)];
+    Span<Counted> countedView = counted;
+    std::print(countedView.byteLength());       // output: 24
+
+    mut Flag[3] flags = [Flag(true), Flag(null), Flag(false)];
+    Span<Flag> flagView = flags;
+    std::print(flagView.byteLength());          // output: 6
+
+    mut Grid[2] grids = [Grid(null), Grid(null)];
+    Span<Grid> gridView = grids;
+    std::print(gridView.byteLength());          // output: 24
+
+    mut Callback[2] callbacks = [Callback(null), Callback(null)];
+    Span<Callback> callbackView = callbacks;
+    std::print(callbackView.byteLength());      // output: 16
+
+    mut Cells[2] cells = [Cells([1, null], 2), Cells([null, 3], 4)];
+    Span<Cells> cellView = cells;
+    std::print(cellView.byteLength());          // output: 40
+
+    mut int?[3][2] maybeRows = [[1, null], [null, 2], [3, 4]];
+    Span<int?[2]> maybeRowView = maybeRows;
+    std::print(maybeRowView.byteLength());      // output: 48
 
     mut char[2] chars = ['a', 'b'];
     Span<char> text = chars;
