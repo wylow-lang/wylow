@@ -21,7 +21,7 @@ public sealed record BoundProgram(
 {
     IReadOnlyList<TypeSymbol>? borrowableClasses;
 
-    /// <summary>The headers that the extern blocks of the program and the standard library include, each once, in the order the blocks name them.</summary>
+    /// <summary>The headers that the extern blocks of every package include, each once for each package that names it, in the order the blocks name them.</summary>
     public IReadOnlyList<ExternHeader> Headers { get; init; } = [];
 
     /// <summary>The constants of every extern block, each declared as an extern function without parameters.</summary>
@@ -567,5 +567,11 @@ public static class BoundTree
     };
 }
 
-/// <summary>A header that an extern block includes, and the first <c>@Include</c> that names it.</summary>
-public sealed record ExternHeader(string Path, Location At);
+/// <summary>
+/// A header that an extern block includes, and the first <c>@Include</c> of a package that names it.
+/// The block's package searches for the header in its own directories (spec <c>interop.native</c>).
+/// </summary>
+public sealed record ExternHeader(string Path, Location At)
+{
+    public Package Package => At.Source.Module.Package;
+}

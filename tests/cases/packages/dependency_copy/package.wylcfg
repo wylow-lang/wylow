@@ -1,0 +1,18 @@
+// Two packages may not copy two files of one name next to the executable. A file that both packages
+// name by its own path is one file.
+name = "dependency_copy";
+dependencies {
+    codec { path = "vendor/codec"; }
+}
+native {
+    copy = ["data/notes.txt"];                  // error[WYL0539]: 'copy' names a file 'notes.txt', and package 'codec' copies another file of that name
+    windows {
+        copy = ["data/shared.txt"];
+    }
+    linux {
+        copy = ["data/shared.txt"];
+    }
+    macos {
+        copy = ["data/shared.txt"];
+    }
+}

@@ -111,8 +111,9 @@ static class BuildCacheSelfTests
     /// <summary>
     /// Both keys cover the manifest's <c>native</c> lists and every file that the C++ build reads from
     /// the package: each file of <c>native/</c> and of an <c>include</c> directory, each library that
-    /// <c>link</c> names in a <c>libraryPaths</c> directory, and each file of <c>copy</c>. A key that
-    /// ignores one of them reuses the executable built from the old file.
+    /// <c>link</c> names in a <c>libraryPaths</c> directory, and each file of <c>copy</c>. They cover
+    /// the same lists and files of a dependency. A key that ignores one of them reuses the executable
+    /// built from the old file.
     /// </summary>
     static TestResult Native(NativeCompiler compiler, string outputDirectory)
     {
@@ -125,8 +126,26 @@ static class BuildCacheSelfTests
         Write(directory, "lib/shapes.lib", "one");
         Write(directory, "lib/libshapes.a", "one");
         Write(directory, "data/notes.txt", "one");
+        Write(directory, "vendor/codec/src/codec.wyl", "pub int width() { return 1; }\n");
+        Write(directory, "vendor/codec/native/codec.cpp", "int codec() { return 1; }\n");
+        Write(directory, "vendor/codec/include/codec_base.h", "#define CODEC_BASE 1\n");
+        Write(directory, "vendor/codec/data/codec.txt", "one");
+        string Library(string defines) => $$"""
+            name = "codec";
+            kind = "library";
+            version = "1.0.0";
+            native {
+                include = ["include"];
+                copy = ["data/codec.txt"];
+                defines = [{{defines}}];
+            }
+            """;
+        Write(directory, "vendor/codec/package.wylcfg", Library("\"CODEC_ON\""));
         string Manifest(string defines) => $$"""
             name = "native";
+            dependencies {
+                codec { path = "vendor/codec"; }
+            }
             native {
                 include = ["include"];
                 libraryPaths = ["lib"];
@@ -160,12 +179,17 @@ static class BuildCacheSelfTests
         Changed("a changed library that 'link' names", () => Write(directory, $"lib/{(OperatingSystem.IsWindows() ? "shapes.lib" : "libshapes.a")}", "two"));
         Changed("a changed file of 'copy'", () => Write(directory, "data/notes.txt", "two"));
         Changed("a changed list of the manifest", () => Write(directory, "package.wylcfg", Manifest("\"BASE_ON=2\"")));
+        Changed("a changed native source of a dependency", () => Write(directory, "vendor/codec/native/codec.cpp", "int codec() { return 2; }\n"));
+        Changed("a changed header of a dependency's 'include' directory", () => Write(directory, "vendor/codec/include/codec_base.h", "#define CODEC_BASE 2\n"));
+        Changed("a changed file of a dependency's 'copy'", () => Write(directory, "vendor/codec/data/codec.txt", "two"));
+        Changed("a changed list of a dependency's manifest", () => Write(directory, "vendor/codec/package.wylcfg", Library("\"CODEC_ON=2\"")));
         return new("build-cache/native", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     /// <summary>
     /// A package built again after a header of its <c>include</c> directory, a definition of its
     /// manifest, or a file of <c>copy</c> changed runs the new program, with the new file next to it.
+    /// A file that a dependency's <c>copy</c> names goes next to the program too.
     /// </summary>
     static TestResult NativeRebuild(string outputDirectory)
     {
@@ -186,8 +210,21 @@ static class BuildCacheSelfTests
         Write(directory, "native/shim.cpp", "#include \"shim.h\"\n#include \"offset.h\"\nint shim_value() { return SHIM_BASE + SHIM_OFFSET; }\n");
         Write(directory, "include/offset.h", "#define SHIM_OFFSET 2\n");
         Write(directory, "data/notes.txt", "one");
+        Write(directory, "vendor/codec/package.wylcfg", """
+            name = "codec";
+            kind = "library";
+            version = "1.0.0";
+            native {
+                copy = ["codec.txt"];
+            }
+            """);
+        Write(directory, "vendor/codec/src/codec.wyl", "pub int width() { return 1; }\n");
+        Write(directory, "vendor/codec/codec.txt", "codec");
         string Manifest(int value) => $$"""
             name = "rebuild";
+            dependencies {
+                codec { path = "vendor/codec"; }
+            }
             native {
                 include = ["include"];
                 copy = ["data/notes.txt"];
@@ -197,14 +234,17 @@ static class BuildCacheSelfTests
         Write(directory, "package.wylcfg", Manifest(40));
         var output = Path.Combine(directory, ".build");
         var notes = Path.Combine(output, "notes.txt");
+        var codec = Path.Combine(output, "codec.txt");
         string Run()
         {
             var build = Driver.Build(PackageSources.Load(directory), new CompileOptions(), "rebuild", output, new BuildOptions());
             if (build.Executable is not { Success: true } executable)
                 return $"the build failed: {build.Executable?.Error ?? string.Join('\n', build.Diagnostics)}";
             var run = ProcessRunner.Run(new System.Diagnostics.ProcessStartInfo(executable.ExePath!), TimeSpan.FromSeconds(10));
-            return $"{run.StandardOutput.Trim()} {(File.Exists(notes) ? File.ReadAllText(notes) : "(no copy)")}";
+            return $"{run.StandardOutput.Trim()} {Copied(notes)} {Copied(codec)}";
         }
+
+        static string Copied(string path) => File.Exists(path) ? File.ReadAllText(path) : "(no copy)";
 
         List<string> problems = [];
         void Expect(string expected, string after)
@@ -212,20 +252,23 @@ static class BuildCacheSelfTests
             if (Run() is var actual && actual != expected)
                 problems.Add($"after {after}, the program printed and copied '{actual}' instead of '{expected}'");
         }
-        Expect("42 one", "the first build");
+        Expect("42 one codec", "the first build");
         Write(directory, "include/offset.h", "#define SHIM_OFFSET 3\n");
-        Expect("43 one", "a header of an 'include' directory changed");
+        Expect("43 one codec", "a header of an 'include' directory changed");
         Write(directory, "package.wylcfg", Manifest(50));
         Write(directory, "data/notes.txt", "two");
-        Expect("53 two", "a definition and a file of 'copy' changed");
+        Expect("53 two codec", "a definition and a file of 'copy' changed");
         File.Delete(notes);
-        Expect("53 two", "the copied file was deleted");
+        File.Delete(codec);
+        Expect("53 two codec", "the copied files were deleted");
         return new("build-cache/native-rebuild", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 
     /// <summary>
     /// A native object is compiled again only if a file that its source can include changed, so a
     /// change to the Wylow sources alone keeps it. A changed C source or header gives the new program.
+    /// A source of a dependency can include only its own package's files, so a change to them
+    /// compiles that source again and keeps the program's.
     /// </summary>
     static TestResult NativeObjects(string outputDirectory)
     {
@@ -239,7 +282,7 @@ static class BuildCacheSelfTests
             }
 
             void main() {
-                std::print(shim_value() + {{added}});
+                std::print(shim_value() + scale::value() + {{added}});
             }
             """;
         Write(directory, "src/main.wyl", Main(0));
@@ -249,24 +292,46 @@ static class BuildCacheSelfTests
             int shim_value(void) { return {{value}} + SHIM_OFFSET; }
 
             """;
-        Write(directory, "native/shim.h", """
+        const string Header = """
             #ifdef __cplusplus
             extern "C" {
             #endif
-            int shim_value(void);
+            int {0}_value(void);
             #ifdef __cplusplus
             }
             #endif
 
-            """);
+            """;
+        Write(directory, "native/shim.h", Header.Replace("{0}", "shim", StringComparison.Ordinal));
         Write(directory, "native/shim.c", Shim(40));
         Write(directory, "include/offset.h", "#define SHIM_OFFSET 2\n");
         Write(directory, "package.wylcfg", """
             name = "objects";
+            dependencies {
+                scale { path = "vendor/scale"; }
+            }
             native {
                 include = ["include"];
             }
             """);
+        Write(directory, "vendor/scale/package.wylcfg", """
+            name = "scale";
+            kind = "library";
+            version = "1.0.0";
+            """);
+        Write(directory, "vendor/scale/src/scale.wyl", """
+            @Include("scale.h")
+            extern {
+                @Safe int scale_value();
+            }
+
+            pub int value() {
+                return scale_value();
+            }
+            """);
+        Write(directory, "vendor/scale/native/scale.h", Header.Replace("{0}", "scale", StringComparison.Ordinal));
+        Write(directory, "vendor/scale/native/scale.c", "#include \"scale.h\"\n#include \"factor.h\"\nint scale_value(void) { return FACTOR; }\n");
+        Write(directory, "vendor/scale/native/factor.h", "#define FACTOR 100\n");
         var output = Path.Combine(directory, ".build");
         string? Run()
         {
@@ -275,27 +340,35 @@ static class BuildCacheSelfTests
                 return null;
             return ProcessRunner.Run(new System.Diagnostics.ProcessStartInfo(executable.ExePath!), TimeSpan.FromSeconds(10)).StandardOutput.Trim();
         }
-        DateTime Compiled() =>
-            Directory.EnumerateFiles(Path.Combine(output, "native-objects"), "0_shim.*").Where(f => !f.EndsWith(".key", StringComparison.Ordinal))
+        // The program's source comes before its dependency's, so its object is the first.
+        DateTime Compiled(string obj) =>
+            Directory.EnumerateFiles(Path.Combine(output, "native-objects"), obj + ".*").Where(f => !f.EndsWith(".key", StringComparison.Ordinal))
                 .Select(File.GetLastWriteTimeUtc).DefaultIfEmpty().Max();
+        string[] objects = ["0_shim", "1_scale"];
 
         List<string> problems = [];
-        void Expect(string expected, string after, bool compiles)
+        void Expect(string expected, string after, params string[] compiled)
         {
-            var before = Directory.Exists(Path.Combine(output, "native-objects")) ? Compiled() : default;
+            var before = objects.Select(o => Directory.Exists(Path.Combine(output, "native-objects")) ? Compiled(o) : default).ToList();
             var actual = Run();
             if (actual != expected)
                 problems.Add($"after {after}, the program printed '{actual ?? "(the build failed)"}' instead of '{expected}'");
-            if ((Compiled() != before) != compiles)
-                problems.Add($"after {after}, the build {(compiles ? "kept" : "compiled")} the C source's object");
+            for (int i = 0; i < objects.Length; i++)
+            {
+                bool compiles = compiled.Contains(objects[i]);
+                if ((Compiled(objects[i]) != before[i]) != compiles)
+                    problems.Add($"after {after}, the build {(compiles ? "kept" : "compiled")} the object '{objects[i]}'");
+            }
         }
-        Expect("42", "the first build", compiles: true);
+        Expect("142", "the first build", "0_shim", "1_scale");
         Write(directory, "src/main.wyl", Main(1));
-        Expect("43", "a Wylow source changed", compiles: false);
+        Expect("143", "a Wylow source changed");
         Write(directory, "native/shim.c", Shim(50));
-        Expect("53", "the C source changed", compiles: true);
+        Expect("153", "the C source changed", "0_shim");
         Write(directory, "include/offset.h", "#define SHIM_OFFSET 3\n");
-        Expect("54", "a header of an 'include' directory changed", compiles: true);
+        Expect("154", "a header of an 'include' directory changed", "0_shim");
+        Write(directory, "vendor/scale/native/factor.h", "#define FACTOR 200\n");
+        Expect("254", "a header of the dependency changed", "1_scale");
         return new("build-cache/native-objects", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 

@@ -1,0 +1,19 @@
+// native
+// Each extern block includes the 'util.h' of its own package. The generated program sees the
+// definitions of both packages, and each native source sees only its own package's. The library's
+// 'link' list applies to the program.
+@Include("util.h")
+extern {
+    static int APP_KIND;
+
+    @Safe int app_value();
+}
+
+void main() {
+    std::print(APP_KIND);                           // output: 1
+    std::print(app_value());                        // output: 41
+    std::print(codec::kind());                      // output: 2
+    std::print(codec::level());                     // output: 7
+    std::print(codec::scaled());                    // output: 70
+    std::print(codec::relative());                  // output: 1
+}

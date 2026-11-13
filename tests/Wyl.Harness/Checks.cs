@@ -424,7 +424,7 @@ public sealed class Checker(string outputDirectory, IReadOnlyList<Mode> modes, d
         try
         {
             var lowered = Compilation.Lower(source, options);
-            var result = Compilation.Emit(lowered, options.Nest);
+            var result = Compilation.Emit(lowered, NativeInputs.None, options.Nest);
             return new CompileOutcome(result, [.. result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)], null, lowered);
         }
         catch (Exception exception)

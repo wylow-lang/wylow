@@ -132,7 +132,7 @@ static partial class CatalogSelfTests
         if (result.Success && sources.Package.Kind == PackageKind.Library)
             diagnostics = Compilation.Compile(sources, DiagnosticsOnly.Options).Diagnostics;
         // A header that does not match an extern block is an error that only the C++ build finds.
-        if (result.Success && sources.Native.Directory is not null)
+        if (result.Success && sources.Native.Packages.Any(p => p.Directory is not null))
         {
             var build = Driver.BuildExecutable(Compilation.Compile(sources), "example", Path.Combine(Path.GetTempPath(), "wyl-diagnostic-pages", descriptor.Code + "-build"), new BuildOptions());
             if (build.Diagnostics.Count == 0 && build.Error is { } error)

@@ -1,0 +1,16 @@
+name = "codec";
+kind = "library";
+version = "1.0.0";
+native {
+    include = ["include"];
+    defines = ["CODEC_LEVEL=7"];
+    windows {
+        link = ["shlwapi"];
+    }
+    linux {
+        link = ["m"];
+    }
+    macos {
+        link = ["m"];
+    }
+}

@@ -1,0 +1,9 @@
+// A program and a library that each keep their own native settings (spec
+// programs.manifest.dependencies). Each package has a header 'util.h' of its own.
+name = "dependency_native";
+dependencies {
+    codec { path = "vendor/codec"; }
+}
+native {
+    defines = ["APP_BASE=40"];
+}

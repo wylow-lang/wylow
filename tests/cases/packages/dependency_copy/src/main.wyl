@@ -1,0 +1,3 @@
+void main() {
+    std::print(codec::width());
+}

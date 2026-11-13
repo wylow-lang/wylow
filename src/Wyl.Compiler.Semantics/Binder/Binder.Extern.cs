@@ -13,7 +13,7 @@ public sealed partial class Binder
     const string CppNameName = "CppName";
     const string CCallbackName = "CCallback";
 
-    /// <summary>The header of each extern block, each once, in the order the blocks name them.</summary>
+    /// <summary>The header of each extern block, each once for each package, in the order the blocks name them.</summary>
     readonly List<ExternHeader> headers = [];
 
     /// <summary>Checks each block's annotations: exactly one <c>@Include</c>, and otherwise only <c>@CppNamespace</c>.</summary>
@@ -32,7 +32,7 @@ public sealed partial class Binder
                     else
                     {
                         include = annotation;
-                        if (header is not null && !headers.Any(h => h.Path == header))
+                        if (header is not null && !headers.Any(h => h.Path == header && h.Package == annotation.Location.Source.Module.Package))
                             headers.Add(new ExternHeader(header, annotation.Location));
                     }
                 }

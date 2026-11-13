@@ -41,7 +41,7 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
     /// <summary>What the build reports a header that does not match an extern block with.</summary>
     public CppInterop Interop { get; init; } = CppInterop.None;
 
-    /// <summary>What the build takes from the package besides the generated C++: its <c>native/</c> directory and the manifest's <c>native</c> lists.</summary>
+    /// <summary>What the build takes from the packages besides the generated C++: each one's <c>native/</c> directory and its manifest's <c>native</c> lists.</summary>
     public NativeInputs Native { get; init; } = NativeInputs.None;
 
     /// <summary>Where each object that is on the stack instead of the heap is made, for tests.</summary>
@@ -131,15 +131,17 @@ public static class Compilation
 
     /// <summary>
     /// The C++ of a program the pipeline accepted, from the <see cref="Lower"/> result that produced
-    /// it, so a caller that needs both the IR and the C++ lowers once.
+    /// it, so a caller that needs both the IR and the C++ lowers once. The C++ includes each extern
+    /// block's header by the path that <paramref name="native"/> finds in the block's package.
     /// </summary>
-    public static CompilationResult Emit(LowerResult lowered, bool nest = true)
+    public static CompilationResult Emit(LowerResult lowered, NativeInputs native, bool nest = true)
     {
         if (lowered is not { Program: { } program, Ir: { } ir, Optimized: { } optimized })
-            return new CompilationResult(lowered.Diagnostics, null);
+            return new CompilationResult(lowered.Diagnostics, null) { Native = native };
         var emitter = new CppEmitter();
-        return new CompilationResult(lowered.Diagnostics, emitter.Emit(program, ir, optimized.Callees, optimized.Lambdas, nest))
+        return new CompilationResult(lowered.Diagnostics, emitter.Emit(program, ir, optimized.Callees, optimized.Lambdas, h => native.HeaderPath(h.Package, h.Path), nest))
         {
+            Native = native,
             Interop = emitter.Interop,
             StackObjects = optimized.StackObjects,
             InPlaceElements = optimized.InPlaceElements,
@@ -156,7 +158,7 @@ public static class Compilation
         var lowered = Lower(sources, options);
         if (RefuseLibrary(sources, lowered) is { } refused)
             return new CompilationResult(refused, null) { Native = sources.Native };
-        return Emit(lowered, options.Nest) with { Native = sources.Native };
+        return Emit(lowered, sources.Native, options.Nest);
     }
 
     /// <summary>

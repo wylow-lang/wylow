@@ -1,0 +1,5 @@
+// A library's native paths are checked as the program's are, from the library's own directory.
+name = "dependency_native_paths";
+dependencies {
+    codec { path = "vendor/codec"; }
+}

@@ -18,7 +18,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
     /// <summary>The manifest of every package that was read, the package's own among them.</summary>
     public IReadOnlyList<SourceText> Manifests { get; init; } = [];
 
-    /// <summary>The package's <c>native/</c> directory and the manifest's <c>native</c> lists for this platform.</summary>
+    /// <summary>Each package's <c>native/</c> directory and its manifest's <c>native</c> lists for this platform.</summary>
     public NativeInputs Native { get; init; } = NativeInputs.None;
 
     /// <summary>A file compiled on its own: the one file of its own unnamed package.</summary>
@@ -38,7 +38,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
         var loader = new Loader();
         if (loader.LoadRoot(directory) is not var (package, manifest))
             return new PackageSources(Package.Unnamed(), [], loader.Diagnostics.Sorted()) { Manifests = loader.Manifests };
-        var native = loader.Files.Any(f => f.Module.Package == package) ? ReadNative(directory, manifest, loader.Diagnostics) : NativeInputs.None;
+        var native = loader.ReadNative(package);
         return new PackageSources(package, loader.Files, loader.Diagnostics.Sorted()) { Manifest = manifest, Manifests = loader.Manifests, Native = native };
     }
 
@@ -59,6 +59,8 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
         readonly Dictionary<string, (string Directory, Location At)> named = new(StringComparer.Ordinal);
         // The packages whose dependencies are being read, from the program down, to find a cycle.
         readonly List<(string Directory, string Name)> loading = [];
+        // Every package that was read, each after its dependencies.
+        readonly List<(string Directory, Manifest Manifest, Package Package)> packages = [];
 
         static string Identity(string directory) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
 
@@ -95,6 +97,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
 
             var package = Package.Named(manifest.Name, manifest.Kind, dependencies);
             loaded[Identity(directory)] = package;
+            packages.Add((directory, manifest, package));
             ReadFiles(directory, package, manifest, root ? "" : manifest.Name + "::");
             // So that a path's first name has one meaning (spec programs.paths).
             foreach (var dependency in manifest.Dependencies.Where(d => package.Root.FindChild(d.Name) is not null))
@@ -156,6 +159,89 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                 Diagnostics.Add(Catalog.NoSourceFiles(manifest.NameLocation));
         }
 
+        /// <summary>
+        /// The native settings of every package that has files, <paramref name="program"/>'s first
+        /// (spec programs.manifest.dependencies). Two packages that define one name with different
+        /// values are an error, and so are two files of <c>copy</c> with one file name. Each is
+        /// reported at the list of the package that comes later in an order where every package
+        /// comes after its dependencies.
+        /// </summary>
+        public NativeInputs ReadNative(Package program)
+        {
+            var defined = new Dictionary<string, (string Value, Package Package, Location At)>(StringComparer.Ordinal);
+            var copied = new Dictionary<string, (string Path, Package Package, Location At)>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            List<PackageNative> natives = [];
+            foreach (var (directory, manifest, package) in packages.Where(p => Files.Any(f => f.Module.Package == p.Package)))
+            {
+                var native = ReadNative(directory, manifest, package);
+                natives.Add(native);
+                foreach (var list in manifest.NativeFor(NativeInputs.Platform).Where(l => l.Key == "defines"))
+                {
+                    foreach (var define in list.Values)
+                    {
+                        var (name, value) = SplitDefine(define);
+                        if (!defined.TryGetValue(name, out var other))
+                            defined[name] = (value, package, list.KeyLocation);
+                        else if (other.Package != package && other.Value != value)
+                            Diagnostics.Add(Catalog.ConflictingDefine(list.KeyLocation, name, value, other.Value, other.Package.Name!, other.At));
+                    }
+                }
+                foreach (var list in manifest.NativeFor(NativeInputs.Platform).Where(l => l.Key == "copy"))
+                {
+                    foreach (var value in list.Values)
+                    {
+                        var path = Path.GetFullPath(Path.Combine(directory, value));
+                        var name = Path.GetFileName(path);
+                        if (!copied.TryGetValue(name, out var other))
+                            copied[name] = (path, package, list.KeyLocation);
+                        else if (other.Package != package && !PathComparer.Equals(other.Path, path))
+                            Diagnostics.Add(Catalog.ConflictingCopy(list.KeyLocation, name, other.Package.Name!, other.At));
+                    }
+                }
+            }
+            return new NativeInputs([.. natives.Where(n => n.Package == program), .. natives.Where(n => n.Package != program)]);
+        }
+
+        /// <summary>A definition's name and value: the text before and after its '=', where a definition without one has the value <c>1</c>, as a C compiler gives it.</summary>
+        static (string Name, string Value) SplitDefine(string define) =>
+            define.IndexOf('=', StringComparison.Ordinal) is >= 0 and var at ? (define[..at], define[(at + 1)..]) : (define, "1");
+
+        /// <summary>
+        /// The package's <c>native/</c> directory and the lists of its manifest's <c>native</c> block for
+        /// this platform, with each path made absolute from the package's directory. A directory of
+        /// <c>include</c> or <c>libraryPaths</c>, or a file of <c>copy</c>, that does not exist is an error.
+        /// </summary>
+        PackageNative ReadNative(string directory, Manifest manifest, Package package)
+        {
+            var lists = manifest.NativeFor(NativeInputs.Platform).ToList();
+            List<string> Paths(string key, bool directories)
+            {
+                List<string> paths = [];
+                foreach (var list in lists.Where(l => l.Key == key))
+                {
+                    foreach (var value in list.Values)
+                    {
+                        var path = Path.GetFullPath(Path.Combine(directory, value));
+                        if (directories ? !Directory.Exists(path) : !File.Exists(path))
+                            Diagnostics.Add(Catalog.MissingNativePath(list.KeyLocation, key, value, directories ? "directory" : "file"));
+                        paths.Add(path);
+                    }
+                }
+                return paths;
+            }
+            List<string> Values(string key) => [.. lists.Where(l => l.Key == key).SelectMany(l => l.Values)];
+
+            var native = Path.GetFullPath(Path.Combine(directory, "native"));
+            return new PackageNative(
+                package,
+                Directory.Exists(native) ? native : null,
+                Paths("include", directories: true),
+                Paths("libraryPaths", directories: true),
+                Values("link"),
+                Paths("copy", directories: false),
+                Values("defines"));
+        }
+
         static void AddModule(string src, string path, string prefix, Module module, List<SourceText> into, DiagnosticBag bag)
         {
             foreach (var file in Directory.GetFiles(path, "*.wyl").Order(StringComparer.Ordinal))
@@ -179,40 +265,5 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                     bag.Add(Catalog.StdModuleName(at));
             }
         }
-    }
-
-    /// <summary>
-    /// The package's <c>native/</c> directory and the lists of its manifest's <c>native</c> block for
-    /// this platform, with each path made absolute from the package's directory. A directory of
-    /// <c>include</c> or <c>libraryPaths</c>, or a file of <c>copy</c>, that does not exist is an error.
-    /// </summary>
-    static NativeInputs ReadNative(string directory, Manifest manifest, DiagnosticBag diagnostics)
-    {
-        var lists = manifest.NativeFor(NativeInputs.Platform).ToList();
-        List<string> Paths(string key, bool directories)
-        {
-            List<string> paths = [];
-            foreach (var list in lists.Where(l => l.Key == key))
-            {
-                foreach (var value in list.Values)
-                {
-                    var path = Path.GetFullPath(Path.Combine(directory, value));
-                    if (directories ? !Directory.Exists(path) : !File.Exists(path))
-                        diagnostics.Add(Catalog.MissingNativePath(list.KeyLocation, key, value, directories ? "directory" : "file"));
-                    paths.Add(path);
-                }
-            }
-            return paths;
-        }
-        List<string> Values(string key) => [.. lists.Where(l => l.Key == key).SelectMany(l => l.Values)];
-
-        var native = Path.GetFullPath(Path.Combine(directory, "native"));
-        return new NativeInputs(
-            Directory.Exists(native) ? native : null,
-            Paths("include", directories: true),
-            Paths("libraryPaths", directories: true),
-            Values("link"),
-            Paths("copy", directories: false),
-            Values("defines"));
     }
 }

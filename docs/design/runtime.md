@@ -400,26 +400,38 @@ compiler writes in the C++ type's namespace. A read of a union field is
 `wyl::interop::ReadUnion<T>(value)`, which copies the union's first bytes into a `T`, so that the
 C++ never reads an inactive member.
 
-The build compiles each native source under the package's `native/` directory in a call of its
-own, and it links the objects with the program (`NativeCompiler.CompileNative`, decision 0099). A
-`.cpp` source gets the C++ flags of the build. A `.c` source gets C17, the sanitizers, and the
-optimization of the build mode, and none of the C++ flags. Every source gets the include
-directories and the definitions of the manifest. The objects are in the directory `native-objects`
-beside the executable. Each object has a `.key` file beside it, and the build compiles the source
-again only if the key changes. The key covers `NativeCompiler.Identity`, the compiler's arguments,
-the manifest's `native` lists, and every file of `NativeInputs.IncludableFiles`. The build deletes
-an object whose source no longer exists. A source's warnings appear only if that source fails to
-compile.
+The build compiles each native source of each package of the program in a call of its own, and it
+links the objects with the program (`NativeCompiler.CompileNative`, decision 0099). A `.cpp` source
+gets the C++ flags of the build. A `.c` source gets C17, the sanitizers, and the optimization of the
+build mode, and none of the C++ flags. Every source gets the include path and the definitions of
+its own package, and no other package's. The objects are in the directory `native-objects` beside
+the executable. Each object has a `.key` file beside it, and the build compiles the source again
+only if the key changes. The key covers `NativeCompiler.Identity`, the compiler's arguments, the
+`native` lists of the source's package, and every file of that package's
+`PackageNative.IncludableFiles`. A change to one package's files therefore compiles only that
+package's sources again. The build deletes an object whose source no longer exists. A source's
+warnings appear only if that source fails to compile.
 
-`PackageSources.Load` reads the lists of the manifest's `native` block for the platform that the
-compiler runs on (`NativeInputs.Platform`) and makes each path absolute (`NativeInputs`). The build
-adds each directory of `include` to the include path after `native/`, and gives each definition of
-`defines` to the generated program and to every native source. A definition could change what
-`wyl.h` means, so a program built with definitions does not use the precompiled `wyl.h`. The build
-links each library of `link` by the toolchain's spelling: `name.lib` with MSVC and clang-cl, and
-`-lname` with g++. The linker searches each directory of `libraryPaths`, which the build passes as
-`/LIBPATH:` after `/link` with MSVC and clang-cl, and as `-L` with g++. `Driver` copies each file
-of `copy` into the executable's directory after every build, and also when it reuses an executable.
+`PackageSources.Load` reads the lists of each package's `native` block for the platform that the
+compiler runs on (`NativeInputs.Platform`), and it makes each path absolute from the package's own
+directory (`PackageNative`). `NativeInputs` holds the `PackageNative` of each package, the
+program's first. A package's include path is its `native/` directory, then each directory of its
+`include` list. The generated program includes each extern block's header by the full path that
+`NativeInputs.HeaderPath` finds in the include path of the block's own package, so two packages may
+each have a header of one path. If the block's package does not hold the header, the program
+includes the header by the path as written. The standard library's headers are included that way,
+since the runtime directory holds them. The generated program compiles with the include paths of
+every package, in package order, so that a header finds the headers that it includes. It also
+compiles with the definitions of every package. `PackageSources.Load` reports two packages that
+define one name with different values (`WYL0538`). A definition could change what `wyl.h` means, so
+a program built with definitions does not use the precompiled `wyl.h`.
+
+The build links each library of every package's `link` list by the toolchain's spelling:
+`name.lib` with MSVC and clang-cl, and `-lname` with g++. The linker searches each directory of
+every package's `libraryPaths`, which the build passes as `/LIBPATH:` after `/link` with MSVC and
+clang-cl, and as `-L` with g++. `Driver` copies each file of every package's `copy` list into the
+executable's directory after every build, and also when it reuses an executable.
+`PackageSources.Load` reports two packages that copy two different files of one name (`WYL0539`).
 
 ## Toolchains
 

@@ -83,6 +83,6 @@ static class BuildFailureSelfTests
         var directory = Path.Combine(Path.GetTempPath(), "wyl-build-failure", "native");
         Directory.CreateDirectory(Path.Combine(directory, "detail"));
         File.WriteAllText(Path.Combine(directory, "detail", "shim.cpp"), "int relative();\n");
-        return new NativeInputs(directory, [], [], [], [], []);
+        return new NativeInputs([new PackageNative(Package.Named("example", PackageKind.Program, new Dictionary<string, Package>()), directory, [], [], [], [], [])]);
     }
 }

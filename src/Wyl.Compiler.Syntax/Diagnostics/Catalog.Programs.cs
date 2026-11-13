@@ -76,6 +76,18 @@ public static partial class Catalog
     public static Diagnostic UnsatisfiedVersion(Location at, string name, PackageVersion version, string stated, Location given) =>
         Make(at, $"library '{name}' has version '{version}', which does not satisfy '{stated}'").Note(given, "the library's version is given here");
 
+    [Error(538, "programs.manifest.dependencies")]
+    public static Diagnostic ConflictingDefine(Location at, string name, string value, string otherValue, string other, Location otherAt) =>
+        Make(at, $"'{name}' is defined as '{value}', and package '{other}' defines it as '{otherValue}'")
+            .Note(otherAt, $"package '{other}' defines '{name}' here")
+            .Note("the generated program compiles with the definitions of every package");
+
+    [Error(539, "programs.manifest.dependencies")]
+    public static Diagnostic ConflictingCopy(Location at, string fileName, string other, Location otherAt) =>
+        Make(at, $"'copy' names a file '{fileName}', and package '{other}' copies another file of that name")
+            .Note(otherAt, $"package '{other}' names its file here")
+            .Note("the files that every package copies go into the executable's directory");
+
     [Error(526, "programs.manifest")]
     public static Diagnostic UnknownPackageKind(Location at, string kind) =>
         Make(at, $"package kind '{kind}' is neither 'program' nor 'library'");

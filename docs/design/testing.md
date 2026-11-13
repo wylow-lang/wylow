@@ -125,7 +125,9 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   file under the test's directory, the libraries' manifests and sources among them. A panic in a
   library is marked with `// panic-here:` in the library's file, which has no other marker but
   errors. The runner then expects the panic's location to name that file as a panic names it,
-  such as `parser::checks/depth.wyl` (`packages/dependency_panic`).
+  such as `parser::checks/depth.wyl` (`packages/dependency_panic`). A library inside a test may
+  have a `native/` directory and a `native` block of its own, which the build uses for the
+  library's sources (`interop/dependency_native`).
 - **Sanitizers.** `--cc asan` uses the clang-cl of Visual Studio (runtime.md, "Toolchains"). Any
   report fails the test, and the runner checks that both sanitizers still report a deliberate bug
   (`sanitizers/live`). ASan finds a use after free even if the freed memory still holds the old

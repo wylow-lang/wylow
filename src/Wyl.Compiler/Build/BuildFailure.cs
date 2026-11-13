@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Wyl.Compiler.CodeGen;
 using Wyl.Compiler.Diagnostics;
+using Wyl.Compiler.Text;
 
 namespace Wyl.Compiler.Build;
 
@@ -48,13 +49,13 @@ static partial class BuildFailure
         if (diagnostics.Count > 0)
             return new ExecutableBuild(null, null) { Diagnostics = diagnostics };
 
-        // An error in a header or source of the package's include directories is the package's, and
-        // so are a library that the manifest names and the linker cannot find, and a symbol that
-        // nothing the program links defines.
-        if (errors.Any(e => native.IncludeDirectories.Any(d => IsUnder(e.File, d))))
-            return new ExecutableBuild(null, $"error: the package's native sources do not compile\n{output}");
+        // An error in a header or source of a package's include directories is that package's. A
+        // library that a manifest names and the linker cannot find is the program's, and so is a
+        // symbol that nothing the program links defines.
+        if (native.Packages.FirstOrDefault(p => errors.Any(e => p.IncludeDirectories.Any(d => IsUnder(e.File, d)))) is { } failing)
+            return new ExecutableBuild(null, $"error: the native sources of {PackageName(failing)} do not compile\n{output}");
         if (native.Link.Count > 0 && MissingLibrary().IsMatch(output))
-            return new ExecutableBuild(null, $"error: the program does not link, since a library that the manifest's 'link' names was not found\n{output}");
+            return new ExecutableBuild(null, $"error: the program does not link, since a library that a manifest's 'link' list names was not found\n{output}");
         if (Unlinked(output, cppPath, interop, native) is { } unlinked)
             return unlinked;
         return new ExecutableBuild(null, $"internal compiler error: the generated C++ failed to compile ({cppPath})\n{output}");
@@ -84,7 +85,7 @@ static partial class BuildFailure
             if (index >= 0)
             {
                 var region = interop.Regions[index];
-                declared.TryAdd(index, Catalog.UndefinedExtern(region.Declaration, region.What, region.Symbol!, IsCppName(symbol) && native.Sources.Any(NativeInputs.IsC)));
+                declared.TryAdd(index, Catalog.UndefinedExtern(region.Declaration, region.What, region.Symbol!, IsCppName(symbol) && native.Sources.Any(s => NativeInputs.IsC(s.Path))));
                 continue;
             }
             if (UserOf(user, cppPath, native) is not { } source)
@@ -139,7 +140,8 @@ static partial class BuildFailure
 
     /// <summary>
     /// The native source or library file that uses a missing symbol, as a message names it, or null if
-    /// the generated program uses it. A native source is named by its path under <c>native/</c>.
+    /// the generated program uses it. A native source is named by its path under its package's
+    /// <c>native/</c>, and by its package too if a library holds it.
     /// </summary>
     static string? UserOf(string? user, string cppPath, NativeInputs native)
     {
@@ -151,13 +153,20 @@ static partial class BuildFailure
         var sources = native.Sources;
         // An object that the build compiled from a native source is named '{index}_{name}.obj', or '{index}_{name}.o' with g++.
         var match = NativeObject().Match(file);
-        string? source = match.Success && int.Parse(match.Groups["index"].Value, CultureInfo.InvariantCulture) is var index && index < sources.Count
+        var source = match.Success && int.Parse(match.Groups["index"].Value, CultureInfo.InvariantCulture) is var index && index < sources.Count
             ? sources[index]
-            : sources.FirstOrDefault(s => Path.GetFileName(s).Equals(file, StringComparison.OrdinalIgnoreCase));
-        if (source is not null && native.Directory is not null)
-            return $"native source '{Path.GetRelativePath(native.Directory, source).Replace('\\', '/')}'";
+            : sources.FirstOrDefault(s => Path.GetFileName(s.Path).Equals(file, StringComparison.OrdinalIgnoreCase));
+        if (source is ({ Directory: { } directory } package, { } path))
+        {
+            var named = $"native source '{Path.GetRelativePath(directory, path).Replace('\\', '/')}'";
+            return package.Package.Kind == PackageKind.Library ? $"{named} of {PackageName(package)}" : named;
+        }
         return $"'{file}'";
     }
+
+    /// <summary>A package as a build error names it: the program as "the package", and a library by its name.</summary>
+    static string PackageName(PackageNative package) =>
+        package.Package.Kind == PackageKind.Library ? $"library '{package.Package.Name}'" : "the package";
 
     /// <summary>link.exe: <c>user.obj : error LNK2019: unresolved external symbol "int __cdecl f(int)" (?f@@YAHH@Z) referenced in ...</c>, or LNK2001 without the user's function.</summary>
     [GeneratedRegex("""^(?<user>.+?) : error LNK20(?:19|01): unresolved external symbol (?<symbol>"[^"]*"|\S+)""", RegexOptions.Multiline)]

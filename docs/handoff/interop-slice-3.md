@@ -3,8 +3,8 @@
 Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `examples/sqlite`. The
 binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
 smaller gaps that the binding found. Step 4 wrote a safe layer over the binding, and step 5 designed
-the manifest's `dependencies` with the user. Steps 6 and 7 built the manifest's new keys, libraries,
-and dependencies, and steps 8 and 9 build the rest of that design.
+the manifest's `dependencies` with the user. Steps 6 to 8 built the manifest's new keys, libraries,
+dependencies, and the native settings of dependencies. Step 9 uses them in `examples/sqlite`.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -188,17 +188,43 @@ WSL").
   and `library_dependency`.
 - The manifest reader checks the keys of a dependency's `native` block, but nothing checks its paths
   or uses it yet. The program's build uses only the program's own native settings, so a library
-  with an extern block does not build inside a program until step 8.
+  with an extern block did not build inside a program before step 8.
 
-## 8. Native settings of dependencies
+## Facts from step 8
 
-`NativeInputs` becomes one set for each package. Each package's native sources compile with their
-own `include` and `defines` lists. The generated C++ includes each extern block's header by the
-path that its own package resolves, so two packages may have headers of one path. The `link`,
-`libraryPaths`, and `copy` lists of every package apply to the program. Two packages that define
-one name with different values are an error, and so are two `copy` files with one file name. Both
-build keys and the native-object key must hash every package's native inputs. This step runs on
-Linux through WSL.
+- `NativeInputs` holds a `PackageNative` for each package of the program that has files, the
+  program's first. A `PackageNative` holds one package's `native/` directory and its lists for this
+  platform, with each path made absolute from that package's directory. `NativeInputs` gives the
+  union of every package's `Link`, `LibraryPaths`, `Copy`, `Defines`, and include directories.
+- Each native source compiles with the include path and the definitions of its own package. The
+  native-object key of a source covers its own package's lists and files, so a change to one
+  package's files compiles only that package's sources again.
+- The binder keeps one `ExternHeader` for each package that names a header, and
+  `ExternHeader.Package` is the package of its `@Include`. `Compilation.Emit` takes the
+  `NativeInputs`, and the emitter includes each header by the full path that
+  `NativeInputs.HeaderPath` finds in the block's own package. If the package does not hold the
+  header, the emitter writes the path as written, which is how the standard library's headers are
+  included.
+- The generated program compiles with the definitions of every package and with the include path
+  of every package, in package order, so that a header finds the headers that it includes. For that
+  reason, a block whose package does not hold its header may still find a header of another package
+  through the include path. The spec does not say what the compiler does with such a header.
+- `PackageSources.Load` reports `WYL0538` for two packages that define one name with different
+  values, and `WYL0539` for two packages that copy two different files of one name. A definition
+  without a value has the value `1`. The compiler reports either error at the list of the package
+  that comes later in an order where every package comes after its dependencies, so the program's
+  own list gets the error when the program takes part. A library's missing native path is
+  `WYL0518` in the library's manifest.
+- A build failure names a library's native source as `native source 'codec.c' of library 'codec'`,
+  and a compile error in a library's native files as an error of `the native sources of library
+  'codec'`.
+- The tests are `interop/dependency_native`, `packages/dependency_defines`,
+  `packages/dependency_copy`, and `packages/dependency_native_paths`. The self-tests
+  `build-cache/native`, `build-cache/native-rebuild`, and `build-cache/native-objects` each build a
+  program with a dependency now.
+- On Linux through WSL, the `interop` and `packages` tests pass in the gcc mode, and so do the
+  self-tests `build-cache`, `build-failure`, and `catalog`, and the whole suite with `--interpret`.
+  On Windows, the gcc mode still fails only `interop/undefined_extern` and `interop/c_linkage`.
 
 ## 9. The SQLite library and its demonstration
 

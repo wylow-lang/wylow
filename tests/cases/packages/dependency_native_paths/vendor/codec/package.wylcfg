@@ -1,0 +1,6 @@
+name = "codec";
+kind = "library";
+version = "1.0.0";
+native {
+    include = ["src", "missing"];       // error[WYL0518]: 'include' names 'missing', which is not a directory
+}

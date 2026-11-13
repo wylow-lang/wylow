@@ -1,0 +1,6 @@
+name = "codec";
+kind = "library";
+version = "1.0.0";
+native {
+    defines = ["LEVEL=3", "MODE", "SHARED=on"];
+}

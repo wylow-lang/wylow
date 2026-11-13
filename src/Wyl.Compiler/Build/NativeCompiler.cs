@@ -43,8 +43,8 @@ public sealed class NativeCompiler
 
     /// <summary>
     /// Everything a build depends on besides the program's own directory: the generated C++, the flags,
-    /// the runtime headers, the C++ compiler itself, the manifest's <c>native</c> lists, and the files
-    /// that <see cref="NativeInputs.Files"/> gives. Equal keys mean the executable a previous build
+    /// the runtime headers, the C++ compiler itself, the <c>native</c> lists of every package's
+    /// manifest, and the files that <see cref="NativeInputs.Files"/> gives. Equal keys mean the executable a previous build
     /// left is the one this build would produce.
     /// </summary>
     public string BuildKey(bool release, string cpp, NativeInputs? native = null)
@@ -458,10 +458,10 @@ public sealed class NativeCompiler
     }
 
     /// <summary>
-    /// Builds the executable from the generated C++ and every native source under the package's
-    /// <c>native/</c> directory, with the include directories and definitions of <paramref name="native"/>,
-    /// and links the libraries it names (spec <c>interop.native</c>, <c>programs.manifest</c>). Each
-    /// native source compiles to an object of its own first (<see cref="CompileNative"/>). A definition
+    /// Builds the executable from the generated C++ and every native source of every package, and
+    /// links the libraries that the packages name (spec <c>interop.native</c>, <c>programs.manifest</c>).
+    /// The generated C++ compiles with the include directories and the definitions of every package.
+    /// Each native source compiles to an object of its own first (<see cref="CompileNative"/>). A definition
     /// could change what <c>wyl.h</c> means, so a program built with definitions does not use the
     /// precompiled header.
     /// </summary>
@@ -484,7 +484,7 @@ public sealed class NativeCompiler
             if (Toolchain is Toolchain.ClangSanitized or Toolchain.ThreadSanitized)
                 args.Add("-fuse-ld=lld");
             args.Add($"/I{RuntimeDirectory}");
-            AddNativeFlags(args, native, msvc: true);
+            AddNativeFlags(args, native.IncludeDirectories, native.Defines, msvc: true);
             var precompiled = precompiledHeader ? PrecompiledDirectory(release) : null;
             if (precompiled is not null)
             {
@@ -513,7 +513,7 @@ public sealed class NativeCompiler
             if ((precompiledHeader ? PrecompiledDirectory(release) : null) is { } precompiled)
                 args.Add($"-I{precompiled}");
             args.Add($"-I{RuntimeDirectory}");
-            AddNativeFlags(args, native, msvc: false);
+            AddNativeFlags(args, native.IncludeDirectories, native.Defines, msvc: false);
             args.Add("-o");
             args.Add(exePath);
             args.Add(cppPath);
@@ -526,12 +526,11 @@ public sealed class NativeCompiler
         return new NativeBuildResult(result.ExitCode == 0, (result.StandardOutput + result.StandardError).Trim());
     }
 
-    /// <summary>The include directories and the definitions that every native source and the generated program compile with.</summary>
-    static void AddNativeFlags(Collection<string> args, NativeInputs native, bool msvc)
+    static void AddNativeFlags(Collection<string> args, IEnumerable<string> includeDirectories, IEnumerable<string> defines, bool msvc)
     {
-        foreach (var directory in native.IncludeDirectories)
+        foreach (var directory in includeDirectories)
             args.Add((msvc ? "/I" : "-I") + directory);
-        foreach (var define in native.Defines)
+        foreach (var define in defines)
             args.Add((msvc ? "/D" : "-D") + define);
     }
 
@@ -560,13 +559,15 @@ public sealed class NativeCompiler
     }
 
     /// <summary>
-    /// Compiles each native source of <paramref name="native"/> to an object in the directory
+    /// Compiles each native source of every package to an object in the directory
     /// <c>native-objects</c> of <paramref name="outputDirectory"/>: a C source as C17 and a C++
-    /// source as C++20, with the flags of the program's toolchain and mode (decision 0099). An object
-    /// whose key file matches is kept from an earlier build. Its key covers the toolchain, the mode,
-    /// the compiler's arguments, and every file that the source can include, which is every file of
-    /// <see cref="NativeInputs.IncludableFiles"/>. A source's warnings appear only if it fails to
-    /// compile. Returns the failure of the first source in order that fails, or null.
+    /// source as C++20, with the flags of the program's toolchain and mode (decision 0099), and with
+    /// the include directories and the definitions of the source's own package. An object whose key
+    /// file matches is kept from an earlier build. Its key covers the toolchain, the mode, the
+    /// compiler's arguments, the package's lists, and every file that the source can include, which
+    /// is every file of the package's <see cref="PackageNative.IncludableFiles"/>. A source's warnings
+    /// appear only if it fails to compile. Returns the failure of the first source in order that
+    /// fails, or null.
     /// </summary>
     NativeBuildResult? CompileNative(NativeInputs native, bool release, string outputDirectory, out List<string> objects)
     {
@@ -577,30 +578,33 @@ public sealed class NativeCompiler
         var directory = Path.Combine(outputDirectory, "native-objects");
         Directory.CreateDirectory(directory);
 
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{native.Text}"));
-        foreach (var (path, bytes) in native.IncludableFiles())
+        var inputs = native.Packages.ToDictionary(p => p, p =>
         {
-            hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));
-            hash.AppendData(bytes);
-        }
-        var inputs = Convert.ToHexString(hash.GetHashAndReset());
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            hash.AppendData(Encoding.UTF8.GetBytes($"{Identity(release)}\n{p.Text}"));
+            foreach (var (path, bytes) in p.IncludableFiles())
+            {
+                hash.AppendData(Encoding.UTF8.GetBytes($"\n{path}\n{bytes.Length}\n"));
+                hash.AppendData(bytes);
+            }
+            return Convert.ToHexString(hash.GetHashAndReset());
+        });
 
         var extension = MsvcStyle ? ".obj" : ".o";
         // Each source has an object of its own, so that two of one name in different directories get two objects.
-        var paths = sources.Select((source, i) => Path.Combine(directory, $"{i}_{Path.GetFileNameWithoutExtension(source)}{extension}")).ToList();
+        var paths = sources.Select((source, i) => Path.Combine(directory, $"{i}_{Path.GetFileNameWithoutExtension(source.Path)}{extension}")).ToList();
         // An object of a source that was removed or renamed would otherwise stay in the directory for good.
         var current = paths.Concat(paths.Select(p => p + ".key")).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var stale in Directory.EnumerateFiles(directory).Select(Path.GetFullPath).Where(f => !current.Contains(f)).ToList())
             File.Delete(stale);
         var failures = new NativeBuildResult?[sources.Count];
-        Parallel.For(0, sources.Count, i => failures[i] = CompileSource(sources[i], paths[i], native, release, outputDirectory, inputs));
+        Parallel.For(0, sources.Count, i => failures[i] = CompileSource(sources[i].Path, paths[i], sources[i].Package, release, outputDirectory, inputs[sources[i].Package]));
         objects = paths;
         return failures.FirstOrDefault(f => f is not null);
     }
 
     /// <summary>Compiles one native source to <paramref name="obj"/>, unless the object that an earlier build left has the same key.</summary>
-    NativeBuildResult? CompileSource(string source, string obj, NativeInputs native, bool release, string outputDirectory, string inputs)
+    NativeBuildResult? CompileSource(string source, string obj, PackageNative package, bool release, string outputDirectory, string inputs)
     {
         var startInfo = StartInfo(outputDirectory);
         var args = startInfo.ArgumentList;
@@ -609,7 +613,7 @@ public sealed class NativeCompiler
             args.Add(arg);
         if (!c)
             args.Add((MsvcStyle ? "/I" : "-I") + RuntimeDirectory);
-        AddNativeFlags(args, native, MsvcStyle);
+        AddNativeFlags(args, package.IncludeDirectories, package.Defines, MsvcStyle);
         if (MsvcStyle)
         {
             args.Add("/c");

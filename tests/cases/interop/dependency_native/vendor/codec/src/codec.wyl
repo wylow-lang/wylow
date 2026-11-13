@@ -1,0 +1,24 @@
+@Include("util.h")
+extern {
+    static int CODEC_KIND;
+    static int CODEC_LEVEL;
+
+    @Safe int codec_scaled();
+    @Safe int codec_relative();
+}
+
+pub int kind() {
+    return CODEC_KIND;
+}
+
+pub int level() {
+    return CODEC_LEVEL;
+}
+
+pub int scaled() {
+    return codec_scaled();
+}
+
+pub int relative() {
+    return codec_relative();
+}

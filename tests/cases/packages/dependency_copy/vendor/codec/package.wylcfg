@@ -1,0 +1,6 @@
+name = "codec";
+kind = "library";
+version = "1.0.0";
+native {
+    copy = ["data/notes.txt", "../../data/shared.txt"];
+}

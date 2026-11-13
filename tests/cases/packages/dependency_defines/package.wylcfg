@@ -1,0 +1,9 @@
+// Two packages may not define one name with different values, since the generated program compiles
+// with the definitions of both. 'MODE' and 'MODE=1' give one value, and so do two equal entries.
+name = "dependency_defines";
+dependencies {
+    codec { path = "vendor/codec"; }
+}
+native {
+    defines = ["LEVEL=2", "MODE=1", "SHARED=on"];        // error[WYL0538]: 'LEVEL' is defined as '2', and package 'codec' defines it as '3'
+}
