@@ -138,9 +138,11 @@ public sealed partial class IrLowering
         List<IrOperand> options = [.. made.Select(leaf => leaf switch
         {
             BoundLambda lambda => IrRead.Move(new IrPlace(Let(Lambda(lambda)))),
-            // A non-escaping local that owns an escaping value is stored as one, so the choice copies it.
+            // A non-escaping local or field that owns an escaping value is stored as one, so the choice copies it.
             BoundLocalAccess local when !locals[local.Local].Type.IsEscaping => IrRead.Borrow(Place(local, Use.Read)),
             BoundLocalAccess local => (IrOperand)IrRead.Copy(Place(local, Use.Read)),
+            BoundFieldAccess field when !field.Type.IsEscaping => IrRead.Borrow(Place(field, Use.Read)),
+            BoundFieldAccess field => (IrOperand)IrRead.Copy(Place(field, Use.Read)),
             // The option that isn't chosen may be null, so the choice refers to the nullable and
             // unwraps it when called, after the check its index made.
             BoundNonNull { Operand: var nullable } => IrRead.Borrow(Place(nullable, Use.Read)),

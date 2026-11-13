@@ -27,6 +27,18 @@ ref struct Pair {
     int apply(int value) {
         return second(first(value));
     }
+
+    // A choice may pick between fields as well as locals.
+    int pick(bool firstOne, int value) {
+        return (firstOne ? first : second)(value);
+    }
+
+    int pickBy(int which, int value) {
+        return (switch (which) {
+            case 0 -> first;
+            default -> second;
+        })(value);
+    }
 }
 
 int countBelow(ReadOnlySpan<int> values, int limit, fn(int) -> bool visit) {
@@ -55,6 +67,10 @@ void main() {
     fn(int) -> int next = (value) -> value + 1;
     var pair = Pair(twice, next);
     std::print(pair.apply(5));                           // output: 11
+    std::print(pair.pick(true, 5));                      // output: 10
+    std::print(pair.pick(false, 5));                     // output: 6
+    std::print(pair.pickBy(0, 5));                       // output: 10
+    std::print(pair.pickBy(1, 5));                       // output: 6
     var same = Pair(next);
     std::print(same.apply(5));                           // output: 7
     var visit = pair.first;
