@@ -178,10 +178,23 @@ public sealed partial class Parser
             members.Fields[i] = members.Fields[i] with { Annotations = annotations };
     }
 
+    /// <summary>A member, which may be written <c>escaping</c> only if it is a field of a <c>ref struct</c> (spec functions.lambdas.escaping).</summary>
     void ParseMemberDeclaration(TypeKind kind, string typeName, Modifiers typeModifiers, Members members)
     {
         int start = position;
-        var modifiers = ParseModifiers();
+        var modifiers = ParseModifiers(keepEscaping: kind == TypeKind.Struct && (typeModifiers & Modifiers.Ref) != 0);
+        int fields = members.Fields.Count;
+        ParseMemberDeclaration(start, modifiers, kind, typeName, typeModifiers, members);
+        if (modifiers.Escaping is not { } escaping)
+            return;
+        if (members.Fields.Count == fields)
+            Report(Catalog.EscapingElsewhere(escaping));
+        for (int i = fields; i < members.Fields.Count; i++)
+            members.Fields[i] = members.Fields[i] with { Escaping = escaping };
+    }
+
+    void ParseMemberDeclaration(int start, ModifierList modifiers, TypeKind kind, string typeName, Modifiers typeModifiers, Members members)
+    {
         DisallowShared(modifiers);
         switch (kind)
         {

@@ -181,6 +181,15 @@ event APIs.
   one call. The unsafe way makes the programmer responsible for C not keeping the pointer.
 - The design must keep the rule that what a reference points into stays alive while it is used.
 
+Built, with decision 0104. The user chose the first direction, limited to functions. A field of a
+`ref struct` may have a function type, and the field is non-escaping unless it is declared
+`escaping`. The field is read-only outside its type's constructors, and a constructor assigns it
+only from one of its own parameters. A non-escaping function argument of a `ref struct`'s
+constructor must be a variable that is not `mut`, so a lambda written in place of the argument is
+an error (`WYL0549`). A pointer may now point to a `ref struct`. `forEachRow` takes a non-escaping
+function, its context is a `ref struct`, and the demo counts rows in a `mut` local. Span and
+reference fields of a `ref struct` remain errors, and a later decision may allow them.
+
 ## 7. Native files that the compiler downloads
 
 The user chose this design for the native files that a library does not keep in its directory,

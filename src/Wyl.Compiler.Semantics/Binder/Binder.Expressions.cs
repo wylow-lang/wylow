@@ -340,7 +340,7 @@ public sealed partial class Binder
             return ErrorExpression(Catalog.AddressOfTemporary(e.Operand.Location));
         if (kind == PlaceKind.ReadOnly)
             return ErrorExpression(Catalog.AddressOfReadOnly(e.Operand.Location, TextOf(e.Operand.Location), reason));
-        if (!CheckStorable(operand.Type, e.Operand.Location, "pointed to"))
+        if (!CheckPointable(operand.Type, e.Operand.Location))
             return new BoundErrorExpression(e.Location);
         return new BoundAddressOf(e.Location, operand);
     }

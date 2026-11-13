@@ -382,7 +382,8 @@ of an array. `Span<T>` and `ReadOnlySpan<T>` are `ref struct`s ([Spans](04-types
 A variable or parameter of a `ref struct` type may be `mut`; it is still bound where it is declared.
 
 - It is a compile-time error if a `ref struct` is the type of a field, a variant field, an element of
-  an array, the target of a pointer, or a type argument.
+  an array, or a type argument. A pointer may point to a `ref struct`
+  ([Pointer types](04-types.md#types.pointers)).
 - It is a compile-time error if a `ref struct` variable is declared without an initializer, or is
   assigned after its declaration: it views one thing for its whole scope.
 - It is a compile-time error if a `ref struct` is the type of a `?` ([Nullable types](04-types.md#types.nullable)),
@@ -395,6 +396,21 @@ A variable or parameter of a `ref struct` type may be `mut`; it is still bound w
 - What a `ref struct` views is held, or borrowed, while the view is used
   ([Holds](17-memory.md#memory.holds), [Borrows](17-memory.md#memory.borrows)).
 
+A field of a `ref struct` may have a function type. The field is non-escaping unless it is declared
+`escaping` ([Escaping and non-escaping](12-functions.md#functions.lambdas.escaping)). A
+non-escaping field refers to a function that a variable of the struct's creator keeps, so the
+function lives at least as long as the struct.
+
+- It is a compile-time error if a non-escaping field has an initializer.
+- A non-escaping field is read-only outside the constructors of its `ref struct`. Outside those
+  constructors, it is a compile-time error to assign the field, to take a `ref` to it, or to take
+  its address.
+- It is a compile-time error if a constructor assigns a non-escaping field anything but one of the
+  constructor's own parameters.
+- It is a compile-time error if an argument of a non-escaping function type to a constructor of a
+  `ref struct` is not a parameter or a local, or is a `mut` one. The argument may not be a lambda
+  or a function name, which is a temporary.
+
 **Example:**
 
 ```java
@@ -404,6 +420,25 @@ ref struct Cursor {
 
 struct Reader {
     pub Cursor cursor;                  // error[WYL0418]
+}
+
+ref struct Visit {
+    fn(int) -> bool each;               // non-escaping
+}
+
+int countBelow(ReadOnlySpan<int> values, int limit) {
+    mut int count = 0;
+    fn(int) -> bool counted = (value) -> {
+        count++;                        // a non-escaping lambda changes the local in place
+        return true;
+    };
+    var visit = Visit(counted);
+    for (int value : values) {
+        if (value < limit && !visit.each(value)) {
+            break;
+        }
+    }
+    return count;
 }
 ```
 

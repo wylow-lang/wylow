@@ -388,7 +388,8 @@ second-class value may be only a local variable or a parameter, bound once where
 and never made to refer to or hold something else.
 
 - It is a compile-time error for a second-class value to be a field, a variant field, an array or
-  container element, or a type argument.
+  container element, or a type argument. A non-escaping function may be a field of a `ref struct`,
+  which is second-class itself ([`ref struct`s](07-structs.md#structs.ref)).
 - It is a compile-time error for an escaping lambda to capture a second-class value.
 - It is a compile-time error to declare a second-class variable without an initializer.
 - A method returns a reference or a `ref struct` only as the rules for its receiver allow

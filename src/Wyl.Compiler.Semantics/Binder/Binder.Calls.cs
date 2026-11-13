@@ -556,6 +556,8 @@ public sealed partial class Binder
         if (!CheckDefaultValue(location, type, constructor))
             return new BoundErrorExpression(location);
 
-        return new BoundConstruction(location, type, constructor, ConvertArguments(constructor, arguments));
+        var converted = ConvertArguments(constructor, arguments);
+        CheckRefStructArguments(constructor, converted);
+        return new BoundConstruction(location, type, constructor, converted);
     }
 }

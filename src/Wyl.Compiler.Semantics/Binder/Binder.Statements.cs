@@ -508,7 +508,9 @@ public sealed partial class Binder
 
         if (s.Operator != TokenKind.Assign)
             value = BindBinaryOperation(s.OperatorLocation, target, SyntaxFacts.CompoundToBinary(s.Operator), value);
-        return new BoundAssignment(s.Location, target, Convert(value, target.Type));
+        value = Convert(value, target.Type);
+        CheckNonEscapingFieldSource(target, value);
+        return new BoundAssignment(s.Location, target, value);
     }
 
     /// <summary>Assigning through a reference assigns the place it refers to; an element may be assigned through <c>operator []=</c>.</summary>
@@ -553,6 +555,8 @@ public sealed partial class Binder
                 // Fields of an object live on the heap, however the reference to it was obtained.
                 BoundFieldAccess { Receiver.Type.IsReference: true } field when IsAssignableField(field) => (PlaceKind.Mutable, default),
                 BoundFieldAccess { Receiver.Type.IsReference: true } field => (PlaceKind.ReadOnly, new(ReadOnlyKind.ImmutableField, field.Field.Name)),
+                // A non-escaping field keeps the function that a constructor gave it (spec structs.ref).
+                BoundFieldAccess { Field.Type.IsNonEscapingFunction: true } field when !IsAssignableField(field) => (PlaceKind.ReadOnly, new(ReadOnlyKind.NonEscapingField, field.Field.Name)),
                 BoundIndex { Target.Type.IsPointer: true } => (PlaceKind.Mutable, default),
                 // The value in a nullable value is a temporary, so `a!.x = 1` and `a!.m()` are errors.
                 BoundNonNull { Operand.Type.IsNullableValue: true } => (PlaceKind.Temporary, default),

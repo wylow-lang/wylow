@@ -67,6 +67,10 @@ out 3
 out 7
 exit 0
 
+=== struct/ref-struct-field
+out 3
+exit 0
+
 === unique/local
 out 3
 exit 0
@@ -132,6 +136,9 @@ out 7
 out 3
 out 7
 exit 0
+
+=== unique/ref-struct-field
+error 39: struct 'View' has a field of unique type 'Unique'
 
 === unique-destructor/local
 out 3
@@ -222,6 +229,9 @@ out tracked 7
 out tracked 3
 exit 0
 
+=== unique-destructor/ref-struct-field
+error 41: struct 'View' has a field of unique type 'Tracked'
+
 === class/local
 out 3
 exit 0
@@ -285,6 +295,10 @@ out 7
 out 7
 out 3
 out 7
+exit 0
+
+=== class/ref-struct-field
+out 3
 exit 0
 
 === shared-class/local
@@ -352,6 +366,10 @@ out 3
 out 7
 exit 0
 
+=== shared-class/ref-struct-field
+out 3
+exit 0
+
 === enum/local
 out 3
 exit 0
@@ -415,6 +433,10 @@ out 7
 out 7
 out 3
 out 7
+exit 0
+
+=== enum/ref-struct-field
+out 3
 exit 0
 
 === nullable-value/local
@@ -495,6 +517,10 @@ out 3
 out 7
 exit 0
 
+=== nullable-value/ref-struct-field
+out 3
+exit 0
+
 === nullable-reference/local
 out 3
 out -1
@@ -573,6 +599,10 @@ out 3
 out 7
 exit 0
 
+=== nullable-reference/ref-struct-field
+out 3
+exit 0
+
 === fixed-array/local
 out 3
 exit 0
@@ -639,6 +669,10 @@ out 3
 out 7
 exit 0
 
+=== fixed-array/ref-struct-field
+out 3
+exit 0
+
 === function-escaping/local
 out 3
 exit 0
@@ -701,6 +735,10 @@ out 3
 out 7
 exit 0
 
+=== function-escaping/ref-struct-field
+out 3
+exit 0
+
 === function-nonescaping/local
 out 3
 exit 0
@@ -752,6 +790,10 @@ error 42: non-escaping variable 'value' cannot be stored or returned
 error 40: non-escaping parameter 'value' cannot be stored or returned
 error 67: non-escaping parameter 'value' cannot be stored or returned
 error 80: non-escaping variable 'value' cannot be stored or returned
+
+=== function-nonescaping/ref-struct-field
+out 3
+exit 0
 
 === function-shared-escaping/local
 out 3
@@ -815,6 +857,10 @@ out 3
 out 7
 exit 0
 
+=== function-shared-escaping/ref-struct-field
+out 3
+exit 0
+
 === function-shared-nonescaping/local
 out 3
 exit 0
@@ -866,6 +912,10 @@ error 42: non-escaping variable 'value' cannot be stored or returned
 error 40: non-escaping parameter 'value' cannot be stored or returned
 error 67: non-escaping parameter 'value' cannot be stored or returned
 error 80: non-escaping variable 'value' cannot be stored or returned
+
+=== function-shared-nonescaping/ref-struct-field
+out 3
+exit 0
 
 === function-extern/local
 out 3
@@ -927,6 +977,10 @@ out 7
 out 7
 out 3
 out 7
+exit 0
+
+=== function-extern/ref-struct-field
+out 3
 exit 0
 
 === pointer/local
@@ -993,6 +1047,10 @@ out 3
 out 7
 exit 0
 
+=== pointer/ref-struct-field
+out 3
+exit 0
+
 === void-pointer/local
 out 3
 exit 0
@@ -1055,6 +1113,10 @@ out 7
 out 7
 out 3
 out 7
+exit 0
+
+=== void-pointer/ref-struct-field
+out 3
 exit 0
 
 === generic/local
@@ -1123,6 +1185,10 @@ out 3
 out 7
 exit 0
 
+=== generic/ref-struct-field
+out 3
+exit 0
+
 === nint/local
 out 3
 exit 0
@@ -1189,6 +1255,10 @@ out 3
 out 7
 exit 0
 
+=== nint/ref-struct-field
+out 3
+exit 0
+
 === nested/local
 out 3
 exit 0
@@ -1253,6 +1323,10 @@ out 7
 out 7
 out 3
 out 7
+exit 0
+
+=== nested/ref-struct-field
+out 3
 exit 0
 
 === string-empty/local
@@ -1375,6 +1449,13 @@ out 1
 out false
 exit 0
 
+=== string-empty/ref-struct-field
+out
+out 0
+out 0
+out true
+exit 0
+
 === string-one/local
 out é
 out 2
@@ -1491,6 +1572,13 @@ out false
 out 3
 out e
 out 1
+out 1
+out false
+exit 0
+
+=== string-one/ref-struct-field
+out é
+out 2
 out 1
 out false
 exit 0
@@ -1615,6 +1703,13 @@ out 5
 out false
 exit 0
 
+=== string-multibyte/ref-struct-field
+out héllo
+out 6
+out 5
+out false
+exit 0
+
 === string-concat/local
 out ab1cd
 out 5
@@ -1735,6 +1830,13 @@ out 5
 out false
 exit 0
 
+=== string-concat/ref-struct-field
+out ab1cd
+out 5
+out 5
+out false
+exit 0
+
 === double/local
 out -0.0
 out -0.0
@@ -1819,6 +1921,11 @@ out 1.5
 out 0.0
 exit 0
 
+=== double/ref-struct-field
+out -0.0
+out -0.0
+exit 0
+
 === double-inexact/local
 out 0.30000000000000004
 exit 0
@@ -1885,6 +1992,10 @@ out 3
 out 0.3
 exit 0
 
+=== double-inexact/ref-struct-field
+out 0.30000000000000004
+exit 0
+
 === long/local
 out 2147483648
 exit 0
@@ -1949,4 +2060,8 @@ out -2147483649
 out -2147483649
 out 3
 out -2147483649
+exit 0
+
+=== long/ref-struct-field
+out 2147483648
 exit 0

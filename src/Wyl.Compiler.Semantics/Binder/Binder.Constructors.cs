@@ -65,6 +65,7 @@ public sealed partial class Binder
         if (!CheckUnsafeCall(call.Location, constructor) || !CheckDefaultValue(call.Location, called, constructor))
             return null;
         var converted = ConvertArguments(constructor, arguments);
+        CheckRefStructArguments(constructor, converted);
         // A class's constructor call is the C++ mem-initializer, where nothing can be held.
         for (int i = 0; i < converted.Count && currentType.Kind == TypeKind.Class; i++)
         {

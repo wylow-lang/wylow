@@ -44,7 +44,7 @@ public static partial class Catalog
 
     [Error(265, "functions.lambdas.escaping")]
     public static Diagnostic EscapingElsewhere(Location at) =>
-        Make(at, "'escaping' can only be used on parameters and local variables")
+        Make(at, "'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'")
             .Note("other function values are always escaping");
 
     [Error(266, "functions.lambdas.escaping")]
@@ -156,6 +156,19 @@ public static partial class Catalog
         Make(at, "non-escaping function cannot be 'mut'").Note("it keeps the function it was given")
             .Help("declare it 'escaping' to reassign it");
 
+    [Error(547, "structs.ref")]
+    public static Diagnostic NonEscapingFieldInitializer(Location at, string name) =>
+        Make(at, $"non-escaping field '{name}' cannot have an initializer").Note("a constructor sets it from one of its parameters");
+
+    [Error(548, "structs.ref")]
+    public static Diagnostic NonEscapingFieldSource(Location at, string name) =>
+        Make(at, $"non-escaping field '{name}' can only be assigned a parameter of the constructor");
+
+    [Error(549, "structs.ref")]
+    public static Diagnostic RefStructFunctionArgument(Location at, string type) =>
+        Make(at, $"non-escaping function argument of a constructor of '{type}' must be a variable that is not 'mut'")
+            .Help("declare the function in a local first");
+
     [Error(268, "functions.lambdas.escaping")]
     public static Diagnostic ReassignNonEscaping(Location at, string name, bool isParameter) =>
         Make(at, $"cannot reassign non-escaping {(isParameter ? "parameter" : "variable")} '{name}'").Note("it keeps the function it was given")
@@ -196,8 +209,8 @@ public static partial class Catalog
         Make(at, $"'escaping' cannot be declared on a {what} of non-function type '{type}'");
 
     [Error(271, "functions.lambdas.escaping")]
-    public static Diagnostic NonEscapingStored(Location at, string name, bool isParameter, bool ofLambda) =>
-        Make(at, $"non-escaping {(isParameter ? "parameter" : "variable")} '{name}' cannot be stored or returned")
+    public static Diagnostic NonEscapingStored(Location at, string what, string name, bool ofLambda) =>
+        Make(at, $"non-escaping {what} '{name}' cannot be stored or returned")
             .Help(ofLambda ? "declare the parameter 'escaping' in the lambda's function type, as in 'fn(escaping fn() -> void) -> void'" : "declare it 'escaping'");
 
     [Error(273, "functions.lambdas.captures")]

@@ -67,6 +67,52 @@ public sealed partial class Binder
         return (type, Convert(initializer, type));
     }
 
+    /// <summary>
+    /// The type of a field: a function type of a <c>ref struct</c>'s field is non-escaping unless the
+    /// field is declared <c>escaping</c>, and every other function type is escaping (spec structs.ref).
+    /// A non-escaping field has no initializer.
+    /// </summary>
+    WylType FieldType(TypeSymbol owner, FieldDecl decl, WylType type)
+    {
+        if (!owner.IsRefStruct || IsDeclaredEscaping(decl.Escaping, type, "field") || type.IsNullable || type is not FunctionType { IsExtern: false })
+            return type;
+        if (decl.Initializer is not null)
+            Error(Catalog.NonEscapingFieldInitializer(decl.NameLocation, decl.Name));
+        return NonEscaping(type);
+    }
+
+    /// <summary>
+    /// Reports a non-escaping function argument of a <c>ref struct</c>'s constructor that may be gone
+    /// before the struct is: one that is not a variable, or a variable that may be assigned another
+    /// function (spec structs.ref). The constructor may keep the argument in a field.
+    /// </summary>
+    void CheckRefStructArguments(MethodReference constructor, IReadOnlyList<BoundExpression> arguments)
+    {
+        if (constructor.Symbol.ContainingType is not { IsRefStruct: true } owner)
+            return;
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (!constructor.ParameterType(i).IsNonEscapingFunction)
+                continue;
+            var argument = arguments[i] is BoundConversion conversion ? conversion.Operand : arguments[i];
+            if (argument is not BoundLocalAccess { Local.IsWritable: false })
+                Error(Catalog.RefStructFunctionArgument(arguments[i].Location, owner.Type.ToString()));
+        }
+    }
+
+    /// <summary>
+    /// Reports an assignment of a non-escaping field from anything but a parameter of the constructor
+    /// that assigns it, which the constructor's caller keeps alive (spec structs.ref).
+    /// </summary>
+    void CheckNonEscapingFieldSource(BoundExpression target, BoundExpression value)
+    {
+        if (target is not BoundFieldAccess { Field: { Type.IsNonEscapingFunction: true } field })
+            return;
+        var source = value is BoundConversion conversion ? conversion.Operand : value;
+        if (source is not BoundLocalAccess { Local: { IsParameter: true } parameter } || parameter.Owner != currentFunction)
+            Error(Catalog.NonEscapingFieldSource(value.Location, field.Name));
+    }
+
     /// <summary>Whether a parameter or local of the type is declared <c>escaping</c>, which only one of function type can be.</summary>
     bool IsDeclaredEscaping(Location? escaping, WylType type, string what)
     {
@@ -100,16 +146,16 @@ public sealed partial class Binder
     /// </summary>
     void ReportNotEscaping(BoundExpression function)
     {
-        // Only a variable is non-escaping by its type; a lambda option is only because a variable
-        // option made the choice so.
+        // Only a variable or a field of a ref struct is non-escaping by its type; a lambda option is
+        // only because such an option made the choice so.
         var culprit = BoundTree.FunctionOptions(function)
             .Select(o => o is BoundConversion conversion ? conversion.Operand : o)
             .Select(o => o is BoundNonNull nonNull ? nonNull.Operand : o)
-            .OfType<BoundLocalAccess>()
-            .FirstOrDefault(o => o.Type.NonNull.IsNonEscapingFunction)
-            ?? throw new InvalidOperationException("a non-escaping function that no variable makes so");
-        var local = culprit.Local;
-        Error(Catalog.NonEscapingStored(culprit.Location, local.Name, local.IsParameter, local.IsParameter && local.Owner?.IsLambda == true));
+            .FirstOrDefault(o => o is BoundLocalAccess or BoundFieldAccess && o.Type.NonNull.IsNonEscapingFunction)
+            ?? throw new InvalidOperationException("a non-escaping function that no variable or field makes so");
+        Error(culprit is BoundLocalAccess { Local: var local }
+            ? Catalog.NonEscapingStored(culprit.Location, local.IsParameter ? "parameter" : "variable", local.Name, local.IsParameter && local.Owner?.IsLambda == true)
+            : Catalog.NonEscapingStored(culprit.Location, "field", ((BoundFieldAccess)culprit).Field.Name, ofLambda: false));
     }
 
     /// <summary>

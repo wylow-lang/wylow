@@ -52,12 +52,6 @@ Result<Unit, Error> query(Database database, String sql) {
     return Ok(Unit());
 }
 
-/// The rows that the function given to `forEachRow` has printed. The function is escaping, so it
-/// changes an object and not a local of `run`.
-class RowCount {
-    pub mut int rows;
-}
-
 Result<Unit, Error> run() {
     Order[3] orders = [
         Order("bolts", 120, 0.25, [0xDE, 0xAD, 0xBE, 0xEF]),
@@ -69,7 +63,7 @@ Result<Unit, Error> run() {
     try insert(database, orders);
     try query(database, "SELECT name, count, weight, tag FROM orders ORDER BY name");
     try query(database, "SELECT count(*) AS rows, sum(count) AS total FROM orders");
-    var count = new RowCount();
+    mut int rows = 0;
     String sql = "SELECT name, weight FROM orders WHERE weight > 0.2 ORDER BY weight";
     try database.forEachRow(sql, (names, values) -> {
         mut String line = "";
@@ -78,10 +72,10 @@ Result<Unit, Error> run() {
             line = $"{line}{separator}{names[column]} = {values[column] ?? "null"}";
         }
         std::print(line);
-        count.rows++;
+        rows++;
         return true;
     });
-    std::print($"forEachRow printed {count.rows} rows");
+    std::print($"forEachRow printed {rows} rows");
     switch (database.execute("INSERT INTO missing VALUES (1)")) {
         case Ok(_) -> std::print("the insert ran");
         case Err(var error) -> std::print($"{error}");

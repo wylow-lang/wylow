@@ -1,0 +1,47 @@
+// The rules of a 'ref struct''s non-escaping function fields (spec structs.ref).
+import std::collections::List;
+
+ref struct Defaulted {
+    fn() -> void reset = () -> { };                 // error[WYL0547]: non-escaping field 'reset' cannot have an initializer
+}
+
+ref struct Visitor {
+    fn(int) -> bool visit;
+
+    mut void replace(fn(int) -> bool other) {
+        visit = other;                              // error[WYL0351]: cannot assign to 'visit'
+    }
+}
+
+ref struct Pair {
+    fn(int) -> int first;
+    fn(int) -> int second;
+
+    Pair(fn(int) -> int first) {
+        fn(int) -> int same = (value) -> value;
+        this.first = first;
+        this.second = same;                         // error[WYL0548]: non-escaping field 'second' can only be assigned a parameter of the constructor
+    }
+
+    Pair(int unused) {
+        this((value) -> value);                     // error[WYL0549]: non-escaping function argument of a constructor of 'Pair' must be a variable that is not 'mut'
+    }
+}
+
+int twice(int value) {
+    return value * 2;
+}
+
+void main() {
+    var inPlace = Pair((value) -> value + 1);       // error[WYL0549]: non-escaping function argument of a constructor of 'Pair' must be a variable that is not 'mut'
+    var named = Pair(twice);                        // error[WYL0549]: non-escaping function argument of a constructor of 'Pair' must be a variable that is not 'mut'
+    mut escaping fn(int) -> int changing = twice;
+    var changed = Pair(changing);                   // error[WYL0549]: non-escaping function argument of a constructor of 'Pair' must be a variable that is not 'mut'
+    changing = (value) -> value;
+
+    fn(int) -> bool any = (value) -> true;
+    mut var visitor = Visitor(any);
+    visitor.visit = any;                            // error[WYL0351]: cannot assign to 'visitor.visit'
+    var handlers = new List<fn(int) -> bool>();
+    handlers.add(visitor.visit);                    // error[WYL0271]: non-escaping field 'visit' cannot be stored or returned
+}

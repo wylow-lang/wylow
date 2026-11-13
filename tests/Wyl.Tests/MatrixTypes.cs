@@ -3,7 +3,8 @@
 // function, C function pointer, pointer, `void*`, generic instantiation, nint, a nesting of two, or a value kind programs compute with
 // (String, double, long). A context is a local, field, parameter, return, type argument, element,
 // capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
-// `case null`, a field a guarded case binds, or an argument of `super(...)` and `this(...)`. Each cell makes a value and shows something about
+// `case null`, a field a guarded case binds, an argument of `super(...)` and `this(...)`, or a field
+// of a `ref struct`, where a function type is non-escaping. Each cell makes a value and shows something about
 // it, so the snapshot records what the type does in that place; a cell the spec refuses records the
 // error instead. Equality compares an equal pair and an unequal one, and a nullable row shows both
 // its null and its non-null side.
@@ -12,7 +13,7 @@ static class MatrixTypes
     static readonly string[] Contexts =
     [
         "local", "field", "parameter", "return", "type-argument", "element", "capture", "equality", "default", "overloads",
-        "struct-pattern", "case-null", "guarded", "constructor-call",
+        "struct-pattern", "case-null", "guarded", "constructor-call", "ref-struct-field",
     ];
 
     public static Matrix Build()
@@ -227,6 +228,19 @@ static class MatrixTypes
                         Holder({{row.ParameterType}} value) {
                             this.value = value;
                         }
+                    }
+
+                    {{Wrap(main)}}
+                    """;
+
+            case "ref-struct-field":
+                // A function field of a ref struct takes the form a parameter takes (spec structs.ref).
+                main.Add(row.Declare("value", row.First));
+                main.Add("var view = View(value);");
+                main.Add(row.Show("view.value"));
+                return $$"""
+                    ref struct View {
+                        {{row.ParameterType}} value;
                     }
 
                     {{Wrap(main)}}

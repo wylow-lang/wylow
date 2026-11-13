@@ -290,11 +290,22 @@ public sealed partial class Parser
     Node ParseAnnotationArgument() =>
         SyntaxFacts.IsPrimitiveTypeKeyword(Current.Kind) || At(TokenKind.Identifier) ? ParseType(allowNullable: false) : ParseExpression();
 
-    /// <summary>A declaration's modifiers, and its visibility with where it is written, if it is.</summary>
-    sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens, Visibility Visibility, TextSpan? VisibilitySpan);
-
-    ModifierList ParseModifiers()
+    /// <summary>
+    /// A declaration's modifiers, its visibility with where it is written, if it is, and where
+    /// <c>escaping</c> is written, which only a member may keep (<see cref="ParseModifiers"/>).
+    /// </summary>
+    sealed record ModifierList(Modifiers Flags, List<(Modifiers Flag, Token Token)> Tokens, Visibility Visibility, TextSpan? VisibilitySpan)
     {
+        public Location? Escaping { get; init; }
+    }
+
+    /// <summary>
+    /// A declaration's modifiers. <c>escaping</c> is reported unless <paramref name="keepEscaping"/>, and
+    /// a caller that keeps it reports it on anything but a field of a <c>ref struct</c>.
+    /// </summary>
+    ModifierList ParseModifiers(bool keepEscaping = false)
+    {
+        Location? escaping = null;
         var flags = Modifiers.None;
         var tokens = new List<(Modifiers, Token)>();
         var visibility = Visibility.File;
@@ -302,7 +313,7 @@ public sealed partial class Parser
         while (true)
         {
             if (SyntaxFacts.IsFunctionTypePrefix(Current.Kind) && Peek(1).Kind == TokenKind.FnKeyword)
-                return new ModifierList(flags, tokens, visibility, visibilitySpan);
+                return new ModifierList(flags, tokens, visibility, visibilitySpan) { Escaping = escaping };
             if (SyntaxFacts.IsVisibilityKeyword(Current.Kind))
             {
                 int start = Current.Span.Start;
@@ -323,7 +334,10 @@ public sealed partial class Parser
             }
             if (At(TokenKind.EscapingKeyword))
             {
-                Report(Catalog.EscapingElsewhere(Loc(Current.Span)));
+                if (keepEscaping && escaping is null)
+                    escaping = Loc(Current.Span);
+                else
+                    Report(Catalog.EscapingElsewhere(Loc(Current.Span)));
                 Advance();
                 continue;
             }
@@ -331,7 +345,7 @@ public sealed partial class Parser
             if (At(TokenKind.ExternKeyword))
             {
                 if (Peek(1).Kind == TokenKind.OpenBrace)
-                    return new ModifierList(flags, tokens, visibility, visibilitySpan);
+                    return new ModifierList(flags, tokens, visibility, visibilitySpan) { Escaping = escaping };
                 Report(Catalog.ExternOutsideBlock(Loc(Current.Span)));
                 Advance();
                 continue;
@@ -350,7 +364,7 @@ public sealed partial class Parser
                 _ => Modifiers.None,
             };
             if (flag == Modifiers.None)
-                return new ModifierList(flags, tokens, visibility, visibilitySpan);
+                return new ModifierList(flags, tokens, visibility, visibilitySpan) { Escaping = escaping };
 
             var token = Advance();
             if ((flags & flag) != 0)

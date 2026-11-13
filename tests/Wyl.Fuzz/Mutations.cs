@@ -134,6 +134,9 @@ static class Mutations
         // Makes a top-level function an extension, which its calls written as function calls may
         // still call. A method of the receiver's type of that name now hides it for '.' calls only.
         new("parameter-this", SiteKind.Receiver, ReceiverApplies, (context, site) => Insert("parameter-this", site, site.Span.Start, "this ")),
+        // Keeps a non-escaping function parameter in a ref struct for the whole body, which the
+        // struct's field must not outlive: the function's behavior does not change.
+        new("parameter-ref-struct-field", SiteKind.Receiver, site => ViewedParameter(site) is not null, RefStructFieldBuild),
         new("local-mut", SiteKind.Local, LocalMutApplies, LocalMutBuild),
         new("local-ref-nullable", SiteKind.Local, LocalRefNullableApplies, LocalRefNullableBuild),
         new("local-ref", SiteKind.Local, LocalRefApplies, LocalRefBuild),
@@ -363,6 +366,25 @@ static class Mutations
         site.Node is FunctionDecl { Name: not "main", Parameters: [var first, ..] }
         && first is { IsMutable: false, Escaping: null, Default: null, Annotations.Count: 0 }
         && first.Type.Shape != TypeShape.NullableReference;
+
+    /// <summary>A non-escaping function parameter of a top-level function with a body and no type parameters.</summary>
+    static ParameterSyntax? ViewedParameter(Site site) =>
+        site.Node is FunctionDecl { Body: not null, TypeParameters.Count: 0 } function
+            ? function.Parameters.FirstOrDefault(p => p is { RefKind: RefKind.None, Escaping: null, IsReceiver: false, Type: { Shape: TypeShape.Function, IsNullable: false } })
+            : null;
+
+    static Candidate? RefStructFieldBuild(MutationContext context, Site site)
+    {
+        var function = (FunctionDecl)site.Node;
+        var parameter = ViewedParameter(site)!;
+        var owner = context.UniqueName("WylFuzzView");
+        int at = function.Body!.Location.Span.Start + 1;
+        return new Candidate("parameter-ref-struct-field",
+        [
+            new Edit(at, at, $"\n    var {owner.ToLowerInvariant()} = {owner}({parameter.Name});"),
+            MutationContext.Append($"ref struct {owner} {{\n    {context.Slice(parameter.Type.Location.Span)} value;\n}}", context.Text),
+        ]);
+    }
 
     static bool StaticFieldApplies(Site site) =>
         site.Node is TypeDecl { Kind: TypeKind.Struct or TypeKind.Class, TypeParameters.Count: 0 };

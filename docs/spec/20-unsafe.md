@@ -74,7 +74,7 @@ not nullable.
   parameter that is not `mut`, a field of an object that is not `mut`, an `in` variable or
   parameter, a static, or a place inside one.
 - It is a compile-time error if the operand of `&` has a type that a pointer cannot point to: a
-  `ref struct` or a nullable reference ([Pointer types](04-types.md#types.pointers)).
+  nullable reference ([Pointer types](04-types.md#types.pointers)).
 - It is a compile-time error to index a `void*` or to add an integer to it or subtract one from it,
   in unsafe code as well as in safe code. A cast converts a `void*` to a pointer to the storage's
   type, and indexing applies to the result.

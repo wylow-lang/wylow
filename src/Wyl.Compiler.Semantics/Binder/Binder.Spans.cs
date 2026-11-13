@@ -27,6 +27,13 @@ public sealed partial class Binder
     }
 
     /// <summary>
+    /// Reports a type that a pointer cannot point to: a nullable reference. A pointer may point to a
+    /// <c>ref struct</c>, which unsafe code passes to C as a callback's context (spec types.pointers).
+    /// </summary>
+    bool CheckPointable(WylType type, Location location) =>
+        type is not NullableReferenceType || CheckStorable(type, location, "pointed to");
+
+    /// <summary>
     /// The element type that a value of type <paramref name="from"/> can be viewed as, through a
     /// <c>ReadOnlySpan</c> if <paramref name="readOnly"/> or else a <c>Span</c>.
     /// </summary>

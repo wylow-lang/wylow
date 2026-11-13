@@ -5,16 +5,25 @@ class Button {
     (int)? count;                       // error[WYL0075]: function type is missing 'fn'
     (fn() -> void) grouped;             // error[WYL0074]: parentheses around this function type are not needed
     fn() -> (fn() -> int) curried;      // error[WYL0074]: parentheses around this function type are not needed
-    escaping fn() -> void other;        // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+    escaping fn() -> void other;        // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
+}
+
+struct Plain {
+    escaping fn() -> void run;          // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
+}
+
+ref struct Visitor {
+    escaping fn() -> void run;
+    escaping void close() { }           // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
 }
 
 enum Event {
-    Click(escaping fn() -> void handler), // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+    Click(escaping fn() -> void handler), // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
 }
 
-escaping void annotated() { }           // error[WYL0265]: 'escaping' can only be used on parameters and local variables
-escaping fn() -> void maker() { return () -> { }; } // error[WYL0265]: 'escaping' can only be used on parameters and local variables
-fn() -> escaping fn() -> void curry() { return () -> () -> { }; } // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+escaping void annotated() { }           // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
+escaping fn() -> void maker() { return () -> { }; } // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
+fn() -> escaping fn() -> void curry() { return () -> () -> { }; } // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
 
 void take((int) -> int f) { }           // error[WYL0075]: function type is missing 'fn'
 
@@ -25,6 +34,6 @@ void main() {
     var picked = new Array<(int) -> int>(1, x -> x); // error[WYL0075]: function type is missing 'fn'
     escaping (fn(int) -> int)? maybe = null;
     escaping mut fn() -> void late = () -> { }; // error[WYL0266]: 'mut' must come before 'escaping'
-    var handlers = new Array<escaping fn() -> void>(1, () -> { }); // error[WYL0265]: 'escaping' can only be used on parameters and local variables
+    var handlers = new Array<escaping fn() -> void>(1, () -> { }); // error[WYL0265]: 'escaping' can only be used on parameters, local variables, and fields of a 'ref struct'
     if (maybe is fn(int) -> int f) { }  // error[WYL0375]: type pattern cannot name a function type
 }

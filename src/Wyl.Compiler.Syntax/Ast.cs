@@ -146,7 +146,11 @@ public sealed record VariantDecl(Location Location, string Name, Location NameLo
     : Node(Location);
 
 public sealed record FieldDecl(Location Location, Modifiers Modifiers, TypeSyntax Type, string Name, Location NameLocation, Expr? Initializer)
-    : Declaration(Location, Modifiers);
+    : Declaration(Location, Modifiers)
+{
+    /// <summary>Where <c>escaping</c> is written, which only a field of a <c>ref struct</c> may be.</summary>
+    public Location? Escaping { get; init; }
+}
 
 /// <summary>
 /// A free function, method, or constructor. Constructors have no <see cref="ReturnType"/>;

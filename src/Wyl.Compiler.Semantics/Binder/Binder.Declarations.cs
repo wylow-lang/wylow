@@ -293,7 +293,7 @@ public sealed partial class Binder
         foreach (var decl in s.Declaration.Fields)
         {
             HasCallerLocation(decl, s);
-            var type = BindType(decl.Type, allowVoid: false);
+            var type = FieldType(s, decl, BindType(decl.Type, allowVoid: false));
             CheckStorable(type, decl.Type.Location, "the type of a field");
             var field = new FieldSymbol(decl.Name, type, s, decl);
             if (s.IsExtern)

@@ -12,7 +12,7 @@ public enum NullableOperand { None, Value, Reference }
 public enum NoThisContext { Static, FieldInitializer, SuperArguments, ChainArguments, DefaultValue }
 
 /// <summary>Why a place cannot be changed, which a message gives as a note.</summary>
-public enum ReadOnlyKind { None, ReadOnlyThis, ImmutableField, LambdaCopy, InVariable, InParameter, ImmutableVariable, ImmutableParameter, ReturnsIn, Static, SharedCapture }
+public enum ReadOnlyKind { None, ReadOnlyThis, ImmutableField, LambdaCopy, InVariable, InParameter, ImmutableVariable, ImmutableParameter, ReturnsIn, Static, SharedCapture, NonEscapingField }
 
 /// <summary>A <see cref="ReadOnlyKind"/> and the field, variable, parameter, or method it names.</summary>
 public readonly record struct ReadOnlyReason(ReadOnlyKind Kind, string Name = "");
@@ -124,6 +124,7 @@ public static partial class Catalog
         ReadOnlyKind.ReturnsIn => diagnostic.Note($"'{reason.Name}' returns 'in'"),
         ReadOnlyKind.Static => diagnostic.Note("every static is read-only"),
         ReadOnlyKind.SharedCapture => diagnostic.Note($"another thread may read '{reason.Name}' while the lambda runs"),
+        ReadOnlyKind.NonEscapingField => diagnostic.Note($"non-escaping field '{reason.Name}' is set only by a constructor of its 'ref struct'"),
         _ => diagnostic,
     };
 

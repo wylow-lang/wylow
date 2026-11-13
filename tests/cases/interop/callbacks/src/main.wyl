@@ -1,9 +1,9 @@
 // native
 // C++ calls Wylow functions through C function pointers: with a context that points to a Wylow
-// struct, with null in place of a nullable function, through a field of an extern struct, and with
-// C's `const char*` where the Wylow function takes a `byte*`. A function pointer that C++ returns is
-// called from Wylow, and a constant that is not a function's address passes back unchanged
-// (spec interop.callbacks).
+// struct or to a 'ref struct' that holds a non-escaping function, with null in place of a nullable
+// function, through a field of an extern struct, and with C's `const char*` where the Wylow function
+// takes a `byte*`. A function pointer that C++ returns is called from Wylow, and a constant that is
+// not a function's address passes back unchanged (spec interop.callbacks).
 @Include("events.h")
 extern {
     struct Watcher {
@@ -51,6 +51,28 @@ int next(void* context, int value) {
     return value + 1;
 }
 
+/// The context of `visitEach`: a non-escaping function, which may change the caller's locals.
+ref struct Visit {
+    fn(int) -> int each;
+}
+
+/// Returns what the function of the `Visit` that `context` points to returns for `value`.
+@CCallback
+int visitEach(void* context, int value) {
+    unsafe {
+        Visit* visit = (Visit*) context;
+        return visit[0].each(value);
+    }
+}
+
+/// Returns the sum of what `each` returns for 1 to `count`, which C++ calls through `visitEach`.
+int runEach(int count, fn(int) -> int each) {
+    mut var visit = Visit(each);
+    unsafe {
+        return events_run(visitEach, &visit, count);
+    }
+}
+
 void main() {
     mut var counter = Counter(0, 0);
     unsafe {
@@ -75,4 +97,12 @@ void main() {
         std::print(events_is_none(EVENTS_NONE));            // output: true
         std::print(events_is_none(next));                   // output: false
     }
+
+    mut int seen = 0;
+    fn(int) -> int doubled = (value) -> {
+        seen += value;
+        return value * 2;
+    };
+    std::print(runEach(3, doubled));                        // output: 12
+    std::print(seen);                                       // output: 6
 }

@@ -545,27 +545,28 @@ field, parameter, return type, or argument of a call.
 <a id="functions.lambdas.escaping"></a>
 ### 12.9.2 Escaping and non-escaping
 
-A function-typed parameter or local is **non-escaping** by default: the function may call it and
-pass it to other non-escaping parameters, but may not store it, return it, or pass it to an
-escaping parameter. A function-typed parameter or local declared `escaping` is **escaping**. Every
-other position — a field, a return type, a type argument, an array element, or a function type's
-return type — holds an escaping function.
+A function-typed parameter, local, or field of a `ref struct` is **non-escaping** by default: the
+function may call it and pass it to other non-escaping parameters, but may not store it, return it,
+or pass it to an escaping parameter. One declared `escaping` is **escaping**. Every other position
+holds an escaping function: a field of any other type, a return type, a type argument, an array
+element, or a function type's return type.
 
 | | Non-escaping | Escaping |
 |---|---|---|
-| Where | parameters and locals | fields, return values, `escaping` parameters and locals, containers |
+| Where | parameters, locals, and fields of a `ref struct` | other fields, return values, `escaping` parameters, locals, and fields, containers |
 | Captures | by reference: may capture `ref`s and spans, and may change captured locals | by copy: a captured local cannot be `mut` |
 
 `escaping` comes after any `mut`, `ref`, or `in`. It is written only where a function could be either
-form: on a parameter, a local, or a function type's own parameter.
+form: on a parameter, a local, a function type's own parameter, or a field of a `ref struct`.
 
 - It is a compile-time error if `escaping` is written on anything other than a parameter, a local,
-  or a function type's parameter.
+  a function type's parameter, or a field of a `ref struct`.
 - It is a compile-time error if `mut` follows `escaping`.
 - It is a compile-time error if a non-escaping function parameter or local is declared `mut` or
   assigned after its declaration: it keeps the function it was given.
-- It is a compile-time error if a non-escaping parameter or local is stored in a field, a
-  container, or an escaping parameter, or is returned.
+- It is a compile-time error if a non-escaping parameter, local, or field is stored in an escaping
+  field, a container, or an escaping parameter, or is returned. A constructor of a `ref struct`
+  stores a parameter in a non-escaping field by the rules of [`ref struct`s](07-structs.md#structs.ref).
 - Escaping is part of the function type. Each function type has a non-escaping and an escaping
   form, written the same way; the form written on a parameter, a local, or a function type's own
   parameter is non-escaping unless declared `escaping`. An escaping value converts to the
@@ -575,7 +576,7 @@ form: on a parameter, a local, or a function type's own parameter.
 - Type arguments are always escaping, so a type argument inferred from a function is its escaping
   form.
 - A parameter of nullable function type is non-escaping unless declared `escaping`. Every other
-  nullable function type is escaping.
+  nullable function type is escaping, including the type of a field of a `ref struct`.
 - It is a compile-time error if a local of nullable function type is not escaping. Only a parameter
   can hold a nullable non-escaping function.
 - It is a compile-time error to apply `??` to a nullable non-escaping function.

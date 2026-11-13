@@ -70,7 +70,7 @@ public sealed partial class Binder
         var element = BindType(syntax.Element!, allowVoid: syntax.Shape == TypeShape.Pointer);
         if (element == WylType.Void)
             return element.PointerTo;
-        if (element == WylType.Error || !CheckStorable(element, syntax.Element!.Location, syntax.Shape == TypeShape.Pointer ? "pointed to" : "an array's element"))
+        if (element == WylType.Error || !(syntax.Shape == TypeShape.Pointer ? CheckPointable(element, syntax.Element!.Location) : CheckStorable(element, syntax.Element!.Location, "an array's element")))
             return WylType.Error;
         switch (syntax.Shape)
         {

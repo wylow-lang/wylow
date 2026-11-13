@@ -79,7 +79,7 @@ pub final class Database {
     /// Runs `sql`, which may hold several statements, and calls `visit` with each row's column names
     /// and values. A null value is `null`. The run stops after a row for which `visit` returns
     /// `false`, or at a name or a value that is not valid UTF-8, which the run returns as an error.
-    pub Result<Unit, Error> forEachRow(String sql, escaping fn(List<String>, List<String?>) -> bool visit) {
+    pub Result<Unit, Error> forEachRow(String sql, fn(List<String>, List<String?>) -> bool visit) {
         mut var context = ExecContext(visit);
         unsafe {
             int code = sqlite3_exec(handle, sql.cstr(), visitRow, &context, null);
@@ -113,8 +113,9 @@ module Error invalidText(int column, Utf8Error error) {
     return Error(SQLITE_MISMATCH, $"column {column} holds {error}");
 }
 
-/// What `forEachRow` gives `sqlite3_exec` as the callback's context.
-struct ExecContext {
+/// What `forEachRow` gives `sqlite3_exec` as the callback's context. `sqlite3_exec` calls the
+/// callback only during the call, so the context holds the caller's function without owning it.
+ref struct ExecContext {
     fn(List<String>, List<String?>) -> bool visit;
     bool stopped = false;
     Error? failure = null;

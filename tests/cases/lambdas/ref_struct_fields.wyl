@@ -1,0 +1,62 @@
+// A 'ref struct' may hold a non-escaping function, which refers to the locals of the lambda's
+// creator in place (spec structs.ref).
+ref struct Visitor {
+    fn(int) -> bool visit;
+    escaping fn() -> String name;
+    int seen = 0;
+
+    mut bool offer(int value) {
+        seen++;
+        return visit(value);
+    }
+}
+
+ref struct Pair {
+    fn(int) -> int first;
+    fn(int) -> int second;
+
+    Pair(fn(int) -> int first, fn(int) -> int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    Pair(fn(int) -> int both) {
+        this(both, both);
+    }
+
+    int apply(int value) {
+        return second(first(value));
+    }
+}
+
+int countBelow(ReadOnlySpan<int> values, int limit, fn(int) -> bool visit) {
+    escaping fn() -> String name = () -> "below";
+    mut var visitor = Visitor(visit, name);
+    for (int value : values) {
+        if (value < limit && !visitor.offer(value)) {
+            break;
+        }
+    }
+    std::print($"{visitor.name()} saw {visitor.seen}");
+    return visitor.seen;
+}
+
+void main() {
+    mut int total = 0;
+    fn(int) -> bool add = (value) -> {
+        total += value;
+        return total < 10;
+    };
+    int[5] values = [1, 7, 3, 9, 4];
+    int seen = countBelow(values, 8, add);               // output: below saw 3
+    std::print($"{seen} {total}");                       // output: 3 11
+
+    fn(int) -> int twice = (value) -> value * 2;
+    fn(int) -> int next = (value) -> value + 1;
+    var pair = Pair(twice, next);
+    std::print(pair.apply(5));                           // output: 11
+    var same = Pair(next);
+    std::print(same.apply(5));                           // output: 7
+    var visit = pair.first;
+    std::print(visit(4));                                // output: 8
+}

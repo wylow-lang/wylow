@@ -23,11 +23,16 @@ public sealed partial class CppEmitter
     HashSet<FunctionSymbol> recursive = [];
 
 
-    /// <summary>Whether the function's non-escaping function parameters are template parameters, rather than <c>wyl::FunctionRef</c>s.</summary>
+    /// <summary>
+    /// Whether the function's non-escaping function parameters are template parameters, rather than
+    /// <c>wyl::FunctionRef</c>s. A <c>ref struct</c>'s constructor may keep one in a field, which is a
+    /// <c>wyl::FunctionRef</c>.
+    /// </summary>
     bool TakesCallables(FunctionSymbol function) =>
         function.Parameters.Any(p => p.Type.IsNonEscapingFunction)
         && (!function.IsDispatched || unoverridden.Contains(function)) && !function.ImplementsInterface
-        && !(function.IsConstructor && HasSameCountConstructor(function)) && !function.IsLambda && !recursive.Contains(function);
+        && !(function.IsConstructor && (HasSameCountConstructor(function) || function.ContainingType!.IsRefStruct))
+        && !function.IsLambda && !recursive.Contains(function);
 
     /// <summary>
     /// Constructors of a type share their C++ name, and a template parameter would accept any
