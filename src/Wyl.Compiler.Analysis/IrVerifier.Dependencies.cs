@@ -172,11 +172,11 @@ public sealed partial class IrVerifier
             else if (Breaks(dependency.Element ? dependency with { Target = null } : dependency, effects, writes, state) is { } reason)
                 Invalidate(state, local, $"{reason}, by {what}");
         }
-        foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0))
+        foreach (var write in effects.Writes.Where(w => !w.Place.IsDeref && w.Place.Projections.Count == 0 && Reassignable(w.Place.Local)))
             DependentsOf(write.Place.Local, state, () => $"'{N(write.Place.Local)}' may be reassigned by {what}", throughOnly: true);
         if (effects.RunsCode)
         {
-            foreach (var local in scopes.SelectMany(s => s).Where(l => IsChangedByLambda(l, state)).ToList())
+            foreach (var local in scopes.SelectMany(s => s).Where(l => Reassignable(l) && IsChangedByLambda(l, state)).ToList())
                 DependentsOf(local, state, () => $"a lambda may reassign '{N(local)}' during {what}", throughOnly: true);
         }
     }
@@ -191,6 +191,13 @@ public sealed partial class IrVerifier
             return;
         DependentsOf(local, state, () => $"'{N(local)}' was invalidated: {reason}");
     }
+
+    /// <summary>
+    /// A <c>ref struct</c> variable cannot be assigned after its declaration (spec
+    /// <c>structs.ref</c>), so a write to one changes the value in place and does not invalidate what
+    /// refers into it.
+    /// </summary>
+    static bool Reassignable(IrLocal local) => !local.Type.IsRefStruct;
 
     /// <summary>Whether an in-use guard marks the value at the local as in use.</summary>
     bool Guarded(State state, IrLocal local) => state.Guards.Any(guard => guardTargets.GetValueOrDefault(guard) == local);
