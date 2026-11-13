@@ -156,10 +156,15 @@ static partial class BuildFailure
         var source = match.Success && int.Parse(match.Groups["index"].Value, CultureInfo.InvariantCulture) is var index && index < sources.Count
             ? sources[index]
             : sources.FirstOrDefault(s => Path.GetFileName(s.Path).Equals(file, StringComparison.OrdinalIgnoreCase));
-        if (source is ({ Directory: { } directory } package, { } path))
+        if (source is ({ } package, { } path))
         {
-            var named = $"native source '{Path.GetRelativePath(directory, path).Replace('\\', '/')}'";
-            return package.Package.Kind == PackageKind.Library ? $"{named} of {PackageName(package)}" : named;
+            var named = package.FetchedFiles.Contains(path, StringComparer.Ordinal)
+                ? $"fetched file '{Path.GetFileName(path)}'"
+                : package.Directory is { } directory
+                    ? $"native source '{Path.GetRelativePath(directory, path).Replace('\\', '/')}'"
+                    : null;
+            if (named is not null)
+                return package.Package.Kind == PackageKind.Library ? $"{named} of {PackageName(package)}" : named;
         }
         return $"'{file}'";
     }

@@ -12,7 +12,8 @@ const string Usage = """
     commands:
       run      build and run the program
       build    build an executable
-      check    report errors without building; the one command that takes a library
+      check    report errors without building, for a program or a library
+      fetch    download the files that the manifest's 'fetch' block names, and report the errors
       emit     print the generated C++
       ir       print the mid-level IR of the program's functions
       interpret
@@ -30,7 +31,7 @@ const string Usage = """
       --               what follows is the program's arguments, for a main(String[] args) (run and interpret)
     """;
 
-string[] commands = ["run", "build", "check", "emit", "ir", "interpret"];
+string[] commands = ["run", "build", "check", "fetch", "emit", "ir", "interpret"];
 if (args.Length < 2 || !commands.Contains(args[0]))
 {
     Console.Error.WriteLine(Usage);
@@ -90,6 +91,13 @@ if (!isPackage && !File.Exists(file))
 }
 
 var source = isPackage ? PackageSources.Load(file) : PackageSources.Of(SourceText.FromFile(file));
+// Loading a package fetches its native files, so this command reports those errors and compiles nothing.
+if (command == "fetch")
+{
+    ReportDiagnostics(source.Diagnostics);
+    return source.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error) ? 1 : 0;
+}
+
 if (command == "interpret")
 {
     var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release, Arguments: programArguments));

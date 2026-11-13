@@ -105,6 +105,19 @@ public static partial class Catalog
     public static Diagnostic MissingNativePath(Location at, string key, string path, string kind) =>
         Make(at, $"'{key}' names '{path}', which is not a {kind}");
 
+    [Error(553, "programs.manifest")]
+    public static Diagnostic FetchHashMalformed(Location at, string hash) =>
+        Make(at, $"'{hash}' is not a SHA-256 hash").Help("write 64 lowercase hexadecimal digits");
+
+    [Error(554, "programs.manifest")]
+    public static Diagnostic FetchFiles(Location at) =>
+        Make(at, "'files' must list one or more relative paths inside the archive")
+            .Help("write a path such as 'sqlite-amalgamation-3540100/sqlite3.h'");
+
+    [Error(555, "programs.manifest")]
+    public static Diagnostic FetchUrlScheme(Location at, string url) =>
+        Make(at, $"'{url}' is not an 'https' URL").Help("write an absolute URL whose scheme is 'https'");
+
     [Error(530, "programs.packages")]
     public static Diagnostic LibraryNotRunnable(Location at, string package) =>
         Make(at, $"cannot build or run library '{package}'")

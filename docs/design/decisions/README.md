@@ -132,3 +132,5 @@ history and a reason can be found without searching the spec.
 | [0102](0102-statics-as-patterns.md) | A static whose initializer is a literal is a pattern, and an extern static may give its value |
 | [0103](0103-header-search.md) | An extern block's header is in its own package, or is a system header written in angle brackets |
 | [0104](0104-non-escaping-fields.md) | A `ref struct` may hold a non-escaping function, and a pointer may point to a `ref struct` |
+| [0105](0105-native-downloads.md) | A manifest's `fetch` block names a native file to download, and the compiler caches the file by its hash |
+| [0106](0106-fetch-limits.md) | A download and its extracted files have size limits, and a fetched path is a file name on every platform |

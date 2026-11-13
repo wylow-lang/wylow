@@ -1,6 +1,7 @@
 using System.Text;
 using Wyl.Compiler.Diagnostics;
 using Wyl.Compiler.Semantics;
+using Wyl.Compiler.Syntax;
 using Wyl.Compiler.Text;
 
 namespace Wyl.Compiler.Build;
@@ -21,16 +22,46 @@ public sealed record PackageNative(
     IReadOnlyList<string> Copy,
     IReadOnlyList<string> Defines)
 {
-    /// <summary>Every <c>.cpp</c> and <c>.c</c> file under <see cref="Directory"/>, by full path, in a stable order.</summary>
-    public IReadOnlyList<string> Sources => Directory is null
-        ? []
-        : [.. System.IO.Directory.EnumerateFiles(Directory, "*", SearchOption.AllDirectories)
-            .Where(f => Path.GetExtension(f) is ".cpp" or ".c")
-            .Select(Path.GetFullPath)
-            .Order(StringComparer.Ordinal)];
+    /// <summary>The file that the manifest's <c>fetch</c> names, or null if the manifest has none.</summary>
+    public Manifest.FetchEntry? Fetch { get; init; }
 
-    /// <summary>The package's own include path: <c>native/</c>, then each of <see cref="Include"/>.</summary>
-    public IEnumerable<string> IncludeDirectories => Directory is null ? Include : Include.Prepend(Directory);
+    /// <summary>Every file of the fetch that the package uses, by full path in the cache, in the manifest's order.</summary>
+    public IReadOnlyList<string> FetchedFiles { get; init; } = [];
+
+    /// <summary>The directory of each fetched file, in the manifest's order.</summary>
+    public IReadOnlyList<string> FetchedIncludeDirectories { get; init; } = [];
+
+    /// <summary>The fetched <c>.c</c> and <c>.cpp</c> files, which compile as the package's native sources.</summary>
+    public IReadOnlyList<string> FetchedSources { get; init; } = [];
+
+    /// <summary>Every <c>.cpp</c> and <c>.c</c> file under <see cref="Directory"/>, and every fetched source, in a stable order.</summary>
+    public IReadOnlyList<string> Sources
+    {
+        get
+        {
+            IEnumerable<string> native = Directory is null
+                ? []
+                : System.IO.Directory.EnumerateFiles(Directory, "*", SearchOption.AllDirectories)
+                    .Where(f => Path.GetExtension(f) is ".cpp" or ".c")
+                    .Select(Path.GetFullPath)
+                    .Order(StringComparer.Ordinal);
+            return [.. native, .. FetchedSources];
+        }
+    }
+
+    /// <summary>The package's own include path: <c>native/</c>, then each fetched file's directory, then each of <see cref="Include"/>.</summary>
+    public IEnumerable<string> IncludeDirectories
+    {
+        get
+        {
+            if (Directory is not null)
+                yield return Directory;
+            foreach (var directory in FetchedIncludeDirectories)
+                yield return directory;
+            foreach (var directory in Include)
+                yield return directory;
+        }
+    }
 
     /// <summary>
     /// The full path of the header <paramref name="header"/> in the package's own include path, or
@@ -52,6 +83,14 @@ public sealed record PackageNative(
                 text.Append(key).Append(':').Append(list.Count).Append('\n');
                 foreach (var item in list)
                     text.Append(item.Length).Append(':').Append(item).Append('\n');
+            }
+            if (Fetch is { } fetch)
+            {
+                text.Append("fetch:").Append(fetch.Url).Append('\n');
+                text.Append(fetch.Sha256).Append('\n');
+                text.Append(fetch.Files.Count).Append('\n');
+                foreach (var file in fetch.Files)
+                    text.Append(file.Length).Append(':').Append(file).Append('\n');
             }
             return text.ToString();
         }
@@ -130,13 +169,22 @@ public sealed record NativeInputs(IReadOnlyList<PackageNative> Packages)
         foreach (var header in headers.Where(h => !h.System && !h.Package.IsStd && FindHeader(h) is null))
         {
             var own = Packages.FirstOrDefault(p => p.Package == header.Package);
-            List<string> searched = own is null ? [] : [.. own.IncludeDirectories.Select(d => Path.GetRelativePath(own.Root, d).Replace('\\', '/') + "/")];
+            List<string> searched = own is null ? [] : [.. own.IncludeDirectories.Select(d => Describe(own.Root, d))];
             var elsewhere = Packages.FirstOrDefault(p => p.Package != header.Package && p.FindHeader(header.Path) is not null)?.Package.Name;
             yield return Catalog.HeaderNotFound(header.At, header.Path, header.Package.Name, searched, elsewhere);
         }
     }
 
     string? FindHeader(ExternHeader header) => Packages.FirstOrDefault(p => p.Package == header.Package)?.FindHeader(header.Path);
+
+    /// <summary>A directory as the missing-header error names it: relative to the package when it is under it, and its full path otherwise.</summary>
+    static string Describe(string root, string directory)
+    {
+        var relative = Path.GetRelativePath(root, directory);
+        return relative.StartsWith("..", StringComparison.Ordinal)
+            ? directory.Replace('\\', '/')
+            : relative.Replace('\\', '/') + "/";
+    }
 
     /// <summary>Every package's lists, as text that differs whenever one of them does.</summary>
     public string Text => string.Concat(Packages.Select(p => p.Text));

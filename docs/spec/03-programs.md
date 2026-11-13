@@ -74,6 +74,9 @@ An entry's identifier is its **key**. An entry is a string (`key = "text";`), a 
 | `path`, `version` | in an entry of `dependencies` | string |
 | `native` | top level | block |
 | `include`, `libraryPaths`, `link`, `copy`, `defines` | in `native`, or in a platform block of it | list of strings |
+| `fetch` | in `native` | block |
+| `url`, `sha256` | in `fetch` | string |
+| `files` | in `fetch` | list of strings |
 | `windows`, `linux`, `macos` | in `native` | block |
 
 `name` gives the package's name, which need not be its directory's.
@@ -104,6 +107,37 @@ whose manifest it is in.
   program is built for that platform, each of its lists is added after the list of the same key in
   `native`.
 
+`fetch` names a file that the compiler downloads for the package's native files. The `url` entry
+is an absolute URL whose scheme is `https`. The `sha256` entry is the SHA-256 hash of the
+downloaded bytes, written as 64 lowercase hexadecimal digits. The `files` entry lists the files of
+the download that the package uses, each by its path in the download. A path is one or more
+segments separated by `/`. A segment is not empty, `.`, or `..`, does not end with `.` or a
+space, and is not a name that Windows reserves for a device. The path holds no backslash and no
+character that a Windows file name cannot hold.
+
+The compiler downloads the file, checks the hash, and keeps the file in a cache outside the
+package. A URL whose path ends with `.zip`, `.tar`, `.tar.gz`, or `.tgz` names an archive, and the
+compiler extracts the files that `files` names. Any other URL names one file, and `files` gives the
+name of that file. The fetched files join the package's native files
+([Native source files](21-interop.md#interop.native)).
+
+**Example:**
+
+```
+// sqlite/package.wylcfg
+name = "sqlite";
+kind = "library";
+version = "0.1.0";
+native {
+    fetch {
+        url = "https://sqlite.org/2026/sqlite-amalgamation-3540100.zip";
+        sha256 = "0a9c8e34352dad46006aa82836d5383bff9dc6bc9ce5a60553c05aa30e6ad1f9";
+        files = ["sqlite-amalgamation-3540100/sqlite3.c",
+                 "sqlite-amalgamation-3540100/sqlite3.h"];
+    }
+}
+```
+
 **Example:**
 
 ```
@@ -131,6 +165,19 @@ native {
 - It is a compile-time error if a directory that `include` or `libraryPaths` names does not exist,
   or if a file that `copy` names does not exist. These rules apply to the lists of `native` and to
   the lists of the platform block of the platform that the program is built for.
+- It is a compile-time error if `url` is not an absolute `https` URL.
+- It is a compile-time error if `sha256` is not 64 lowercase hexadecimal digits.
+- It is a compile-time error if `files` is empty, or a path in `files` is not a relative path
+  inside the archive that every platform can write.
+- It is a compile-time error if the downloaded file's SHA-256 hash is not the one that `sha256`
+  gives.
+- It is a compile-time error if the downloaded file is not a readable archive, or the archive
+  holds no file of a path that `files` gives.
+- It is a compile-time error if the downloaded file is larger than 512 MiB.
+- It is a compile-time error if the compiler extracts more than 512 MiB from the download, or
+  reads more than 1 GiB of the archive while it unpacks it.
+- It is a compile-time error if the compiler cannot download the file. The error names the URL and
+  the reason.
 
 **Example:**
 

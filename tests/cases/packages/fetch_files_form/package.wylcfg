@@ -1,0 +1,9 @@
+name = "fetch_files_form";
+
+native {
+    fetch {
+        url = "https://files.test/sample.zip";
+        sha256 = "3806927d8ed43dea85666325770b2a572b1dcc6e355127eaa87938ec1d85ab11";
+        files = []; // error[WYL0554]: 'files' must list one or more relative paths inside the archive
+    }
+}

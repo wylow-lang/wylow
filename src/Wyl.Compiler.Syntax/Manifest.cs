@@ -48,6 +48,15 @@ public sealed record Manifest(string Name, Location NameLocation)
     /// <summary>The lists of the <c>native</c> block that apply when the program is built for <paramref name="platform"/>.</summary>
     public IEnumerable<NativeList> NativeFor(string platform) => Native.Where(n => n.Platform is null || n.Platform == platform);
 
+    /// <summary>The file that the <c>native</c> block's <c>fetch</c> names, or null if the manifest has none.</summary>
+    public FetchEntry? Fetch { get; init; }
+
+    /// <summary>
+    /// The <c>fetch</c> entry of a <c>native</c> block: the file to download, its SHA-256 hash, and
+    /// the files of the download that the package uses.
+    /// </summary>
+    public sealed record FetchEntry(string Url, Location UrlLocation, string Sha256, Location Sha256Location, IReadOnlyList<string> Files, Location FilesLocation, Location KeyLocation);
+
     /// <summary>
     /// One list of the <c>native</c> block, such as <c>link</c>, with the platform block it is in, or
     /// null if it is in the <c>native</c> block itself.
@@ -111,10 +120,13 @@ public sealed record Manifest(string Name, Location NameLocation)
             }
         }
         List<NativeList> nativeLists = [];
+        FetchEntry? fetch = null;
         if (keys.GetValueOrDefault("native") is BlockEntry native)
         {
-            var given = Check(native.Entries, [.. NativeListKeys, .. Platforms.Select(p => (p, ValueKind.Block))], diagnostics);
+            var given = Check(native.Entries, [.. NativeListKeys, ("fetch", ValueKind.Block), .. Platforms.Select(p => (p, ValueKind.Block))], diagnostics);
             nativeLists.AddRange(Lists(null, given.Values));
+            if (given.GetValueOrDefault("fetch") is BlockEntry fetchBlock)
+                fetch = ReadFetch(fetchBlock, diagnostics);
             foreach (var platform in Platforms)
             {
                 if (given.GetValueOrDefault(platform) is BlockEntry block)
@@ -141,11 +153,80 @@ public sealed record Manifest(string Name, Location NameLocation)
             VersionLocation = keys.GetValueOrDefault("version")?.KeyLocation,
             Dependencies = dependencyList,
             Native = nativeLists,
+            Fetch = fetch,
         };
 
         static IEnumerable<NativeList> Lists(string? platform, IEnumerable<Entry> entries) =>
             entries.OfType<ValueEntry>().Where(e => e.List is not null).Select(e => new NativeList(platform, e.Key, e.List!, e.KeyLocation));
     }
+
+    /// <summary>The <c>fetch</c> entry, or null with the errors reported if it is incomplete or malformed.</summary>
+    static FetchEntry? ReadFetch(BlockEntry block, DiagnosticBag diagnostics)
+    {
+        var given = Check(block.Entries, [("url", ValueKind.String), ("sha256", ValueKind.String), ("files", ValueKind.List)], diagnostics);
+        var missing = new[] { "url", "sha256", "files" }.Where(key => block.Entries.All(e => e.Key != key)).ToList();
+        if (missing.Count > 0)
+        {
+            var names = missing.Count switch
+            {
+                1 => $"'{missing[0]}'",
+                2 => $"'{missing[0]}' and '{missing[1]}'",
+                _ => string.Join(", ", missing.Take(missing.Count - 1).Select(m => $"'{m}'")) + $", and '{missing[^1]}'",
+            };
+            diagnostics.Add(Catalog.ManifestExpected(block.KeyLocation, $"{names} in the 'fetch' block"));
+        }
+        var url = given.GetValueOrDefault("url") as ValueEntry;
+        var sha256 = given.GetValueOrDefault("sha256") as ValueEntry;
+        var files = given.GetValueOrDefault("files") as ValueEntry;
+        if (url?.Text is not { } urlText || sha256?.Text is not { } hash || files?.List is not { } paths)
+            return null;
+        bool valid = true;
+        if (!IsHttpsUrl(urlText))
+        {
+            diagnostics.Add(Catalog.FetchUrlScheme(url.KeyLocation, urlText));
+            valid = false;
+        }
+        if (!IsSha256(hash))
+        {
+            diagnostics.Add(Catalog.FetchHashMalformed(sha256.KeyLocation, hash));
+            valid = false;
+        }
+        if (paths.Count == 0)
+        {
+            diagnostics.Add(Catalog.FetchFiles(files.KeyLocation));
+            valid = false;
+        }
+        foreach (var path in paths.Where(p => !IsArchivePath(p)))
+        {
+            diagnostics.Add(Catalog.FetchFiles(files.KeyLocation).Note($"'{path}' is not a relative path inside the archive"));
+            valid = false;
+        }
+        return valid
+            ? new FetchEntry(urlText, url.KeyLocation, hash, sha256.KeyLocation, paths, files.KeyLocation, block.KeyLocation)
+            : null;
+    }
+
+    static bool IsHttpsUrl(string text) =>
+        Uri.TryCreate(text, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+
+    static bool IsSha256(string text) =>
+        text.Length == 64 && text.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    /// <summary>
+    /// Whether a path names a file inside an archive: one or more segments separated by '/', where no
+    /// segment is empty, '.', '..', a name that Windows reserves for a device, or a name that ends
+    /// with '.' or a space, and the path holds no character that a Windows file name cannot hold.
+    /// </summary>
+    static bool IsArchivePath(string path) =>
+        path.All(c => c >= ' ' && c is not ('<' or '>' or ':' or '"' or '|' or '?' or '*' or '\\'))
+        && path.Split('/') is { Length: > 0 } segments
+        && segments.All(s => s.Length > 0 && s != "." && s != ".." && s[^1] is not ('.' or ' ') && !IsReservedName(s));
+
+    static readonly string[] ReservedNames =
+        ["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"];
+
+    static bool IsReservedName(string segment) =>
+        ReservedNames.Contains(segment.Split('.')[0], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The version that a <c>version</c> entry gives, or null with the error reported if its text is not a version.</summary>
     static PackageVersion? ReadVersion(Entry? entry, bool patchOptional, DiagnosticBag diagnostics)

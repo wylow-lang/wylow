@@ -1,6 +1,15 @@
-// A safe layer over SQLite's C API. fetch-sqlite.ps1 on Windows, or fetch-sqlite.sh on Linux, puts
-// SQLite's amalgamation, sqlite3.c and sqlite3.h, in native/. The build compiles sqlite3.c with the
-// program that depends on the library, so the library needs no prebuilt SQLite.
+// A safe layer over SQLite's C API. The manifest fetches SQLite's amalgamation, sqlite3.c and
+// sqlite3.h, from sqlite.org. The build compiles sqlite3.c with the program that depends on the
+// library, so the library needs no prebuilt SQLite.
 name = "sqlite";
 kind = "library";
 version = "0.1.0";
+
+native {
+    fetch {
+        url = "https://sqlite.org/2026/sqlite-amalgamation-3540100.zip";
+        sha256 = "0a9c8e34352dad46006aa82836d5383bff9dc6bc9ce5a60553c05aa30e6ad1f9";
+        files = ["sqlite-amalgamation-3540100/sqlite3.c",
+                 "sqlite-amalgamation-3540100/sqlite3.h"];
+    }
+}

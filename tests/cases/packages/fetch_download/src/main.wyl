@@ -1,0 +1,11 @@
+// native
+// A manifest's fetch downloads a C source and a header; the build compiles the source and links it
+// (spec programs.manifest, interop.native).
+@Include("value.h")
+extern {
+    @Safe int sample_value();
+}
+
+void main() {
+    std::print(sample_value());                 // output: 7
+}

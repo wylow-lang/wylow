@@ -1,0 +1,9 @@
+name = "fetch_archive";
+
+native {
+    fetch {
+        url = "https://badzip.test/x.zip"; // error[WYL0556]: cannot read the downloaded file as an archive
+        sha256 = "306dd75289584f36ed2491b76f151702d5535c722337074d638f62a0a63b572e";
+        files = ["sample/value.h"];
+    }
+}

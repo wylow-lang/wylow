@@ -78,6 +78,7 @@ for (int i = 0; i < args.Length; i++)
         filter = args[i];
 }
 
+FakeDownloads.Install();
 var root = FindRepositoryRoot();
 var casesDirectory = Path.Combine(root, "tests", "cases");
 var outputDirectory = outputArgument is null ? Path.Combine(root, "tests", ".out") : Path.GetFullPath(outputArgument);
@@ -112,7 +113,7 @@ List<(string? Prefix, Func<IEnumerable<TestResult>> Run)> sections =
     ("ir/", IrSelfTests.Run), ("analysis/", AnalysisSelfTests.Run), ("types/", TypeSelfTests.Run),
     ("dispatch/", DispatchSelfTests.Run), ("interpreter/", InterpreterSelfTests.Run), ("source-text/", SourceTextSelfTests.Run),
     ("static-ensures/", StaticEnsureSelfTests.Run), ("sanitizer/", SanitizerSelfTests.Run), ("build-failure/", BuildFailureSelfTests.Run),
-    ("toolchain/", ToolchainSelfTests.Run),
+    ("toolchain/", ToolchainSelfTests.Run), ("fetch/", FetchSelfTests.Run),
     ("catalog/", () => CatalogSelfTests.Run(root)), ("spec/", () => SpecExampleSelfTests.Run(root)), ("docs/", () => DocSelfTests.Run(root)),
     ("fuzz/", () => FuzzSelfTests.Run(casesDirectory).Select(r => new TestResult("fuzz/" + r.Name, r.Failure))),
 ];

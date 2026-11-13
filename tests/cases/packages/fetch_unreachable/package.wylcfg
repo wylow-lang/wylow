@@ -1,0 +1,9 @@
+name = "fetch_unreachable";
+
+native {
+    fetch {
+        url = "https://unreachable.test/x.zip"; // error[WYL0552]: cannot download 'https://unreachable.test/x.zip'
+        sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        files = ["sample/value.h"];
+    }
+}

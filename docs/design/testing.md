@@ -97,8 +97,8 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   output comparison (`sanitizers/live-tsan` checks that the mode still reports a deliberate race).
   Reproduce with `wyl run <file> --cc tsan`.
 - **Linux through WSL.** On Windows, WSL 2 with Ubuntu runs the Linux modes locally: `--cc gcc`,
-  `--cc tsan`, and `--interpret`. The distribution needs the .NET 10 SDK, g++, and clang, and
-  `examples/sqlite` needs `curl` and `python3` for its fetch script. Build in a clone inside the Linux file system, made with
+  `--cc tsan`, and `--interpret`. The distribution needs the .NET 10 SDK, g++, and clang. Build
+  in a clone inside the Linux file system, made with
   `git clone /mnt/<drive>/<path to the repository> ~/wylow`, and bring each new commit across with
   `git pull`. A build in the Windows checkout under `/mnt` would overwrite the Windows build's
   `bin/` and `obj/` directories, and the Windows file system is slow from Linux. An agent runs a
@@ -114,8 +114,10 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   anything, and names the first call. The test is marked `// native`, so `--interpret` skips it,
   and the fuzzer compares its mutants only among the native modes (`RunComparison.IsNative`). A
   test that calls C++ code without the marker fails in the interpreted mode. A package test keeps
-  the C++ it calls in its own `native/` directory, so the suite needs no library installed. If a
-  `// native` test lists errors and binds without any, the runner builds it and compares the
+  the C++ it calls in its own `native/` directory, or in the file that its manifest fetches, so the
+  suite needs no library installed. The runner replaces the fetch download with a fixed archive and
+  gives each process a cache directory of its own (`WYL_CACHE_DIR`), so the suite needs no network.
+  If a `// native` test lists errors and binds without any, the runner builds it and compares the
   errors that the C++ build reports, such as a failed signature or layout check
   (`interop/signature_mismatch`, `interop/layout_mismatch`).
 - **Libraries.** A package test that depends on a library keeps the library in a package directory

@@ -110,6 +110,23 @@ public static partial class Catalog
         return diagnostic.Help($"write '@Include(\"<{header}>\")' if it is a system header");
     }
 
+    [Error(550, "interop.native")]
+    public static Diagnostic FetchHashMismatch(Location at, string expected, string actual, string url) =>
+        Make(at, $"the downloaded file's SHA-256 hash is '{actual}', not '{expected}'")
+            .Note($"the file is downloaded from '{url}'");
+
+    [Error(551, "interop.native")]
+    public static Diagnostic FetchMissingFile(Location at, string path, string url) =>
+        Make(at, $"the downloaded archive holds no file '{path}'").Note($"the archive is from '{url}'");
+
+    [Error(552, "interop.native")]
+    public static Diagnostic FetchDownloadFailed(Location at, string url, string reason) =>
+        Make(at, $"cannot download '{url}'").Note(reason);
+
+    [Error(556, "interop.native")]
+    public static Diagnostic FetchArchive(Location at, string reason) =>
+        Make(at, "cannot read the downloaded file as an archive").Note(reason);
+
     [Error(546, "interop.extern")]
     public static Diagnostic MalformedSystemHeader(Location at, string path) =>
         Make(at, $"'@Include' path '{path}' does not name a system header").Help("write a system header as '@Include(\"<header.h>\")'");

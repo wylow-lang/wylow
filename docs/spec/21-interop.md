@@ -337,8 +337,15 @@ the `native` block of its own package's manifest ([The manifest](03-programs.md#
 and it is linked with the program. The `native/` directory is on its package's include path, so an
 extern block reaches its headers by their paths from it.
 
+A file that the manifest's `fetch` block downloads joins the package's native files
+([The manifest](03-programs.md#programs.manifest)). The compiler extracts the file into its cache.
+The directory of each fetched header is on the package's include path after `native/` and before
+the package's `include` directories. Each fetched `.c` or `.cpp` file is a native source of the
+package.
+
 An extern block's `@Include` path is searched for in the `native/` directory of the block's own
-package, and then in that package's `include` directories, in the order the manifest lists them.
+package, then in the directories of the package's fetched headers, and then in that package's
+`include` directories, in the order the manifest lists them.
 The search does not look in the directories of another package of the program
 ([Dependencies](03-programs.md#programs.manifest.dependencies)), so two packages may each have a
 header of the same path. A system header is not searched for in this way.

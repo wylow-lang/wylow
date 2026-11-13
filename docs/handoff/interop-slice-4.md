@@ -215,6 +215,29 @@ gaining the parts of a package manager: reading packages and their dependencies
 (`PackageSources`), native inputs (`NativeInputs`), the toolchains, and soon downloads and a cache.
 Propose the split to the user first.
 
+Done, with decisions 0105 and 0106. The build code is split by responsibility first, in its own
+commit:
+`Toolchains` finds a compiler, `MsvcEnvironment` keeps the environment that cl.exe needs,
+`NativeCompiler` compiles and links, and `BuildKeys` holds every key. The manifest's `native` block
+holds one `fetch` block, with `url`, `sha256`, and `files`; the URL uses `https`, the hash is 64
+lowercase hexadecimal digits, and `files` names the archive's files that the package uses, by their
+paths. The compiler downloads the file once, checks the hash, and keeps it in a per-user cache
+(`WYL_CACHE_DIR` overrides the directory); the extracted files join the package's include path and
+native sources. `wyl fetch` loads the packages and downloads without compiling. `examples/sqlite`
+names SQLite's archive in its manifest and no longer keeps the fetch scripts. With an empty cache,
+`wyl run examples/sqlite/demo` downloaded the archive and printed its rows and its SQLite errors; a
+second `wyl fetch` used the cache. The test runner replaces the download with a fixed archive and
+gives each process a cache directory of its own, so the suite uses no network. The download streams
+to a temporary file under a 512 MiB limit; extraction is capped at 512 MiB, and reading a
+compressed archive at 1 GiB. The compiler writes only the entries that `files` names, never a
+symbolic link, and rejects a path that Windows cannot write. The `fetch/` self-tests cover the
+cache, a download, a missing extracted file, a single file, a tar archive, a symbolic link, each
+limit, and the path forms; the `packages/fetch_*` cases pin `WYL0550` to `WYL0556`. Three questions
+stay open. A package
+cannot name more than one `fetch`. A package that both keeps a file in `native/` and fetches a file
+of the same name compiles both, and the build does not report it. A `copy` list cannot name a
+fetched file.
+
 ## Later, and not planned in this slice
 
 - Each program that depends on a library compiles the library's native sources into its own

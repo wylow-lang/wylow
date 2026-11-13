@@ -232,6 +232,7 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
             List<string> Values(string key) => [.. lists.Where(l => l.Key == key).SelectMany(l => l.Values)];
 
             var native = Path.GetFullPath(Path.Combine(directory, "native"));
+            var fetched = manifest.Fetch is { } fetch ? Downloads.Ensure(fetch, Diagnostics) : null;
             return new PackageNative(
                 package,
                 Path.GetFullPath(directory),
@@ -240,7 +241,13 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                 Paths("libraryPaths", directories: true),
                 Values("link"),
                 Paths("copy", directories: false),
-                Values("defines"));
+                Values("defines"))
+            {
+                Fetch = manifest.Fetch,
+                FetchedFiles = fetched?.Files ?? [],
+                FetchedIncludeDirectories = fetched?.IncludeDirectories ?? [],
+                FetchedSources = fetched?.Sources ?? [],
+            };
         }
 
         static void AddModule(string src, string path, string prefix, Module module, List<SourceText> into, DiagnosticBag bag)

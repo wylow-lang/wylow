@@ -7,4 +7,3 @@ tests/.out/
 tests/.coverage/
 tests/mutation/results/
 tools/Dashboard/.state/
-examples/sqlite/sqlite/native/

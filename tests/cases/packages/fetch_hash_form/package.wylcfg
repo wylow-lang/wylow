@@ -1,0 +1,9 @@
+name = "fetch_hash_form";
+
+native {
+    fetch {
+        url = "https://files.test/sample.zip";
+        sha256 = "abc"; // error[WYL0553]: 'abc' is not a SHA-256 hash
+        files = ["sample/value.h"];
+    }
+}

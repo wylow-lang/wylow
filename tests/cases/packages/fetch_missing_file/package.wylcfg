@@ -1,0 +1,9 @@
+name = "fetch_missing_file";
+
+native {
+    fetch {
+        url = "https://files.test/sample.zip";
+        sha256 = "3806927d8ed43dea85666325770b2a572b1dcc6e355127eaa87938ec1d85ab11";
+        files = ["sample/absent.h"]; // error[WYL0551]: the downloaded archive holds no file 'sample/absent.h'
+    }
+}

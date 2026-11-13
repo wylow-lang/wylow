@@ -1,0 +1,9 @@
+name = "fetch_url_form";
+
+native {
+    fetch {
+        url = "http://files.test/sample.zip"; // error[WYL0555]: 'http://files.test/sample.zip' is not an 'https' URL
+        sha256 = "3806927d8ed43dea85666325770b2a572b1dcc6e355127eaa87938ec1d85ab11";
+        files = ["sample/value.h"];
+    }
+}
