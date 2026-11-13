@@ -1,4 +1,0 @@
-// A program that uses SQLite through the safe layer of its `sqlite` module. fetch-sqlite.ps1 on
-// Windows, or fetch-sqlite.sh on Linux, puts SQLite's amalgamation, sqlite3.c and sqlite3.h, in
-// native/. The build compiles sqlite3.c with the program, so the package needs no prebuilt library.
-name = "sqlite_demo";

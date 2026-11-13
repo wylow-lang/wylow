@@ -2,7 +2,7 @@
 # Downloads SQLite's amalgamation from sqlite.org, checks the archive against the SHA3-256 hash that
 # sqlite.org's download page lists, and puts sqlite3.c and sqlite3.h in native/. Needs curl and
 # python3.
-# Usage: bash examples/sqlite/fetch-sqlite.sh
+# Usage: bash examples/sqlite/sqlite/fetch-sqlite.sh
 set -euo pipefail
 
 name=sqlite-amalgamation-3540100.zip

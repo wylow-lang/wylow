@@ -1,0 +1,7 @@
+// A program that uses SQLite through the library in ../sqlite. fetch-sqlite.ps1 on Windows, or
+// fetch-sqlite.sh on Linux, puts SQLite's amalgamation in the library's native/ directory.
+name = "sqlite_demo";
+
+dependencies {
+    sqlite { path = "../sqlite"; version = "0.1"; }
+}

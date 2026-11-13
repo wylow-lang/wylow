@@ -1,5 +1,5 @@
-// SQLite's C API, as the module's safe types call it. Every member is visible only in the module, so
-// a program that imports `sqlite` calls none of these functions itself.
+// SQLite's C API, as the library's safe types call it. Every member is visible only in the library's
+// root module, so a program that depends on the library calls none of these functions itself.
 
 @Include("sqlite3.h")
 extern {

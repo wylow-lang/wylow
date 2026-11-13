@@ -1,4 +1,4 @@
-// A program that uses SQLite through the safe layer of the `sqlite` module, without unsafe code. It
+// A program that uses SQLite through the safe layer of the `sqlite` library, without unsafe code. It
 // opens an in-memory database, creates a table, inserts rows with bound text, integers, doubles, and
 // blobs, and prints each row of a query. A last query runs through `forEachRow`, which SQLite's
 // `sqlite3_exec` calls back for each row.

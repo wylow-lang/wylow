@@ -1,0 +1,6 @@
+// A safe layer over SQLite's C API. fetch-sqlite.ps1 on Windows, or fetch-sqlite.sh on Linux, puts
+// SQLite's amalgamation, sqlite3.c and sqlite3.h, in native/. The build compiles sqlite3.c with the
+// program that depends on the library, so the library needs no prebuilt SQLite.
+name = "sqlite";
+kind = "library";
+version = "0.1.0";

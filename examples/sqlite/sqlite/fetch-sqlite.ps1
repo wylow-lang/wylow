@@ -1,6 +1,6 @@
 # Downloads SQLite's amalgamation from sqlite.org, checks the archive against the SHA3-256 hash that
 # sqlite.org's download page lists, and puts sqlite3.c and sqlite3.h in native/.
-# Usage: pwsh examples/sqlite/fetch-sqlite.ps1
+# Usage: pwsh examples/sqlite/sqlite/fetch-sqlite.ps1
 
 $ErrorActionPreference = 'Stop'
 

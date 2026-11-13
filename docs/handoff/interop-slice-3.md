@@ -4,7 +4,8 @@ Slice 2 built `void*`, `Span<T>.byteLength()`, and the SQLite binding in `exampl
 binding shows what the interop system still lacks. Steps 1 to 3 built callbacks and closed the
 smaller gaps that the binding found. Step 4 wrote a safe layer over the binding, and step 5 designed
 the manifest's `dependencies` with the user. Steps 6 to 8 built the manifest's new keys, libraries,
-dependencies, and the native settings of dependencies. Step 9 uses them in `examples/sqlite`.
+dependencies, and the native settings of dependencies. Step 9 split `examples/sqlite` into a library
+and a program that depends on it.
 
 Commit each step on its own once it passes. Before each commit, run the whole suite with
 `--interpret`, and the `interop` filter with `--cc clang`, `--cc msvc`, and `--cc asan`. A step that
@@ -226,8 +227,29 @@ WSL").
   self-tests `build-cache`, `build-failure`, and `catalog`, and the whole suite with `--interpret`.
   On Windows, the gcc mode still fails only `interop/undefined_extern` and `interop/c_linkage`.
 
-## 9. The SQLite library and its demonstration
+## Facts from step 9
 
-Split `examples/sqlite` into a library that holds the `sqlite` module and the amalgamation, and a
-program that depends on it and holds `main.wyl`. The library's `pub` names are the safe layer's.
-Record what the split shows, as step 4 recorded what the safe layer showed.
+- `examples/sqlite/sqlite` is a library named `sqlite`, at version 0.1.0. It holds the safe layer in
+  its root module, the fetch scripts, and the amalgamation in its `native/` directory, which the
+  repository ignores. The library's manifest has no `native` block.
+- `examples/sqlite/demo` is the program `sqlite_demo`. Its manifest depends on `../sqlite` with the
+  version `0.1`, and it holds only `main.wyl`.
+- The split changed no code. `main.wyl` still imports `sqlite::{Database, Error, Statement}`, because
+  a dependency's name is a path root as a module's name was. The layer's C API stays hidden: a call
+  of `sqlite::sqlite3_close`, a use of `Database.handle`, and a use of `sqlite::SQLITE_OK` from the
+  program are each `WYL0054`. The library has one module, so `module` and `package` hide the same
+  members, and the layer keeps `module`.
+- The generated program includes `sqlite3.h` by its full path in the library's `native/` directory.
+  The build compiles `sqlite3.c` into the program's own `.wyl/sqlite_demo/native-objects`. A second
+  program that depends on the library would therefore compile the amalgamation again, because a
+  library has no build directory of its own.
+- The compiler has no fetch step, so the user runs the library's fetch script before building the
+  program. If the amalgamation is missing, `wyl build examples/sqlite/demo` reports `WYL0513` at the
+  library's `@Include`, with the note `'sqlite3.h' file not found`. Nothing in the message tells the
+  user to run the script.
+- A panic in the library names the library's file. If `forEachRow` reads text that is not valid
+  UTF-8, the panic is at `sqlite::database.wyl:113:59`, in `visitRow`. A panic in `column` or
+  `columnName` names the program's line, because both functions are `@CallerLocation`.
+- `wyl check examples/sqlite/sqlite` checks the library alone and reports nothing, and `wyl build`
+  reports `WYL0530` for it. `wyl interpret examples/sqlite/demo` stops at the first call of an
+  extern function, as it did before the split, because C++ code provides SQLite.
