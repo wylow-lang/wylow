@@ -25,7 +25,7 @@ static class BuildCacheSelfTests
         var compiler = Toolchains.Find(null, out var error);
         if (compiler is null)
             return [new("build-cache/key", error)];
-        return [CppKey(compiler), SourceKey(compiler), Dependencies(compiler, outputDirectory), Replay(outputDirectory), Native(compiler, outputDirectory), NativeRebuild(outputDirectory), NativeObjects(outputDirectory)];
+        return [CppKey(compiler), SourceKey(compiler), Dependencies(compiler, outputDirectory), Replay(outputDirectory), Native(compiler, outputDirectory), NativeRebuild(outputDirectory), NativeObjects(outputDirectory), NativeShared(outputDirectory)];
     }
 
     static TestResult CppKey(NativeCompiler compiler)
@@ -370,6 +370,109 @@ static class BuildCacheSelfTests
         Write(directory, "vendor/scale/native/factor.h", "#define FACTOR 200\n");
         Expect("254", "a header of the dependency changed", "1_scale");
         return new("build-cache/native-objects", problems.Count == 0 ? null : string.Join('\n', problems));
+    }
+
+    /// <summary>
+    /// Two programs that depend on one library compile its C source once: the second program adds no
+    /// object to the shared cache, and its object is the first program's (decision 0108).
+    /// </summary>
+    static TestResult NativeShared(string outputDirectory)
+    {
+        var directory = Path.Combine(outputDirectory, "build-cache", "native-shared");
+        if (Directory.Exists(directory))
+            Directory.Delete(directory, recursive: true);
+        Write(directory, "vendor/lib/package.wylcfg", """
+            name = "lib";
+            kind = "library";
+            version = "1.0.0";
+            """);
+        Write(directory, "vendor/lib/src/lib.wyl", """
+            @Include("lib.h")
+            extern {
+                @Safe int lib_value();
+            }
+
+            pub int value() {
+                return lib_value();
+            }
+            """);
+        Write(directory, "vendor/lib/native/lib.h", """
+            #ifdef __cplusplus
+            extern "C" {
+            #endif
+            int lib_value(void);
+            #ifdef __cplusplus
+            }
+            #endif
+
+            """);
+        Write(directory, "vendor/lib/native/lib.c", "#include \"lib.h\"\nint lib_value(void) { return 7; }\n");
+        foreach (var name in new[] { "a", "b" })
+        {
+            Write(directory, $"{name}/package.wylcfg", $$"""
+                name = "{{name}}";
+                dependencies {
+                    lib { path = "../vendor/lib"; }
+                }
+                """);
+            Write(directory, $"{name}/src/main.wyl", """
+                void main() {
+                    std::print(lib::value());
+                }
+                """);
+        }
+
+        var cache = Path.Combine(BuildCache.Root, "native-objects");
+        var first = Build("a", out var firstObject);
+        if (first is null || firstObject is null)
+            return new("build-cache/native-shared", "the first program did not build");
+        var bytes = File.ReadAllBytes(firstObject);
+        var shared = ObjectsLike(cache, bytes);
+        var second = Build("b", out var secondObject);
+        if (second is null || secondObject is null)
+            return new("build-cache/native-shared", "the second program did not build");
+
+        List<string> problems = [];
+        if (first != "7" || second != "7")
+            problems.Add($"the programs printed '{first}' and '{second}' instead of '7'");
+        if (shared.Count != 1)
+            problems.Add($"the first program added {shared.Count} objects to the shared cache instead of 1");
+        var after = ObjectsLike(cache, bytes);
+        if (after.Count != shared.Count)
+            problems.Add($"the second program added {after.Count - shared.Count} objects to the shared cache");
+        if (!File.ReadAllBytes(secondObject).AsSpan().SequenceEqual(bytes))
+            problems.Add("the two programs' objects differ");
+        return new("build-cache/native-shared", problems.Count == 0 ? null : string.Join('\n', problems));
+
+        static List<string> ObjectsLike(string cache, byte[] bytes) =>
+            Directory.Exists(cache)
+                ? [.. Directory.EnumerateFiles(cache)
+                    .Where(f => Path.GetExtension(f) is ".obj" or ".o")
+                    .Where(f => File.ReadAllBytes(f).AsSpan().SequenceEqual(bytes))]
+                : [];
+
+        string? Build(string name, out string? objectPath)
+        {
+            var root = Path.Combine(directory, name);
+            var build = Driver.Build(PackageSources.Load(root), new CompileOptions(), name, Path.Combine(root, ".build"), new BuildOptions());
+            if (build.Executable is not { Success: true } executable)
+            {
+                objectPath = null;
+                return null;
+            }
+            objectPath = ProgramObject(Path.Combine(root, ".build"));
+            return objectPath is null
+                ? null
+                : ProcessRunner.Run(new System.Diagnostics.ProcessStartInfo(executable.ExePath!), TimeSpan.FromSeconds(10)).StandardOutput.Trim();
+        }
+
+        static string? ProgramObject(string output)
+        {
+            var objects = Path.Combine(output, "native-objects");
+            return Directory.Exists(objects)
+                ? Directory.EnumerateFiles(objects, "0_lib.*").FirstOrDefault(f => !f.EndsWith(".key", StringComparison.OrdinalIgnoreCase))
+                : null;
+        }
     }
 
     static void Write(string directory, string path, string text)

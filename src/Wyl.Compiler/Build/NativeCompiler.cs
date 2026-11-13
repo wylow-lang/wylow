@@ -244,7 +244,12 @@ public sealed class NativeCompiler
         return failures.FirstOrDefault(f => f is not null);
     }
 
-    /// <summary>Compiles one native source to <paramref name="obj"/>, unless the object that an earlier build left has the same key.</summary>
+    /// <summary>
+    /// Compiles one native source unless the object that an earlier build left has the same key. The
+    /// compile goes into the shared cache, and the program's directory gets a copy named for the
+    /// source (decision 0108). The copy keeps the object's name in a linker's error, which the
+    /// classification maps back to the source.
+    /// </summary>
     NativeBuildResult? CompileSource(string source, string obj, PackageNative package, bool release, string outputDirectory, string inputs)
     {
         var startInfo = StartInfo(outputDirectory);
@@ -258,7 +263,6 @@ public sealed class NativeCompiler
         if (MsvcStyle)
         {
             args.Add("/c");
-            args.Add($"/Fo{obj}");
             args.Add(c ? "/Tc" + source : "/Tp" + source);
         }
         else
@@ -267,20 +271,84 @@ public sealed class NativeCompiler
             args.Add("-x");
             args.Add(c ? "c" : "c++");
             args.Add(source);
-            args.Add("-o");
-            args.Add(obj);
         }
 
         var keyPath = obj + ".key";
+        // The output path is not part of the key, so every program shares one compile of a source.
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{inputs}\n{string.Join('\n', args)}")));
         if (File.Exists(obj) && File.Exists(keyPath) && File.ReadAllText(keyPath) == key)
             return null;
         File.Delete(keyPath);
-        var result = ProcessRunner.Run(startInfo);
-        if (result.ExitCode != 0)
-            return new NativeBuildResult(false, (result.StandardOutput + result.StandardError).Trim());
-        File.WriteAllText(keyPath, key);
-        return null;
+        var cache = Path.Combine(BuildCache.Root, "native-objects", key + Path.GetExtension(obj));
+        if (!EnsureCached(startInfo, args, cache, key, out var failure))
+            return failure;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(obj)!);
+            File.Copy(cache, obj, overwrite: true);
+            File.WriteAllText(keyPath, key);
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return new NativeBuildResult(false, $"cannot keep the native object '{obj}': {exception.Message}");
+        }
+    }
+
+    /// <summary>Compiles the source into the shared cache, unless the cache already holds its object.</summary>
+    bool EnsureCached(ProcessStartInfo startInfo, Collection<string> args, string cachePath, string key, out NativeBuildResult? failure)
+    {
+        failure = null;
+        if (File.Exists(cachePath))
+            return true;
+        var temporary = $"{cachePath}.{Environment.ProcessId}.tmp";
+        using var mutex = new Mutex(false, "Global\\wyl-object-" + key[..16]);
+        try { mutex.WaitOne(); }
+        catch (AbandonedMutexException) { }
+        try
+        {
+            if (File.Exists(cachePath))
+                return true;
+            Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+            if (MsvcStyle)
+                args.Add($"/Fo{temporary}");
+            else
+            {
+                args.Add("-o");
+                args.Add(temporary);
+            }
+            var result = ProcessRunner.Run(startInfo);
+            if (result.ExitCode != 0)
+            {
+                failure = new NativeBuildResult(false, (result.StandardOutput + result.StandardError).Trim());
+                return false;
+            }
+            try
+            {
+                File.Move(temporary, cachePath, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(cachePath))
+            {
+            }
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            failure = new NativeBuildResult(false, $"cannot keep the native object '{cachePath}': {exception.Message}");
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporary))
+                    File.Delete(temporary);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+            mutex.ReleaseMutex();
+        }
     }
 
     /// <summary>

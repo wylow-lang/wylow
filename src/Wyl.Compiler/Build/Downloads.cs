@@ -45,7 +45,7 @@ static class Downloads
         long maxScan = DefaultScan)
     {
         var uri = new Uri(fetch.Url);
-        var root = Path.Combine(CacheRoot, "sha256", fetch.Sha256);
+        var root = Path.Combine(BuildCache.Root, "sha256", fetch.Sha256);
         var archivePath = Path.Combine(root, "archive");
         var filesRoot = Path.Combine(root, "files");
         var files = fetch.Files.Distinct(StringComparer.Ordinal).ToList();
@@ -342,18 +342,6 @@ static class Downloads
         >= 1L << 10 => $"{bytes / (1L << 10)} KiB",
         _ => $"{bytes} bytes",
     };
-
-    /// <summary>The per-user cache, or the directory that <c>WYL_CACHE_DIR</c> names.</summary>
-    static string CacheRoot =>
-        Environment.GetEnvironmentVariable("WYL_CACHE_DIR") is { Length: > 0 } configured
-            ? Path.GetFullPath(configured)
-            : OperatingSystem.IsWindows()
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "wyl", "cache")
-                : Path.Combine(
-                    Environment.GetEnvironmentVariable("XDG_CACHE_HOME") is { Length: > 0 } xdg
-                        ? xdg
-                        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache"),
-                    "wyl", "cache");
 
     /// <summary>A limit was passed, and the diagnostic names the limit that the reader knows.</summary>
     sealed class TooLargeException(long limit) : Exception

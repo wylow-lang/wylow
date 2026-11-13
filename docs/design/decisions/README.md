@@ -135,3 +135,4 @@ history and a reason can be found without searching the spec.
 | [0105](0105-native-downloads.md) | A manifest's `fetch` block names a native file to download, and the compiler caches the file by its hash |
 | [0106](0106-fetch-limits.md) | A download and its extracted files have size limits, and a fetched path is a file name on every platform |
 | [0107](0107-start-thread.md) | A thread starts with `threading::startThread`, not a free `spawn` |
+| [0108](0108-native-object-cache.md) | A native object is cached per user, by the compile's inputs |

@@ -240,11 +240,12 @@ fetched file.
 
 ## Later, and not planned in this slice
 
-- Each program that depends on a library compiles the library's native sources into its own
+- Each program that depends on a library compiled the library's native sources into its own
   `.wyl/<program>/native-objects`, because a library has no build directory of its own. A second
-  program that depends on `sqlite` compiles the amalgamation again. On the development machine, a
-  debug build of the example took 4.8 seconds with clang-cl, and a release build took 21 seconds
-  (decision 0099).
+  program that depends on `sqlite` compiled the amalgamation again: 4.8 seconds in a debug build
+  and 21 seconds in a release build on the development machine. Done, with decision 0108: the
+  compiler caches a native object per user by the compile's inputs, and each program copies it from
+  the cache.
 - Code that reads its own package's version, such as for a `--version` flag, is not designed. The
   user suggested a preprocessor definition that a function of `std` reads.
 - The MSYS2 `ld` of the development machine prints nothing for a missing symbol, so
