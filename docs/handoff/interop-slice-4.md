@@ -75,6 +75,11 @@ already gives a way that the layer missed, and if it does, record that instead.
 
 - Tests: an empty span, a span of structs, and an array that the copy does not share with the span.
 
+Done: the iteration library had `toList` on `ReadOnlySpan<T>` and no way to make an array, so
+`std::iteration` gains `toArray`, an extension on `ReadOnlySpan<T>` beside `toList`. A span, an
+array, and a list reach it by the span conversions of an extension's receiver. A program imports it
+as it imports `toList`: `import std::iteration::toArray;`.
+
 ## 3. `E.tryFrom`
 
 The spec defines `E.tryFrom(x)` for a `@Repr` enum (`enums.repr`), and the compiler does not build

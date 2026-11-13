@@ -1,0 +1,41 @@
+// toArray copies the elements of a span into a new array, which the span and its storage do not
+// share.
+
+import std::collections::List;
+import std::iteration::toArray;
+
+struct Point {
+    pub int x;
+    pub int y;
+}
+
+void main() {
+    // An empty span gives an empty array.
+    int[] none = new int[0];
+    int[] copied = none.asReadOnlySpan().toArray();
+    std::print(copied.length);              // output: 0
+
+    // A span of structs, from a fixed array.
+    mut Point[3] points = [Point(1, 2), Point(3, 4), Point(5, 6)];
+    Point[] array = points.toArray();
+    std::print(array.length);               // output: 3
+    std::print(array[2].x + array[2].y);    // output: 11
+
+    // A change to the source after the copy does not reach the array, and a change to the array
+    // does not reach the source.
+    points[0].x = 10;
+    array[1].y = 40;
+    std::print(array[0].x);                 // output: 1
+    std::print(points[1].y);                // output: 4
+
+    // A slice of a mutable span, and a list.
+    mut int[5] numbers = [1, 2, 3, 4, 5];
+    Span<int> span = numbers;
+    int[] middle = span.slice(1, 3).toArray();
+    std::print($"{middle[0]} {middle[1]} {middle[2]}");     // output: 2 3 4
+    var words = new List<String>();
+    words.add("a");
+    words.add("b");
+    String[] wordArray = words.toArray();
+    std::print($"{wordArray[0]}{wordArray[1]}");            // output: ab
+}

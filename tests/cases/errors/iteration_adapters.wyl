@@ -72,6 +72,7 @@ void main() {
     Keys(entries).first();                  // error[WYL0300]: cannot find method 'first' in 'Keys'
     Keys(entries).toList();                 // error[WYL0300]: cannot find method 'toList' in 'Keys'
     keys.toList();                          // error[WYL0300]: cannot find method 'toList' in 'List'
+    keys.toArray();                         // error[WYL0300]: cannot find method 'toArray' in 'List'
 
     mut int seen = 0;
     new List<int>().iterator().filter(v -> {

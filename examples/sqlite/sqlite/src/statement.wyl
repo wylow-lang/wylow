@@ -1,4 +1,5 @@
 import std::Unit;
+import std::iteration::toArray;
 
 /// The value of one column of a row.
 pub enum Value implements Printable {
@@ -152,11 +153,7 @@ pub unique struct Statement {
             if (type == SQLITE_BLOB) {
                 byte* data = (byte*) sqlite3_column_blob(handle, column);
                 int length = sqlite3_column_bytes(handle, column);
-                var bytes = new byte[length];
-                for (mut int i = 0; i < length; i++) {
-                    bytes[i] = data[i];
-                }
-                return Ok(Value.Blob(bytes));
+                return Ok(Value.Blob(ReadOnlySpan<byte>(data, length).toArray()));
             }
             return Ok(Value.Null);
         }

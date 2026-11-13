@@ -1,4 +1,5 @@
 import std::collections::List;
+import std::memory;
 
 /// Returns the number of elements of `items` that pass `test`.
 pub int count<T>(this ReadOnlySpan<T> items, fn(in T) -> bool test) {
@@ -56,4 +57,16 @@ pub List<T> toList<T extends copyable>(this ReadOnlySpan<T> items) {
         list.add(item);
     }
     return list;
+}
+
+/// Returns a new array of copies of the elements of `items`, in order.
+pub T[] toArray<T extends copyable>(this ReadOnlySpan<T> items) {
+    int length = items.length();
+    unsafe {
+        T* data = memory::allocate<T>(length);
+        for (int i : 0..length) {
+            memory::initialize(data + i, items[i]);
+        }
+        return new Array<T>(length, data);
+    }
 }
