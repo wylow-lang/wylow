@@ -1,0 +1,7 @@
+// A local that nothing reads still has a C++ declaration, which must not draw an
+// unused-variable warning.
+
+void main() {
+    int count;
+    std::print("done");             // output: done
+}

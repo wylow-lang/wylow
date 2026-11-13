@@ -147,7 +147,7 @@ public sealed partial class CppEmitter
             case IrDeclare declare:
                 bool storagePlaceholder = declare.Local.Kind == IrLocalKind.Value
                     && (!declare.Local.Type.IsDefaultable || declare.Local.Type.RunsDestructor || declare.Local.Type.IsTypeParameter);
-                Line($"{CppType(declare.Local.Type)} {Name(declare.Local)}{(storagePlaceholder ? $" = {Storage(declare.Local.Type)}" : "{}")};");
+                Line($"{MaybeUnused(declare.Local)}{CppType(declare.Local.Type)} {Name(declare.Local)}{(storagePlaceholder ? $" = {Storage(declare.Local.Type)}" : "{}")};");
                 break;
             case IrEnd { Local.Kind: IrLocalKind.Slot } end:
                 Line($"{Name(end.Local)}.End();");
@@ -420,13 +420,20 @@ public sealed partial class CppEmitter
         _ => false,
     };
 
+    /// <summary>
+    /// The attribute that keeps C++ from warning about a local nothing reads, for a local emitted for
+    /// what making it does, a reference whose value is read through another name, and a ref struct.
+    /// </summary>
+    string MaybeUnused(IrLocal local)
+    {
+        bool unusedByKind = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct;
+        return unusedByKind || plan.Uses.GetValueOrDefault(local) == 0 ? "[[maybe_unused]] " : "";
+    }
+
     string Declaration(IrLocal local, string value, IrRvalue? rvalue = null)
     {
         var name = Name(local);
-        bool unusedByKind = local.Kind is IrLocalKind.Reference or IrLocalKind.Borrowed || local.Type.IsRefStruct;
-        bool mayBeUnused = unusedByKind || plan.Uses.GetValueOrDefault(local) == 0;
-        // A temporary nothing reads is still emitted for what making it does, as a switch's value is.
-        var unused = mayBeUnused ? "[[maybe_unused]] " : "";
+        var unused = MaybeUnused(local);
         // A reference local is a C++ reference to its value; an `in` one refers to it without changing it.
         var reference = local.RefKind == RefKind.In ? ConstReferenceType(local.Type) : CppType(local.Type) + "&";
         return local.Kind switch
