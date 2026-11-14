@@ -1,0 +1,18 @@
+@Include("<stddef.h>")
+extern {
+    struct Parser;
+
+    void takes(Parser parser);              // error[WYL0557]: opaque struct 'Parser' can only be used through a pointer
+}
+
+class Holder {
+    Parser value;                           // error[WYL0557]: opaque struct 'Parser' can only be used through a pointer
+}
+
+void main() {
+    mut var parser = Parser();              // error[WYL0557]: opaque struct 'Parser' can only be used through a pointer
+    Parser copy = parser;                   // error[WYL0557]: opaque struct 'Parser' can only be used through a pointer
+    unsafe {
+        Parser* pointer = null;
+    }
+}

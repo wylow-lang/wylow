@@ -29,7 +29,7 @@ public sealed partial class Binder
 
     TypeParameterSymbol? LookupTypeParameter(string name) => typeParameters.LastOrDefault(p => p.Name == name);
 
-    WylType BindType(TypeSyntax syntax, bool allowVoid)
+    WylType BindType(TypeSyntax syntax, bool allowVoid, bool allowOpaque = false)
     {
         var type = syntax.Shape switch
         {
@@ -39,6 +39,11 @@ public sealed partial class Binder
             TypeShape.NullableReference => BindNullableReferenceType(syntax),
             _ => BindCompositeType(syntax),
         };
+        if (type.Symbol is { Declaration.IsOpaque: true } && !allowOpaque)
+        {
+            Error(Catalog.OpaqueValue(syntax.Location, type.ToString()));
+            return WylType.Error;
+        }
         if (type == WylType.Void && !allowVoid)
         {
             Error(Catalog.VoidNotAllowed(syntax.Location));
@@ -67,7 +72,7 @@ public sealed partial class Binder
 
     WylType BindCompositeType(TypeSyntax syntax)
     {
-        var element = BindType(syntax.Element!, allowVoid: syntax.Shape == TypeShape.Pointer);
+        var element = BindType(syntax.Element!, allowVoid: syntax.Shape == TypeShape.Pointer, allowOpaque: syntax.Shape == TypeShape.Pointer);
         if (element == WylType.Void)
             return element.PointerTo;
         if (element == WylType.Error || !(syntax.Shape == TypeShape.Pointer ? CheckPointable(element, syntax.Element!.Location) : CheckStorable(element, syntax.Element!.Location, "an array's element")))

@@ -243,4 +243,8 @@ public static partial class Catalog
     [Error(513, "interop.extern.names")]
     public static Diagnostic CppRejected(Location at, string what, string cppMessage) =>
         Make(at, $"the C++ compiler rejects {what}").Note(cppMessage);
+
+    [Error(557, "interop.extern")]
+    public static Diagnostic OpaqueValue(Location at, string name) =>
+        Make(at, $"opaque struct '{name}' can only be used through a pointer").Help($"write '{name}*'");
 }

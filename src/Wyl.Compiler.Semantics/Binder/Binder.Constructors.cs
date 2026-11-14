@@ -150,7 +150,14 @@ public sealed partial class Binder
     /// <summary>A struct's <c>T()</c> exists only if every field has a default (spec structs.constructors).</summary>
     bool CheckDefaultValue(Location location, WylType type, MethodReference constructor)
     {
-        if (!type.IsStruct || !constructor.Symbol.IsImplicit || type.FindNonDefaultableField() is not { } missing)
+        if (!type.IsStruct || !constructor.Symbol.IsImplicit)
+            return true;
+        if (type.Symbol!.Declaration.IsOpaque)
+        {
+            Error(Catalog.OpaqueValue(location, type.ToString()));
+            return false;
+        }
+        if (type.FindNonDefaultableField() is not { } missing)
             return true;
         Error(Catalog.NoDefaultValue(location, type.ToString(), missing.Name, TypeMap.For(type).Apply(missing.Type).ToString()));
         return false;
