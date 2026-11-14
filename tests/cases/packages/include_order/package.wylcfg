@@ -1,0 +1,4 @@
+name = "include_order";
+native {
+    include = ["first", "second"];
+}

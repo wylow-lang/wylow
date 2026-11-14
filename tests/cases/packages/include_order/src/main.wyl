@@ -1,0 +1,10 @@
+// native
+@Include("same.h")
+extern {
+    @Safe int picked();
+}
+
+void main() {
+    std::print(picked());
+    // output: 12
+}

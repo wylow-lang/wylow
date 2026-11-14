@@ -123,6 +123,7 @@ if (!interpret)
 {
     sections.Add(("build-cache/", () => BuildCacheSelfTests.Run(outputDirectory)));
     sections.Add(("manifest/", () => ManifestSelfTests.Run(outputDirectory)));
+    sections.Add(("native-build/", () => NativeFailureSelfTests.Run(outputDirectory)));
     sections.Add(("cli/", () => CliSelfTests.Run(root, outputDirectory, toolchain, options)));
     sections.Add((RuntimeSelfTests.PoolsName, () => [RuntimeSelfTests.Pools(root, outputDirectory, toolchain)]));
     sections.Add((RuntimeSelfTests.FunctionsName, () => [RuntimeSelfTests.Functions(root, outputDirectory, toolchain)]));

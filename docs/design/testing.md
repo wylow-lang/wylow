@@ -184,6 +184,11 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   status through `run` and `interpret`, `-o`, `fetch`, and the build directory beside a file and
   beside a package. The section runs only in a native mode, and it passes the mode's own options to
   each command, so a difference between modes reaches the command line too.
+- **Native build tests** (`tests/Wyl.Tests/NativeFailureSelfTests.cs`, reported as `native-build/`):
+  a native source that does not compile fails the build, and the failure names the source and holds
+  the compiler's own message; a source that draws a warning builds; the object of a source that was
+  removed or renamed is deleted. The include path's order is a package test
+  (`packages/include_order`).
 - **Manifest tests** (`tests/Wyl.Tests/ManifestSelfTests.cs`, reported as `manifest/`): a manifest
   written to a directory of the runner's own, loaded with `PackageSources.Load`. They check that a
   path rule of the current platform's block is enforced while the other platforms' blocks are not,
