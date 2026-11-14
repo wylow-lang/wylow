@@ -31,18 +31,21 @@ public static class Driver
     /// </summary>
     public static ProgramBuild Build(PackageSources sources, CompileOptions compileOptions, string name, string outputDirectory, BuildOptions options)
     {
-        var compiler = Toolchains.Find(options.Toolchain, out var error);
         var exePath = ExePath(outputDirectory, name);
         var keyPath = Path.Combine(outputDirectory, name + ".source-key");
         var diagnosticsPath = Path.Combine(outputDirectory, name + ".diagnostics.json");
-        var key = compiler is null ? null : BuildKeys.SourceKey(compiler, sources, compileOptions, options.Release);
-        if (key is not null && File.Exists(exePath) && ReadText(keyPath) == key && ReadDiagnostics(diagnosticsPath) is { } kept)
+        string? key = null;
+        if (File.Exists(exePath) && File.Exists(diagnosticsPath) && Toolchains.Find(options.Toolchain, out _) is { } previous)
+            key = BuildKeys.SourceKey(previous, sources, compileOptions, options.Release);
+        if (key is not null && ReadText(keyPath) == key && ReadDiagnostics(diagnosticsPath) is { } kept)
             return new ProgramBuild(kept, 0, CopyNextTo(exePath, sources.Native));
 
         var compilation = Compilation.Compile(sources, compileOptions);
         var diagnostics = compilation.Diagnostics.Select(d => d.ToString()).ToList();
         if (!compilation.Success)
             return new ProgramBuild(diagnostics, compilation.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error), null);
+
+        var compiler = Toolchains.Find(options.Toolchain, out var error);
         if (compiler is null)
             return new ProgramBuild(diagnostics, 0, new ExecutableBuild(null, error));
 
@@ -52,10 +55,14 @@ public static class Driver
         var build = BuildExecutable(compilation, compiler, name, outputDirectory, options.Release);
         if (build.Diagnostics.Count > 0)
             return new ProgramBuild([.. diagnostics, .. build.Diagnostics.Select(d => d.ToString())], build.Diagnostics.Count, null);
-        if (build.Success && key is not null)
+        if (build.Success)
         {
-            File.WriteAllText(diagnosticsPath, JsonSerializer.Serialize(diagnostics));
-            File.WriteAllText(keyPath, key);
+            key ??= BuildKeys.SourceKey(compiler, sources, compileOptions, options.Release);
+            if (key is not null)
+            {
+                File.WriteAllText(diagnosticsPath, JsonSerializer.Serialize(diagnostics));
+                File.WriteAllText(keyPath, key);
+            }
         }
         return new ProgramBuild(diagnostics, 0, build);
     }
