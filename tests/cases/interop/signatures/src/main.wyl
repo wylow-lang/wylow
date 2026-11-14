@@ -1,0 +1,60 @@
+// native
+// The blittable forms a signature may have beyond the primitives: a C++ integer in place of a
+// @Repr enum in each direction, char, nint, pointers to one-byte types of another signedness, and
+// the default value of an extern struct (spec interop.signatures, interop.blittable).
+
+@Include("forms.h")
+extern {
+    struct Pair {
+        pub int first;
+        pub int second;
+    }
+
+    union Bits {
+        pub int whole;
+        pub float real;
+    }
+
+    @Safe char letter_next(char letter);
+    @Safe nint scale_pointer(nint value);
+    @Safe uint shade_code(Shade shade);
+    @Safe Shade shade_of(uint code);
+    @Safe int one_byte_sum(sbyte* data, int count);
+    @Safe int byte_count(byte* data, int count);
+}
+
+@Repr(uint)
+enum Shade {
+    Red = 1,
+    Green = 2,
+    Blue = 3,
+}
+
+void main() {
+    std::print(letter_next('a'));                   // output: b
+    std::print(scale_pointer(21));                  // output: 42
+    std::print(shade_code(Shade.Blue));             // output: 30
+    std::print(shade_of(2) == Shade.Green);         // output: true
+
+    mut sbyte[3] signedBytes = [-1, 2, 3];
+    mut byte[3] bytes = [1, 2, 3];
+    ReadOnlySpan<sbyte> signedView = signedBytes;
+    ReadOnlySpan<byte> byteView = bytes;
+    unsafe {
+        std::print(one_byte_sum(signedView.data(), 3));                    // output: 4
+        std::print(byte_count(byteView.data(), 3));                        // output: 6
+    }
+
+    var origin = Pair();
+    std::print(origin.first + origin.second);       // output: 0
+    var pair = Pair(3, 4);
+    var copy = pair;
+    std::print(copy.first + copy.second);           // output: 7
+
+    mut var bits = Bits();
+    bits.real = 1.5f;
+    var bitsCopy = bits;
+    unsafe {
+        std::print(bitsCopy.whole);                 // output: 1069547520
+    }
+}

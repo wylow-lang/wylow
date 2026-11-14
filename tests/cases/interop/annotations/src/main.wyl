@@ -1,0 +1,23 @@
+// native
+// @Pure promises that a function neither panics nor changes anything observable, so safe code may
+// call it beside an @Safe function, and an unmarked function still needs unsafe code
+// (spec interop.safety).
+
+@Include("values.h")
+extern {
+    @Safe @Pure int pure_value(int value);
+    @Safe int checked_value(int value);
+    @Pure int raw_value(int value);
+}
+
+void main() {
+    mut int total = 0;
+    for (mut int i = 0; i < 3; i++) {
+        total += pure_value(i);
+        total += checked_value(i);
+    }
+    std::print(total);                          // output: 12
+    unsafe {
+        std::print(raw_value(10));              // output: 9
+    }
+}

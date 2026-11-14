@@ -12,6 +12,8 @@ extern {
     int codec_flags(int* name);                 // error[WYL0510]: type 'int*' of parameter 'name' of 'codec_flags' does not match the C++ function 'codec_flags'
     int codec_apply(extern fn(int) -> int step);    // error[WYL0510]: type 'extern fn(int) -> int' of parameter 'step' of 'codec_apply' does not match the C++ function 'codec_apply'
     int codec_visit(extern fn(byte*, int) -> void visit);
+    int codec_signed(int value);                // error[WYL0510]: type 'int' of parameter 'value' of 'codec_signed' does not match the C++ function 'codec_signed'
+    int codec_result();                         // error[WYL0510]: return type 'int' of 'codec_result' does not match the C++ function 'codec_result'
     void codec_missing();                       // error[WYL0513]: the C++ compiler rejects extern function 'codec_missing'
 }
 

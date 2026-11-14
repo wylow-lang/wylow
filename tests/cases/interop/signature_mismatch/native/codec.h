@@ -13,3 +13,5 @@ void codec_reset();
 int32_t codec_flags(const char* name);
 int32_t codec_apply(int64_t (*step)(int32_t value));
 int32_t codec_visit(void (*visit)(const char* text, int32_t length));
+int32_t codec_signed(uint32_t value);
+uint32_t codec_result();

@@ -1,0 +1,24 @@
+@Include("<stddef.h>")
+extern {
+    static int COUNT;
+
+    union Cell {
+        pub int whole;
+        pub float real;
+    }
+
+    @Safe int safe_value();
+    int unsafe_value();
+}
+
+void main() {
+    COUNT = 2;                              // error[WYL0350]: cannot assign to this expression
+    unsafe {
+        int* address = &COUNT;              // error[WYL0515]: cannot take the address of a temporary value
+    }
+    var cell = Cell();
+    var other = Cell();
+    bool same = cell == other;              // error[WYL0311]: operator '==' cannot be applied to 'Cell' and 'Cell'
+    int safe = safe_value();
+    int risky = unsafe_value();             // error[WYL0304]: 'unsafe_value' is unsafe and can only be called in 'unsafe' code
+}

@@ -1,0 +1,39 @@
+// native
+// @CppName gives the whole C++ name, overriding the block's @CppNamespace, on a constant, a struct,
+// its field, and a function (spec interop.extern.names).
+
+@Include("names.h")
+@CppNamespace("codec")
+extern {
+    @CppName("codec_level") static int LEVEL;
+
+    @CppName("Settings")
+    struct Config {
+        @CppName("width") pub int size;
+    }
+
+    @CppName("codec_parse") @Safe int parse(int value);
+
+    @CppName("codec::Parser::LIMIT") static int PARSER_LIMIT;
+
+    struct Parser {
+        pub int code;
+
+        @Safe int take(int value);
+    }
+
+    Parser* parser_create();
+}
+
+void main() {
+    std::print(LEVEL);                              // output: 7
+    std::print(parse(41));                          // output: 42
+    var config = Config(3);
+    std::print(config.size);                        // output: 3
+    std::print(config == Config(3));                // output: true
+    std::print(PARSER_LIMIT);                       // output: 9
+    unsafe {
+        var parser = parser_create();
+        std::print(parser[0].take(4));              // output: 5
+    }
+}
