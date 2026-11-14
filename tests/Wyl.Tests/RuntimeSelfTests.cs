@@ -5,23 +5,31 @@ using Wyl.Compiler.Build;
 static class RuntimeSelfTests
 {
     public const string PoolsName = "runtime/pools";
+    public const string FunctionsName = "runtime/functions";
 
-    public static TestResult Pools(string root, string outputDirectory, Toolchain? toolchain)
+    public static TestResult Pools(string root, string outputDirectory, Toolchain? toolchain) =>
+        Run(root, outputDirectory, toolchain, "pools.cpp", PoolsName);
+
+    public static TestResult Functions(string root, string outputDirectory, Toolchain? toolchain) =>
+        Run(root, outputDirectory, toolchain, "functions.cpp", FunctionsName);
+
+    static TestResult Run(string root, string outputDirectory, Toolchain? toolchain, string source, string name)
     {
         var compiler = Toolchains.Find(toolchain, out var error);
         if (compiler is null)
-            return new(PoolsName, error);
+            return new(name, error);
         var directory = Path.Combine(outputDirectory, "runtime");
         Directory.CreateDirectory(directory);
-        var exe = Path.Combine(directory, OperatingSystem.IsWindows() ? "pools.exe" : "pools");
-        var build = compiler.Build(Path.Combine(root, "tests", "runtime", "pools.cpp"), exe, release: false, precompiledHeader: false);
+        var program = Path.GetFileNameWithoutExtension(source);
+        var exe = Path.Combine(directory, OperatingSystem.IsWindows() ? program + ".exe" : program);
+        var build = compiler.Build(Path.Combine(root, "tests", "runtime", source), exe, release: false, precompiledHeader: false);
         if (!build.Success)
-            return new(PoolsName, build.Output);
+            return new(name, build.Output);
         var run = ProcessRunner.Run(new ProcessStartInfo(exe), TimeSpan.FromSeconds(120));
         if (run.TimedOut)
-            return new(PoolsName, "timed out");
+            return new(name, "timed out");
         if (Toolchains.SanitizerReport(run.StandardError) is { } report)
-            return new(PoolsName, report);
-        return new(PoolsName, run.ExitCode == 0 ? null : run.StandardError.Trim());
+            return new(name, report);
+        return new(name, run.ExitCode == 0 ? null : run.StandardError.Trim());
     }
 }

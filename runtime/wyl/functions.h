@@ -41,9 +41,12 @@ public:
     }
     Function& operator=(const Function&) = default;
     Function& operator=(Function&& other) noexcept {
+        if (this == &other) return *this;
         m_Code = other.m_Code;
         m_Callable = other.m_Callable;
         m_Closure = std::move(other.m_Closure);
+        other.m_Code = nullptr;
+        other.m_Callable = nullptr;
         return *this;
     }
 
@@ -86,7 +89,12 @@ public:
         : m_Callable(std::addressof(f)),
           m_Call([](const void* c, A... arguments) -> R { return (*static_cast<const F*>(c))(std::forward<A>(arguments)...); }) {}
 
-    R operator()(A... arguments) const { return m_Call(m_Callable, std::forward<A>(arguments)...); }
+    R operator()(A... arguments) const {
+        if constexpr (WYL_DEBUG != 0) {
+            if (m_Call == nullptr) RaisePanic("internal compiler error: null function called", "<runtime>");
+        }
+        return m_Call(m_Callable, std::forward<A>(arguments)...);
+    }
 
     bool IsNull() const { return m_Call == nullptr; }
 };

@@ -47,7 +47,10 @@ and named in the comparison rule, never added quietly.
 The pools hold memory that no program can observe, so `runtime/pools` (`tests/runtime/pools.cpp`, in every
 native mode) tests them in C++. Ownership follows a `Pools` object and not a thread, so the test drives two
 of them from one thread and counts the chunks that stay mapped, which makes its result deterministic. Its
-last scenario uses real threads for the TSan mode.
+last scenario uses real threads for the TSan mode. A function value needs a C++ test too: a Wylow
+program may not read a value it moved from, so only C++ checks that a moved function holds nothing
+and that the last copy releases the closure. `runtime/functions`
+(`tests/runtime/functions.cpp`, in every native mode) checks both.
 
 ## Running the tools
 

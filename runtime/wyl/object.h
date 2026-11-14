@@ -443,10 +443,10 @@ class Borrow {
     Ref<T> m_Ref;
 
 public:
-    explicit Borrow(Ref<T> value) : m_Ref(std::move(value)) { static_cast<Object*>(m_Ref.Get())->BeginBorrow(); }
+    explicit Borrow(Ref<T> value) : m_Ref(std::move(value)) { static_cast<Object*>(m_Ref.operator->())->BeginBorrow(); }
     Borrow(const Borrow&) = delete;
     Borrow& operator=(const Borrow&) = delete;
-    ~Borrow() { static_cast<Object*>(m_Ref.Get())->EndBorrow(); }
+    ~Borrow() { static_cast<Object*>(m_Ref.operator->())->EndBorrow(); }
 
     T* operator->() const { return m_Ref.operator->(); }
 };
