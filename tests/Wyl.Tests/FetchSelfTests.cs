@@ -20,6 +20,9 @@ static class FetchSelfTests
         yield return Cache();
         yield return SingleFile();
         yield return Tar();
+        yield return ArchiveForm("fetch/tar-plain", "https://plain.test/package.tar", PlainTar(("plain/data.h", "#pragma once\nint plain_value(void);\n"u8.ToArray())), "plain/data.h");
+        yield return ArchiveForm("fetch/tgz", "https://tgz.test/package.tgz", TarArchive(("tgz/data.h", "#pragma once\nint tgz_value(void);\n"u8.ToArray())), "tgz/data.h");
+        yield return ArchiveForm("fetch/zip", "https://zip.test/package.zip", Zip(("zip/data.h", "#pragma once\nint zip_value(void);\n"u8.ToArray())), "zip/data.h");
         yield return Symlink();
         yield return DownloadLimit();
         yield return ExtractLimit();
@@ -31,7 +34,18 @@ static class FetchSelfTests
         yield return Failure("fetch/hash-form", "https://files.test/x.zip", "abc", "\"sample/value.h\"", "WYL0553");
         yield return Failure("fetch/files-form", "https://files.test/x.zip", FakeDownloads.SampleHash, "", "WYL0554");
         yield return Failure("fetch/path-form", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"../sample/value.h\"", "WYL0554");
+        yield return Failure("fetch/path-absolute", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"/etc/passwd\"", "WYL0554");
+        yield return Failure("fetch/path-empty", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample//value.h\"", "WYL0554");
+        yield return Failure("fetch/path-dot", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"./value.h\"", "WYL0554");
+        yield return Failure("fetch/path-dot-end", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample./value.h\"", "WYL0554");
+        yield return Failure("fetch/path-space", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample /value.h\"", "WYL0554");
+        yield return Failure("fetch/path-colon", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample:value.h\"", "WYL0554");
+        yield return Failure("fetch/path-question", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample?value.h\"", "WYL0554");
+        yield return Failure("fetch/path-backslash", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample\\\\value.h\"", "WYL0554");
         yield return Failure("fetch/device-form", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample/con.h\"", "WYL0554");
+        yield return Failure("fetch/device-nul", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample/nul.h\"", "WYL0554");
+        yield return Failure("fetch/device-lpt", "https://files.test/x.zip", FakeDownloads.SampleHash, "\"sample/LPT1.h\"", "WYL0554");
+        yield return Failure("fetch/hash-uppercase", "https://files.test/x.zip", FakeDownloads.SampleHash.ToUpperInvariant(), "\"sample/value.h\"", "WYL0553");
         yield return Failure("fetch/url-form", "http://files.test/x.zip", FakeDownloads.SampleHash, "\"sample/value.h\"", "WYL0555");
     }
 
@@ -94,6 +108,19 @@ static class FetchSelfTests
         return new("fetch/tar", File.Exists(file) && file.EndsWith(Path.Combine("tar", "data.h"), StringComparison.Ordinal)
             ? null
             : "the member of the tar archive is not in the cache");
+    }
+
+    static TestResult ArchiveForm(string name, string url, byte[] bytes, string file)
+    {
+        FakeDownloads.Serve(new Uri(url).Host, bytes);
+        var sources = Load(name.Replace('/', '-'), url, Convert.ToHexStringLower(SHA256.HashData(bytes)), "\"" + file + "\"", out _);
+        if (sources.Diagnostics.Count > 0)
+            return new(name, string.Join('\n', sources.Diagnostics));
+        var fetched = sources.Native.Packages.Single().FetchedFiles.Single();
+        var expected = file.Replace('/', Path.DirectorySeparatorChar);
+        return new(name, File.Exists(fetched) && fetched.EndsWith(expected, StringComparison.Ordinal)
+            ? null
+            : $"the file '{file}' of the archive is not in the cache");
     }
 
     /// <summary>A symbolic link in an archive is not extracted; the file that names it is missing.</summary>
@@ -198,6 +225,20 @@ static class FetchSelfTests
         using var memory = new MemoryStream();
         using (var gzip = new GZipStream(memory, CompressionLevel.NoCompression, leaveOpen: true))
         using (var writer = new TarWriter(gzip, TarEntryFormat.Pax, leaveOpen: true))
+        {
+            foreach (var (name, data) in entries)
+            {
+                using var stream = new MemoryStream(data);
+                writer.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, name) { DataStream = stream });
+            }
+        }
+        return memory.ToArray();
+    }
+
+    static byte[] PlainTar(params (string Name, byte[] Data)[] entries)
+    {
+        using var memory = new MemoryStream();
+        using (var writer = new TarWriter(memory, TarEntryFormat.Pax, leaveOpen: true))
         {
             foreach (var (name, data) in entries)
             {

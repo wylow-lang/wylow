@@ -1,0 +1,5 @@
+import std::print;
+
+pub void show() {
+    print(1);
+}

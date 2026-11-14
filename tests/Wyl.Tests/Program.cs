@@ -110,7 +110,7 @@ var stopwatch = Stopwatch.StartNew();
 // part of the prefix ("catalog") or starts with it ("ir/borrows"); the matrices filter their own names.
 List<(string? Prefix, Func<IEnumerable<TestResult>> Run)> sections =
 [
-    ("ir/", IrSelfTests.Run), ("analysis/", AnalysisSelfTests.Run), ("types/", TypeSelfTests.Run),
+    ("ir/", IrSelfTests.Run), ("analysis/", AnalysisSelfTests.Run), ("types/", TypeSelfTests.Run), ("version/", VersionSelfTests.Run),
     ("dispatch/", DispatchSelfTests.Run), ("interpreter/", InterpreterSelfTests.Run), ("source-text/", SourceTextSelfTests.Run),
     ("static-ensures/", StaticEnsureSelfTests.Run), ("sanitizer/", SanitizerSelfTests.Run), ("build-failure/", BuildFailureSelfTests.Run),
     ("toolchain/", ToolchainSelfTests.Run), ("fetch/", FetchSelfTests.Run),
@@ -122,6 +122,7 @@ List<(string? Prefix, Func<IEnumerable<TestResult>> Run)> sections =
 if (!interpret)
 {
     sections.Add(("build-cache/", () => BuildCacheSelfTests.Run(outputDirectory)));
+    sections.Add(("manifest/", () => ManifestSelfTests.Run(outputDirectory)));
     sections.Add(("cli/", () => CliSelfTests.Run(root, outputDirectory, toolchain, options)));
     sections.Add((RuntimeSelfTests.PoolsName, () => [RuntimeSelfTests.Pools(root, outputDirectory, toolchain)]));
     sections.Add((RuntimeSelfTests.FunctionsName, () => [RuntimeSelfTests.Functions(root, outputDirectory, toolchain)]));

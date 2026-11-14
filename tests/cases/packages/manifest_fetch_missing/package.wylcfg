@@ -1,0 +1,14 @@
+name = "manifest_fetch_missing";
+native {
+    fetch {                                     // error[WYL0021]: expected 'url' in the 'fetch' block
+        sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        files = ["a.h"];
+    }
+    windows {
+        fetch {                                 // error[WYL0023]: 'fetch' is not a key here
+            url = "https://files.test/a.zip";
+            sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+            files = ["a.h"];
+        }
+    }
+}

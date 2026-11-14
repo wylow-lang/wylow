@@ -11,4 +11,6 @@ dependencies {
     a { path = "vendor/a"; }
     common { path = "vendor/common"; }
     left { path = "vendor/left"; }
+    self { path = "vendor/self"; }
+    one { path = "vendor/one"; }
 }

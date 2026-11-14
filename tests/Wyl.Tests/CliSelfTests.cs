@@ -224,8 +224,27 @@ static class CliSelfTests
 
     static TestResult Package(Cli cli)
     {
-        cli.Write("package/demo/package.wylcfg", "name = \"demo\";\n");
+        cli.Write("package/demo/package.wylcfg", """
+            name = "demo";
+            dependencies {
+                codec { path = "vendor/codec"; }
+            }
+            native {
+                copy = ["data/notes.txt"];
+            }
+            """);
         cli.Write("package/demo/src/main.wyl", Program);
+        cli.Write("package/demo/data/notes.txt", "notes");
+        cli.Write("package/demo/vendor/codec/package.wylcfg", """
+            name = "codec";
+            kind = "library";
+            version = "1.0.0";
+            native {
+                copy = ["data/codec.txt"];
+            }
+            """);
+        cli.Write("package/demo/vendor/codec/src/codec.wyl", "pub int width() { return 1; }\n");
+        cli.Write("package/demo/vendor/codec/data/codec.txt", "codec");
 
         List<string> problems = [];
         var run = cli.Build("run", cli.Directory("package/demo"), "--", "a", "b", "c");
@@ -236,12 +255,24 @@ static class CliSelfTests
         if (!File.Exists(exe))
             problems.Add($"the package run left no executable at '{exe}'");
 
+        var output = Path.GetDirectoryName(exe)!;
+        var notes = Path.Combine(output, "notes.txt");
+        var codec = Path.Combine(output, "codec.txt");
+        if (!File.Exists(notes))
+            problems.Add($"the package's 'copy' file is not beside the executable at '{notes}'");
+        if (!File.Exists(codec))
+            problems.Add($"the dependency's 'copy' file is not beside the executable at '{codec}'");
+        File.Delete(notes);
+        File.Delete(codec);
+
         var destination = cli.File("package/program");
         var build = cli.Build("build", cli.Directory("package/demo"), "-o", destination);
         if (build.ExitCode != 0)
             problems.Add($"a package build exited with {build.ExitCode}: {build.StandardError}");
         if (!File.Exists(destination) && !File.Exists(destination + ".exe"))
             problems.Add($"a package build wrote no executable at '{destination}'");
+        if (!File.Exists(notes) || !File.Exists(codec))
+            problems.Add("a build whose executable was reused did not copy the deleted files again");
         return new("cli/package", problems.Count == 0 ? null : string.Join('\n', problems));
     }
 

@@ -79,7 +79,7 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
 
 - **Filters and sections.** A filter runs the test cases whose path contains it. The runner's
   other tests come in sections, and the names of a section's results share a prefix such as `ir/`,
-  `catalog/`, `spec/`, `cli/`, or `fuzz/`. The runner runs a section only if the filter is part of its
+  `catalog/`, `spec/`, `cli/`, `manifest/`, or `fuzz/`. The runner runs a section only if the filter is part of its
   prefix, as `catalog` is, or starts with the prefix, as `ir/borrows` does. A filter such as
   `structs` therefore runs only test cases. The matrices are a section that matches the filter
   against each matrix's name itself. The sections run at the same time as the test cases. The
@@ -184,6 +184,15 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
   status through `run` and `interpret`, `-o`, `fetch`, and the build directory beside a file and
   beside a package. The section runs only in a native mode, and it passes the mode's own options to
   each command, so a difference between modes reaches the command line too.
+- **Manifest tests** (`tests/Wyl.Tests/ManifestSelfTests.cs`, reported as `manifest/`): a manifest
+  written to a directory of the runner's own, loaded with `PackageSources.Load`. They check that a
+  path rule of the current platform's block is enforced while the other platforms' blocks are not,
+  and that the platform's lists follow the `native` block's lists in the order the manifest gives.
+  A rule that needs a whole program, such as a dependency's cycle or a copy name that two files
+  share, is a package test instead.
+- **Version tests** (`tests/Wyl.Tests/VersionSelfTests.cs`, reported as `version/`): the forms that
+  `PackageVersion.Parse` accepts and refuses, and the table of the spec section that says which
+  library versions satisfy a stated one.
 - **Type properties** (`tests/Wyl.Tests/TypeSelfTests.cs`): interning, substitution,
   `CppIdentity`, conversions, names that bind back, facts that agree, on random types from a fixed
   seed, reported as `types/<property>`. A new kind of type or type fact gets a generator case or a

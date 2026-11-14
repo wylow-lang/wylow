@@ -1,0 +1,6 @@
+name = "bundle";
+kind = "library";
+version = "1.0.0";
+dependencies {
+    shapes { path = "../shapes"; }
+}

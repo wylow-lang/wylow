@@ -1,0 +1,9 @@
+name = "manifest_fetch_duplicate";
+native {
+    fetch {
+        url = "https://files.test/a.zip";
+        sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        files = ["a.h"];
+        files = ["b.h"];                        // error[WYL0024]: 'files' is already given
+    }
+}

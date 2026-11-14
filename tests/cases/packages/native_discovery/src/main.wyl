@@ -1,0 +1,10 @@
+// native
+@Include("deep/nested/ok.h")
+extern {
+    @Safe int deep_value();
+}
+
+void main() {
+    std::print(deep_value());
+    // output: 42
+}

@@ -1,0 +1,4 @@
+name = "dependency_reexport";
+dependencies {
+    bundle { path = "vendor/bundle"; }
+}

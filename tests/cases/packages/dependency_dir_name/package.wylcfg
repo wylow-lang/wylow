@@ -1,0 +1,4 @@
+name = "dependency_dir_name";
+dependencies {
+    codec { path = "vendor/acme"; version = "0.3"; }
+}
