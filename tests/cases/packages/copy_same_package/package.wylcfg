@@ -1,0 +1,4 @@
+name = "copy_same_package";
+native {
+    copy = ["a/notes.txt", "b/notes.txt"];   // error[WYL0539]: 'copy' names a file 'notes.txt', and package 'copy_same_package' copies another file of that name
+}

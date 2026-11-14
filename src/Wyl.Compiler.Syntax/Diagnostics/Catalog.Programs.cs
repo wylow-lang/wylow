@@ -83,10 +83,13 @@ public static partial class Catalog
             .Note("the generated program compiles with the definitions of every package");
 
     [Error(539, "programs.manifest.dependencies")]
-    public static Diagnostic ConflictingCopy(Location at, string fileName, string other, Location otherAt) =>
-        Make(at, $"'copy' names a file '{fileName}', and package '{other}' copies another file of that name")
-            .Note(otherAt, $"package '{other}' names its file here")
-            .Note("the files that every package copies go into the executable's directory");
+    public static Diagnostic ConflictingCopy(Location at, string fileName, string other, Location? otherAt = null)
+    {
+        var diagnostic = Make(at, $"'copy' names a file '{fileName}', and package '{other}' copies another file of that name");
+        if (otherAt is { } location)
+            diagnostic = diagnostic.Note(location, $"package '{other}' names its file here");
+        return diagnostic.Note("the files that every package copies go into the executable's directory");
+    }
 
     [Error(526, "programs.manifest")]
     public static Diagnostic UnknownPackageKind(Location at, string kind) =>

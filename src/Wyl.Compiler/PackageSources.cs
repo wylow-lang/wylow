@@ -194,8 +194,8 @@ public sealed record PackageSources(Package Package, IReadOnlyList<SourceText> F
                         var name = Path.GetFileName(path);
                         if (!copied.TryGetValue(name, out var other))
                             copied[name] = (path, package, list.KeyLocation);
-                        else if (other.Package != package && !PathComparer.Equals(other.Path, path))
-                            Diagnostics.Add(Catalog.ConflictingCopy(list.KeyLocation, name, other.Package.Name!, other.At));
+                        else if (!PathComparer.Equals(other.Path, path))
+                            Diagnostics.Add(Catalog.ConflictingCopy(list.KeyLocation, name, other.Package.Name!, other.Package == package ? null : other.At));
                     }
                 }
             }
