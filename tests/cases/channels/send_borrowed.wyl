@@ -1,0 +1,20 @@
+import std::threading::Channel;
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() { std::print($"buffer {length}"); }
+}
+
+void main() {
+    var channel = new Channel<Buffer>();
+    var sender = channel.sender();
+    mut var buffer = Buffer(7);
+    ref int length = buffer.length;
+    sender.send(buffer);                // panic-here: cannot move a value that is in use to another thread
+    std::print(length);
+}

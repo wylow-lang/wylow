@@ -1,0 +1,18 @@
+import std::threading::Mutex;
+
+unique struct Buffer {
+    pub int length;
+
+    pub Buffer(int length) {
+        this.length = length;
+    }
+
+    ~Buffer() { std::print($"buffer {length}"); }
+}
+
+void main() {
+    mut var buffer = Buffer(7);
+    ref int length = buffer.length;
+    var slot = new Mutex<Buffer>(buffer);   // panic-here: cannot move a value that is in use to another thread
+    std::print(length);
+}

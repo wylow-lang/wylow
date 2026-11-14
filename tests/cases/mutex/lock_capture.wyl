@@ -1,0 +1,11 @@
+import std::threading::Mutex;
+
+void main() {
+    var titles = new Mutex<String?>(null);
+    var name = "alpha";
+    titles.lock(t -> {
+        t = name;
+    });
+    std::print(titles.lock(t -> t ?? "none"));
+    // output: alpha
+}

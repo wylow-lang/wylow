@@ -1,0 +1,49 @@
+import std::threading;
+import std::threading::{Channel, Isolated};
+import std::{memory, Unit};
+
+class Node {
+    pub int value;
+    mut Node? next;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+
+    ~Node() { std::print($"node {value}"); }
+}
+
+class Graph {
+    pub Unit makeCycle() {
+        var first = new Node(1);
+        var second = new Node(2);
+        first.next = second;
+        second.next = first;
+    }
+}
+
+void main() {
+    var channel = new Channel<Isolated<Graph>>();
+    var sender = channel.sender();
+    var receiver = channel.receiver();
+    var worker = threading::startThread(() -> {
+        mut var box = receiver.receive();
+        if (box != null) {
+            var graph = box!.take();
+            memory::collectCycles();
+            std::print("collected");
+        }
+        return 0;
+    });
+    mut Isolated<Graph> built = Isolated<Graph>(() -> new Graph());
+    built.open(g -> g.makeCycle());
+    sender.send(built);
+    worker.join();
+    std::print("done");
+    // output: node 1
+    // output: node 2
+    // output: collected
+    // output: done
+}
+
+// tsan

@@ -1,0 +1,10 @@
+import std::threading;
+import std::threading::Channel;
+
+class Node {
+}
+
+void main() {
+    var thread = threading::startThread(() -> new Node());      // error[WYL0453]: 'Node' is not 'sendable'
+    var channel = new Channel<Node>();                          // error[WYL0453]: 'Node' is not 'sendable'
+}

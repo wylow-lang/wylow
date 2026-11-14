@@ -1,0 +1,31 @@
+import std::threading;
+import std::threading::Mutex;
+
+class Counter {
+    static Mutex<int> VALUE = new Mutex<int>(0);
+}
+
+void main() {
+    var first = threading::startThread(() -> {
+        for (mut int i = 0; i < 100; i++) {
+            Counter.VALUE.lock(n -> {
+                n = n + 1;
+            });
+        }
+        return 0;
+    });
+    var second = threading::startThread(() -> {
+        for (mut int i = 0; i < 100; i++) {
+            Counter.VALUE.lock(n -> {
+                n = n + 1;
+            });
+        }
+        return 0;
+    });
+    first.join();
+    second.join();
+    std::print(Counter.VALUE.lock(n -> n));
+    // output: 200
+}
+
+// tsan

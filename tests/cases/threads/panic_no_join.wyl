@@ -1,0 +1,11 @@
+// panic: boom
+
+import std::threading;
+
+int boom() {
+    std::panic("boom");
+}
+
+void main() {
+    threading::startThread(() -> boom());
+}

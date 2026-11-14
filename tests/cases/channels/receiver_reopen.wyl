@@ -1,0 +1,16 @@
+import std::threading::Channel;
+
+void main() {
+    var channel = new Channel<int>();
+    {
+        var first = channel.receiver();
+    }
+    var sender = channel.sender();
+    sender.send(5);
+    sender.send(6);
+    var reader = channel.receiver();
+    std::print(reader.receive()!);
+    // output: 5
+    std::print(reader.receive()!);
+    // output: 6
+}

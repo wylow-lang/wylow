@@ -1,0 +1,50 @@
+import std::threading::Isolated;
+import std::{memory, Unit};
+
+class Node {
+    pub int value;
+    mut Node? next;
+
+    pub Node(int value) {
+        this.value = value;
+    }
+
+    ~Node() { std::print($"node {value}"); }
+}
+
+class Graph {
+    pub Unit makeCycle() {
+        var first = new Node(1);
+        var second = new Node(2);
+        first.next = second;
+        second.next = first;
+    }
+}
+
+Unit threadCycle() {
+    var first = new Node(3);
+    var second = new Node(4);
+    first.next = second;
+    second.next = first;
+}
+
+void main() {
+    threadCycle();
+    mut Isolated<Graph> box = Isolated<Graph>(() -> {
+        var graph = new Graph();
+        graph.makeCycle();
+        memory::collectCycles();
+        return graph;
+    });
+    std::print("built");
+    // output: node 1
+    // output: node 2
+    // output: built
+    box.open(g -> g.makeCycle());
+    box.open(g -> memory::collectCycles());
+    // output: node 1
+    // output: node 2
+    memory::collectCycles();
+    // output: node 3
+    // output: node 4
+}

@@ -1,0 +1,33 @@
+import std::threading;
+import std::threading::Channel;
+import std::collections::List;
+
+void main() {
+    var channel = new Channel<int>();
+    var receiver = channel.receiver();
+    {
+        var keeper = channel.sender();
+        {
+            var workers = new List<threading::Thread<int>>();
+            for (mut int i = 0; i < 4; i++) {
+                var sender = channel.sender();
+                workers.add(threading::startThread(() -> {
+                    for (mut int value = 0; value < 25; value++) {
+                        sender.send(value);
+                    }
+                    return 0;
+                }));
+            }
+        }
+    }
+    mut int total = 0;
+    mut var value = receiver.receive();
+    while (value != null) {
+        total += value!;
+        value = receiver.receive();
+    }
+    std::print(total);
+    // output: 1200
+}
+
+// tsan

@@ -1,0 +1,20 @@
+import std::threading::Frozen;
+import std::collections::List;
+
+void main() {
+    var values = new List<int>();
+    values.add(4);
+    values.add(9);
+    var frozen = values.freeze();
+    ReadOnlySpan<int> view = frozen.asReadOnlySpan();
+    std::print(view.length());
+    // output: 2
+    std::print(view[1]);
+    // output: 9
+    mut int total = 0;
+    for (int value : view) {
+        total += value;
+    }
+    std::print(total);
+    // output: 13
+}

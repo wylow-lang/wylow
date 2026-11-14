@@ -1,0 +1,33 @@
+import std::threading;
+import std::threading::Channel;
+
+shared class Settings {
+    pub String name;
+
+    pub Settings(String name) {
+        this.name = name;
+    }
+
+    ~Settings() { std::print($"released {name}"); }
+}
+
+void main() {
+    mut Settings? held = new Settings("alpha");
+    var channel = new Channel<Settings?>();
+    var sender = channel.sender();
+    var receiver = channel.receiver();
+    var worker = threading::startThread(() -> {
+        var mine = receiver.receive();
+        std::print("worker got");
+        return 0;
+    });
+    sender.send(held);
+    held = null;
+    worker.join();
+    std::print("main done");
+    // output: worker got
+    // output: released alpha
+    // output: main done
+}
+
+// tsan

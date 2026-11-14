@@ -1,0 +1,14 @@
+import std::threading::{Channel, Receiver, Sender};
+
+void main() {
+    mut Sender<int>? sender = null;
+    mut Receiver<int>? receiver = null;
+    {
+        var channel = new Channel<int>();
+        sender = channel.sender();
+        receiver = channel.receiver();
+    }
+    sender!.send(4);
+    std::print(receiver!.receive()!);
+    // output: 4
+}

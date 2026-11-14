@@ -1,0 +1,10 @@
+import std::threading::Mutex;
+
+void main() {
+    var first = new Mutex<int>(1);
+    var second = new Mutex<int>(2);
+    first.lock(a -> {
+        int value = a;
+        second.lock(b -> value + b);    // panic-here: cannot lock a mutex while this thread holds a lock
+    });
+}

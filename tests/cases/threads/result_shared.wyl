@@ -1,0 +1,20 @@
+import std::threading;
+
+shared class Settings {
+    pub String name;
+
+    pub Settings(String name) {
+        this.name = name;
+    }
+}
+
+void main() {
+    var settings = threading::startThread(() -> new Settings("alpha"));
+    var text = threading::startThread(() -> "beta");
+    std::print(settings.join().name);
+    // output: alpha
+    std::print(text.join());
+    // output: beta
+}
+
+// tsan

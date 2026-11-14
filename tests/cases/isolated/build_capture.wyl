@@ -1,0 +1,28 @@
+import std::threading::Isolated;
+
+class Entry {
+    pub String name;
+
+    pub Entry(String name) {
+        this.name = name;
+    }
+}
+
+class Index {
+    mut Entry? first;
+
+    pub Index(String name) {
+        first = new Entry(name);
+    }
+
+    pub String label() {
+        return first!.name;
+    }
+}
+
+void main() {
+    var name = "alpha";
+    mut Isolated<Index> box = Isolated<Index>(() -> new Index(name));
+    std::print(box.open(i -> i.label()));
+    // output: alpha
+}
