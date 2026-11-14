@@ -79,7 +79,7 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
 
 - **Filters and sections.** A filter runs the test cases whose path contains it. The runner's
   other tests come in sections, and the names of a section's results share a prefix such as `ir/`,
-  `catalog/`, `spec/`, or `fuzz/`. The runner runs a section only if the filter is part of its
+  `catalog/`, `spec/`, `cli/`, or `fuzz/`. The runner runs a section only if the filter is part of its
   prefix, as `catalog` is, or starts with the prefix, as `ir/borrows` does. A filter such as
   `structs` therefore runs only test cases. The matrices are a section that matches the filter
   against each matrix's name itself. The sections run at the same time as the test cases. The
@@ -179,6 +179,11 @@ dotnet run --project tools/Dashboard   # local UI: builds, tests, fuzzing, gener
 - **Value-printing tests** (`tests/cases/values/`, one file per builtin kind, thirty or more results
   at the edges) catch a wrong answer every mode agrees on, so every operator, conversion, and
   format specifier of a kind belongs in its file.
+- **Command-line tests** (`tests/Wyl.Tests/CliSelfTests.cs`, reported as `cli/`): each command's
+  exit status and message, what `check`, `emit`, and `ir` print, the program's arguments and exit
+  status through `run` and `interpret`, `-o`, `fetch`, and the build directory beside a file and
+  beside a package. The section runs only in a native mode, and it passes the mode's own options to
+  each command, so a difference between modes reaches the command line too.
 - **Type properties** (`tests/Wyl.Tests/TypeSelfTests.cs`): interning, substitution,
   `CppIdentity`, conversions, names that bind back, facts that agree, on random types from a fixed
   seed, reported as `types/<property>`. A new kind of type or type fact gets a generator case or a
