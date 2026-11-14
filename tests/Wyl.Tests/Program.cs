@@ -124,6 +124,7 @@ if (!interpret)
     sections.Add(("build-cache/", () => BuildCacheSelfTests.Run(outputDirectory)));
     sections.Add((RuntimeSelfTests.PoolsName, () => [RuntimeSelfTests.Pools(root, outputDirectory, toolchain)]));
     sections.Add((RuntimeSelfTests.FunctionsName, () => [RuntimeSelfTests.Functions(root, outputDirectory, toolchain)]));
+    sections.Add((RuntimeSelfTests.IsolatedName, () => [RuntimeSelfTests.Isolated(root, outputDirectory, toolchain)]));
 }
 sections.Add((null, () => MatrixTests.Run(root, outputDirectory, toolchain, options, filter, updateSnapshots, parallelism, interpret)));
 

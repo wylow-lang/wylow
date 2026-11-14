@@ -50,7 +50,10 @@ of them from one thread and counts the chunks that stay mapped, which makes its 
 last scenario uses real threads for the TSan mode. A function value needs a C++ test too: a Wylow
 program may not read a value it moved from, so only C++ checks that a moved function holds nothing
 and that the last copy releases the closure. `runtime/functions`
-(`tests/runtime/functions.cpp`, in every native mode) checks both.
+(`tests/runtime/functions.cpp`, in every native mode) checks both. A Wylow box never holds a graph
+when it is assigned over. `runtime/isolated` (`tests/runtime/isolated.cpp`, in every native mode)
+checks the case only C++ reaches: the graph of the state a move assignment replaces joins the
+thread's buffer, as its destruction does.
 
 ## Running the tools
 

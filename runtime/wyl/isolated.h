@@ -13,6 +13,7 @@ struct IsolatedState {
     IsolatedState(IsolatedState&& other) noexcept : Buffer(std::move(other.Buffer)) { other.Buffer = CycleBuffer{}; }
     IsolatedState& operator=(IsolatedState&& other) noexcept {
         if (this != &other) {
+            CurrentCycles().MergeBuffer(Buffer);
             Buffer = std::move(other.Buffer);
             other.Buffer = CycleBuffer{};
         }

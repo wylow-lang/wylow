@@ -314,9 +314,10 @@ creation counter after that counter had been reset.
 - `std::threading`'s `Isolated<T>` is a unique struct holding the value and a `wyl::IsolatedState`,
   which owns a `wyl::CycleBuffer` (`runtime/wyl/isolated.h`). `CycleCollector::SwapBuffer` makes a
   graph's buffer the thread's while the standard library runs the constructor's or `open`'s lambda,
-  and `MergeBuffer` adds a graph's objects to the thread's buffer when the box is destroyed, so a
-  box dropped or taken returns the graph's objects to the thread that released it. The value moves
-  out through `takeValue`, whose C++ body returns `std::move(value)`.
+  and `MergeBuffer` adds a graph's objects to the thread's buffer when the box is destroyed or a
+  move assignment replaces a state, so a box dropped or taken returns the graph's objects to the
+  thread that released it. The value moves out through `takeValue`, whose C++ body returns
+  `std::move(value)`.
 - `std::threading`'s `Mutex<T>` holds a `wyl::MutexState<T>`, a pointer to a
   `wyl::threading::MutexData<T>` on the global heap: a `std::mutex`, the value, and the graph's
   `IsolatedState` (`runtime/wyl/mutex.h`). The `Mutex` object owns the data, and its destructor

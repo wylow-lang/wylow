@@ -6,12 +6,16 @@ static class RuntimeSelfTests
 {
     public const string PoolsName = "runtime/pools";
     public const string FunctionsName = "runtime/functions";
+    public const string IsolatedName = "runtime/isolated";
 
     public static TestResult Pools(string root, string outputDirectory, Toolchain? toolchain) =>
         Run(root, outputDirectory, toolchain, "pools.cpp", PoolsName);
 
     public static TestResult Functions(string root, string outputDirectory, Toolchain? toolchain) =>
         Run(root, outputDirectory, toolchain, "functions.cpp", FunctionsName);
+
+    public static TestResult Isolated(string root, string outputDirectory, Toolchain? toolchain) =>
+        Run(root, outputDirectory, toolchain, "isolated.cpp", IsolatedName);
 
     static TestResult Run(string root, string outputDirectory, Toolchain? toolchain, string source, string name)
     {
