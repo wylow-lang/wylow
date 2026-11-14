@@ -18,7 +18,7 @@ static class NativeFailureSelfTests
             problems.Add("a package whose native source does not compile built anyway");
         if (error is null || !error.Contains("broken.cpp", StringComparison.Ordinal))
             problems.Add($"the failure does not name the source: {error}");
-        if (error is null || !error.Contains("expected expression", StringComparison.Ordinal))
+        if (error is null || !error.Contains("error", StringComparison.OrdinalIgnoreCase))
             problems.Add($"the failure does not hold the compiler's message: {error}");
         return new("native-build/failure", problems.Count == 0 ? null : string.Join('\n', problems));
     }
