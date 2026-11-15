@@ -166,10 +166,15 @@ public sealed partial class Interpreter : IObjectLifetime
 
     Interpretation RunMain()
     {
+        // A constant static holds its value before any initializer runs, as the emitted constexpr does,
+        // because a read of it calls no ensure.
         foreach (var statik in program.Statics)
         {
-            statics[statik.Storage] = new OwnedStorage(new Cell(statik.Field.Type, MovedValue.Instance));
-            staticStates[statik] = 0;
+            var value = statik.Constant is { } constant
+                ? EvalRvalue(constant, new Frame(TypeMap.Empty)) ?? throw new InterpreterException($"static '{statik.Name}' has no value")
+                : MovedValue.Instance;
+            statics[statik.Storage] = new OwnedStorage(new Cell(statik.Field.Type, value));
+            staticStates[statik] = (byte)(statik.Constant is null ? 0 : 2);
         }
         foreach (var statik in program.Statics)
             EnsureStatic(statik, "");
@@ -203,7 +208,7 @@ public sealed partial class Interpreter : IObjectLifetime
         }
         staticStates[statik] = 1;
         initializing.Add(statik);
-        var value = Invoke(statik.Initializer, new Frame(TypeMap.Empty))
+        var value = Invoke(statik.Initializer!, new Frame(TypeMap.Empty))
             ?? throw new InterpreterException($"the initializer of static '{statik.Name}' returned nothing");
         initializing.RemoveAt(initializing.Count - 1);
         ((OwnedStorage)statics[statik.Storage]).Cell.Value = value;

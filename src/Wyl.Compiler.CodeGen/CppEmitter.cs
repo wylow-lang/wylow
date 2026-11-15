@@ -53,7 +53,7 @@ public sealed partial class CppEmitter
         functions = ir.Functions;
         this.nest = nest;
         for (int i = 0; i < ir.Statics.Count; i++)
-            staticNames[ir.Statics[i].Storage] = $"wyl_static_{i}.Value()";
+            staticNames[ir.Statics[i].Storage] = ir.Statics[i].Constant is null ? $"wyl_static_{i}.Value()" : $"wyl_static_{i}";
         cycles = callees.Cycles;
         recursive = FindRecursive(ir);
         overloaded = FindOverloaded(program);
@@ -176,24 +176,34 @@ public sealed partial class CppEmitter
         return output.ToString();
     }
 
+    /// <summary>
+    /// The statics. A constant static is a <c>constexpr</c> variable, which needs no initializer and no
+    /// ensure; every other static is <c>wyl::StaticStorage</c> that its ensure constructs.
+    /// </summary>
     void EmitStatics(IrProgram ir)
     {
-        for (int i = 0; i < ir.Statics.Count; i++)
-        {
-            Line();
-            Line($"static wyl::StaticStorage<{CppType(ir.Statics[i].Field.Type)}> wyl_static_{i}(\"{ir.Statics[i].Name}\");");
-        }
+        var initialized = Enumerable.Range(0, ir.Statics.Count).Where(i => ir.Statics[i].Constant is null).ToList();
         if (ir.Statics.Count > 0)
             Line();
         for (int i = 0; i < ir.Statics.Count; i++)
+        {
+            var statik = ir.Statics[i];
+            var type = CppType(statik.Field.Type);
+            Line(statik.Constant is { } constant
+                ? $"static constexpr {type} wyl_static_{i} = {RvalueText(constant)};"
+                : $"static wyl::StaticStorage<{type}> wyl_static_{i}(\"{statik.Name}\");");
+        }
+        if (initialized.Count > 0)
+            Line();
+        foreach (int i in initialized)
             Line($"static void wyl_ensure_static_{i}(const char* wyl_location);");
-        for (int i = 0; i < ir.Statics.Count; i++)
+        foreach (int i in initialized)
         {
             var statik = ir.Statics[i];
             var type = CppType(statik.Field.Type);
             Line();
             Line($"static {type} wyl_init_static_{i}()");
-            EmitIrFunction(statik.Initializer);
+            EmitIrFunction(statik.Initializer!);
             Line();
             Line($"static void wyl_ensure_static_{i}(const char* wyl_location)");
             Line("{");
@@ -212,7 +222,7 @@ public sealed partial class CppEmitter
         Line("static void wyl_init_statics()");
         Line("{");
         indent++;
-        for (int i = 0; i < ir.Statics.Count; i++)
+        foreach (int i in initialized)
             Line($"wyl_ensure_static_{i}(nullptr);");
         indent--;
         Line("}");

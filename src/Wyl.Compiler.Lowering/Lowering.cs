@@ -53,6 +53,7 @@ public sealed partial class IrLowering
     {
         var ir = new IrProgram(program);
         var statics = new Dictionary<FieldSymbol, IrStatic>();
+        var constants = new StaticConstants();
         foreach (var s in program.Types)
         {
             foreach (var field in s.StaticFields)
@@ -60,12 +61,13 @@ public sealed partial class IrLowering
                 if (field.Type == WylType.Error)
                     continue;
                 var storage = new IrLocal($"{s.Name}.{field.Name}", field.Type, IrLocalKind.Value, IrLocalRole.Static);
-                var ensure = new FunctionSymbol("static_ensure", [], WylType.Void)
+                var constant = constants.Of(field);
+                var ensure = constant is not null ? null : new FunctionSymbol("static_ensure", [], WylType.Void)
                 {
                     BuiltinCppName = $"wyl_ensure_static_{ir.Statics.Count}",
                     PassesLocation = true,
                 };
-                var statik = new IrStatic(field, storage, null, ensure);
+                var statik = new IrStatic(field, storage, constant, ensure);
                 statics[field] = statik;
                 ir.Statics.Add(statik);
             }
@@ -77,7 +79,7 @@ public sealed partial class IrLowering
             ir.Functions.AddRange(lowering.lambdas);
         }
 
-        foreach (var statik in ir.Statics)
+        foreach (var statik in ir.Statics.Where(s => s.Constant is null))
         {
             var symbol = new FunctionSymbol("static_initializer", [], statik.Field.Type);
             var lowering = new IrLowering(program, symbol, $"init {statik.Name}", statics);

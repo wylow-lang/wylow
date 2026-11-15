@@ -1,0 +1,83 @@
+// Statics whose values the compiler computes, read in every way a program can read a static.
+
+class Limits {
+    static int EARLY = Limits.report();
+    static int LATER = 7;
+    static int NEGATIVE = -12;
+    static short SMALL = 6000;
+    static long WIDE = 3_000_000_000L;
+    static byte FLAGS = 0x80;
+    static char LETTER = 'w';
+    static bool ENABLED = true;
+    static float HALF = 0.5f;
+    static double THIRD = 1.0 / 3.0;
+    static int ZERO;
+    static double NOTHING;
+    static int PAGES = 32;
+    static int COLUMNS = PAGES * 16;
+    static int CELLS = COLUMNS * 13 - PAGES + -LATER;
+    static long WIDENED = COLUMNS;
+    static int COPY = LATER;
+    static nint POINTERS = PAGES * 1000;
+    static int[4] TABLE = [1, PAGES, -3, COLUMNS];
+    static int[4] SAME = TABLE;
+    static byte[3] EMPTY;
+
+    static int report() {
+        // A static that an earlier initializer reads already holds its value.
+        std::print(LATER);                   // output: 7
+        return 1;
+    }
+}
+
+int sum(ReadOnlySpan<int> values) {
+    mut int total = 0;
+    for (int v : values) {
+        total += v;
+    }
+    return total;
+}
+
+int third(in int[4] values) {
+    return values[2];
+}
+
+void main() {
+    std::print(Limits.EARLY);                // output: 1
+    std::print(Limits.NEGATIVE);             // output: -12
+    std::print(Limits.SMALL);                // output: 6000
+    std::print(Limits.WIDE);                 // output: 3000000000
+    std::print(Limits.FLAGS);                // output: 128
+    std::print(Limits.LETTER);               // output: w
+    std::print(Limits.ENABLED);              // output: true
+    std::print(Limits.HALF);                 // output: 0.5
+    std::print(Limits.THIRD);                // output: 0.3333333333333333
+    std::print(Limits.ZERO);                 // output: 0
+    std::print(Limits.NOTHING);              // output: 0.0
+    std::print(Limits.COLUMNS);              // output: 512
+    std::print(Limits.CELLS);                // output: 6617
+    std::print(Limits.WIDENED);              // output: 512
+    std::print(Limits.COPY);                 // output: 7
+    std::print(Limits.POINTERS);             // output: 32000
+    std::print(Limits.TABLE[3]);             // output: 512
+    std::print(Limits.SAME[1]);              // output: 32
+    std::print(Limits.EMPTY[2]);             // output: 0
+    std::print(Limits.TABLE.length);         // output: 4
+    std::print(sum(Limits.TABLE));           // output: 542
+    std::print(third(Limits.TABLE));         // output: -3
+    in int[4] table = Limits.TABLE;
+    std::print(table[0]);                    // output: 1
+    mut int[4] copy = Limits.TABLE;
+    copy[0] = 9;
+    std::print(copy[0] + Limits.TABLE[0]);   // output: 10
+    for (int v : Limits.TABLE) {
+        std::print(v);                       // output: 1
+                                             // output: 32
+                                             // output: -3
+                                             // output: 512
+    }
+    escaping fn() -> int read = () -> Limits.COLUMNS + Limits.TABLE[1];
+    std::print(read());                      // output: 544
+    in int columns = Limits.COLUMNS;
+    std::print(columns);                     // output: 512
+}

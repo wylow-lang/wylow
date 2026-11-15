@@ -39,7 +39,10 @@ public sealed class InitializerReach
         }
 
         foreach (var statik in callees.Program.Statics)
-            Reach(statik.Initializer);
+        {
+            if (statik.Initializer is { } initializer)
+                Reach(initializer);
+        }
 
         while (known && pending.TryDequeue(out var function))
         {

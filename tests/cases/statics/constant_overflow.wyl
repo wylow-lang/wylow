@@ -1,0 +1,10 @@
+// A product that does not fit its type is computed at run time, and panics in a debug build.
+
+class Sizes {
+    static int ROWS = 2_000_000_000;
+    static int CELLS = ROWS * 2;            // panic-here: integer overflow
+}
+
+void main() {
+    std::print(Sizes.CELLS);
+}

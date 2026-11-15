@@ -1,0 +1,14 @@
+// mode: release
+// A product that does not fit its type is computed at run time, and wraps in a release build.
+
+class Sizes {
+    static int ROWS = 2_000_000_000;
+    static int CELLS = ROWS * 2;
+    static nint UNIT = 100_000;
+    static nint AREA = UNIT * UNIT;
+}
+
+void main() {
+    std::print(Sizes.CELLS);                // output: -294967296
+    std::print(Sizes.AREA);                 // output: 10000000000
+}

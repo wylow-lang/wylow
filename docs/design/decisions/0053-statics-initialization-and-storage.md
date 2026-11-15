@@ -1,6 +1,7 @@
 # 0053. Statics: one order, one initializer, storage never destroyed
 
-- Status: accepted (2026-11-05); settles the open questions of
+- Status: accepted (2026-11-05); amended by [0109](0109-constant-statics.md) for constant
+  statics; settles the open questions of
   [0029](0029-statics-are-not-destroyed.md) and [0030](0030-statics-are-initialized-before-main.md)
   about how the two executors initialize and hold a static
 - Spec: `variables.statics`, `programs.execution`, `concurrency.sendable`, `expressions.members`

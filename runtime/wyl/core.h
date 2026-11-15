@@ -29,6 +29,13 @@
 #define WYL_DEBUG 0
 #endif
 
+// Keeps a rarely run function out of each caller, so that the caller's common path stays small.
+#if defined(_MSC_VER) && !defined(__clang__)
+#define WYL_NOINLINE __declspec(noinline)
+#else
+#define WYL_NOINLINE __attribute__((noinline))
+#endif
+
 static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<double>::is_iec559,
               "Wylow requires IEEE 754 floating point");
 

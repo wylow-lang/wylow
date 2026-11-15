@@ -136,3 +136,4 @@ history and a reason can be found without searching the spec.
 | [0106](0106-fetch-limits.md) | A download and its extracted files have size limits, and a fetched path is a file name on every platform |
 | [0107](0107-start-thread.md) | A thread starts with `threading::startThread`, not a free `spawn` |
 | [0108](0108-native-object-cache.md) | A native object is cached per user, by the compile's inputs |
+| [0109](0109-constant-statics.md) | A static whose value the compiler can compute is a `constexpr` constant, with no initializer or ensure |

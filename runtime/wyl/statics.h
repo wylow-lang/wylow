@@ -13,9 +13,10 @@ inline std::vector<const char*>& StaticInitializing() {
     return names;
 }
 
-inline void StaticBegin(const char* name) { StaticInitializing().push_back(name); }
+// Each static that is not constant runs these once, so a copy in every ensure would only add size.
+WYL_NOINLINE inline void StaticBegin(const char* name) { StaticInitializing().push_back(name); }
 
-inline void StaticEnd() { StaticInitializing().pop_back(); }
+WYL_NOINLINE inline void StaticEnd() { StaticInitializing().pop_back(); }
 
 [[noreturn]] inline void StaticCycle(const char* name, const char* location) {
     std::string message = "reading static '";

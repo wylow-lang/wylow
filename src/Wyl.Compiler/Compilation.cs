@@ -70,7 +70,7 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
         foreach (var built in Ir.Functions.Where(f => f.Builds is not null && f.Symbol.ContainingType!.Declaration.Location.Source.Module.Package == Program.Package))
             text.Append(IrPrinter.Print(built));
         foreach (var statik in Ir.Statics.Where(s => s.Field.Owner.Declaration.Location.Source.Module.Package == Program.Package))
-            text.Append(IrPrinter.Print(statik.Initializer));
+            text.Append(IrPrinter.Print(statik));
         return text.ToString();
     }
 }

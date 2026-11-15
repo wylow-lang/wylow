@@ -496,11 +496,21 @@ A static field is an `IrLocal` with the `static` role, which `IrProgram.Statics`
 the spec gives: the statics of a package after those of the packages it depends on, the files of a
 package by their path, and the statics of a file in the order they are written. Lowering builds the
 list once, in that order, so the emitter and the interpreter cannot disagree about it. Each entry
-holds its storage, its initializer, and the symbol of its ensure call.
+holds its storage. A constant static's entry also holds its value, and every other entry holds its
+initializer and the symbol of its ensure call.
+
+`StaticConstants` decides which statics are constant
+([0109](decisions/0109-constant-statics.md)). A constant static's value is made only of constants:
+an `IrConstant` of a scalar type, an `IrArray` whose elements are such constants, or an
+`IrDefault` of a fixed array of a scalar type. The compiler computes the value from literals, from other constant statics, and from
+integer `+`, `-`, `*`, negation, and conversion whose exact result fits its type on every target.
+No program can observe when a constant static gets its value, so a read of one is a read of its
+place with no ensure call before it.
 
 An initializer is an ordinary lowered function with no parameters that returns the static's value;
-a static without one returns its type's default value. Reading a static is a read of its place,
-and lowering puts a call of the static's ensure before the read, with the read's location. The
+a static without one returns its type's default value. Reading a static that is not constant is a
+read of its place, and lowering puts a call of the static's ensure before the read, with the read's
+location. The
 ensure initializes the static if it is not initialized, and panics if its initializer is still
 running, naming the chain of statics involved. The call's effects run code and may panic, so no
 pass moves a read across it. Once initialization has finished, the ensure tests one state byte and
@@ -508,11 +518,12 @@ returns, running no program code. `StaticEnsures` drops the call in every functi
 initializer can run, because `wyl_init_statics` has initialized every static before `main` runs.
 
 A static is never destroyed ([0029](decisions/0029-statics-are-not-destroyed.md)). The emitted
-C++ keeps its value in `wyl::StaticStorage<T>`, raw storage with a state byte and the static's
-name, filled by placement new in the ensure and never destroyed. A function `wyl_init_statics`,
-called before `main`, runs every ensure in the list's order. The interpreter keeps one cell per
-static for the run, runs the same order, and restores the same ensure rule, so a cycle panics with
-the same message and location in both executors.
+C++ declares a constant static as a `static constexpr` variable. The emitted C++ keeps the value of
+every other static in `wyl::StaticStorage<T>`, raw storage with a state byte and the static's name,
+filled by placement new in the ensure and never destroyed. A function `wyl_init_statics`, called
+before `main`, runs every ensure in the list's order. The interpreter keeps one cell per static for
+the run. It gives each constant static its value first, then runs the same order and the same
+ensure rule, so a cycle panics with the same message and location in both executors.
 
 ## 6. The analyses on the IR
 

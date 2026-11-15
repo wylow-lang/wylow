@@ -21,7 +21,7 @@ public sealed class IrProgram(BoundProgram bound)
     Dictionary<FunctionSymbol, IrStatic>? staticsByEnsure;
 
     public IrStatic? StaticOf(FunctionSymbol ensure) =>
-        (staticsByEnsure ??= Statics.ToDictionary(s => s.Ensure)).GetValueOrDefault(ensure);
+        (staticsByEnsure ??= Statics.Where(s => s.Ensure is not null).ToDictionary(s => s.Ensure!)).GetValueOrDefault(ensure);
 
     /// <summary>
     /// How many times the pipeline has changed the program, so that facts found from it can tell
@@ -122,12 +122,20 @@ public sealed class IrFunctions : IReadOnlyList<IrFunction>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
-public sealed class IrStatic(FieldSymbol field, IrLocal storage, IrFunction? initializer, FunctionSymbol ensure)
+/// <summary>
+/// A static of the program. A constant static holds a value that the compiler computed, and has no
+/// initializer and no ensure, so a read of it runs nothing. Every other static has both.
+/// </summary>
+public sealed class IrStatic(FieldSymbol field, IrLocal storage, IrRvalue? constant, FunctionSymbol? ensure)
 {
     public FieldSymbol Field { get; } = field;
     public IrLocal Storage { get; } = storage;
-    public IrFunction Initializer { get; set; } = initializer!;
-    public FunctionSymbol Ensure { get; } = ensure;
+
+    /// <summary>The value, built only of constants, or null if an initializer computes it at run time.</summary>
+    public IrRvalue? Constant { get; } = constant;
+
+    public IrFunction? Initializer { get; set; }
+    public FunctionSymbol? Ensure { get; } = ensure;
 
     public string Name => $"{Field.Owner.DisplayName}.{Field.Name}";
 

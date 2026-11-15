@@ -33,6 +33,17 @@ public sealed class IrPrinter
         return printer.text.ToString();
     }
 
+    /// <summary>A static: its constant value, or the function that initializes it.</summary>
+    public static string Print(IrStatic statik)
+    {
+        if (statik.Initializer is { } initializer)
+            return Print(initializer);
+        var printer = new IrPrinter();
+        printer.Line($"static {statik.Name}: {statik.Field.Type} = {printer.Rvalue(statik.Constant!)}");
+        printer.Line("");
+        return printer.text.ToString();
+    }
+
     /// <summary>One statement, as a verifier error shows it; a compound statement shows only its head.</summary>
     public static string Print(IrFunction function, IrStatement statement)
     {

@@ -13,19 +13,23 @@ static class StaticEnsureSelfTests
         }
 
         class Settings {
-            static int LIMIT = 3;
+            static int LIMIT = start();
+            static int FIXED = 4;
             static int OTHER = LIMIT + readLimit();
             static int LATER = OTHER;
             static Config CONFIG;
         }
 
+        int start() { return 3; }
         int readLimit() { return Settings.LIMIT; }
         int onlyMain() { return Settings.LIMIT; }
+        int readFixed() { return Settings.FIXED; }
 
         void main() {
             print(Settings.LIMIT);
             print(Settings.CONFIG.n);
             print(onlyMain());
+            print(readFixed());
             escaping fn() -> int read = () -> Settings.OTHER;
             print(read());
         }
@@ -45,6 +49,7 @@ static class StaticEnsureSelfTests
             ("static-ensures/meaning-initializer", () => Count(plain, Init(plain, "OTHER"), 1)),
             ("static-ensures/meaning-default", () => Count(plain, Default(plain, plainProgram, "Config"), 1)),
             ("static-ensures/meaning-lambda", () => Count(plain, Lambda(plain), 1)),
+            ("static-ensures/meaning-constant", () => Count(plain, Function(plain, "readFixed"), 0)),
             ("static-ensures/optimized-main", () => Count(kept, Function(kept, "main"), 0)),
             ("static-ensures/optimized-main-only-callee", () => Count(kept, Function(kept, "onlyMain"), 0)),
             ("static-ensures/optimized-initializer", () => Count(kept, Init(kept, "OTHER"), 1)),
@@ -68,7 +73,7 @@ static class StaticEnsureSelfTests
         ir.Functions.First(function => function.Symbol.Name == name && !function.IsLambda && function.Symbol.ContainingType is null);
 
     static IrFunction Init(IrProgram ir, string field) =>
-        ir.Statics.Single(statik => statik.Field.Name == field).Initializer;
+        ir.Statics.Single(statik => statik.Field.Name == field).Initializer!;
 
     static IrFunction Default(IrProgram ir, BoundProgram program, string type) =>
         ir.Functions.Default(program.Types.First(declared => declared.Name == type))!;

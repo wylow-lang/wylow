@@ -91,7 +91,8 @@ public sealed partial class IrLowering
     IrPlace StaticPlace(BoundStaticFieldAccess access)
     {
         var statik = statics[access.Field];
-        Add(new IrDo(new IrCall(new MethodReference(statik.Ensure, null, []), null, [], Loc(access.Location))) { Origin = access.Location });
+        if (statik.Ensure is { } ensure)
+            Add(new IrDo(new IrCall(new MethodReference(ensure, null, []), null, [], Loc(access.Location))) { Origin = access.Location });
         return new IrPlace(statik.Storage);
     }
 
