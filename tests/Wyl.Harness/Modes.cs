@@ -41,7 +41,7 @@ public static class Modes
             result.Add(new("tsan", Toolchain.ThreadSanitized, new CompileOptions()));
         result.Add(new(name + "-no-nest", preferred.Value, new CompileOptions(Nest: false, Optimize: true)));
         if (release)
-            result.Add(new(name + "-release", preferred.Value, new CompileOptions(), Release: true));
+            result.Add(new(name + "-release", preferred.Value, new CompileOptions(Release: true)));
         modes = result;
         return true;
     }

@@ -34,7 +34,7 @@ static partial class TestCase
         // A test that observes an optimization isn't compared without one.
         if (expected.Optimized || RunComparison.IsNative(test.Text))
             return null;
-        var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false), new InterpreterOptions(Release: expected.Release, Arguments: expected.Arguments));
+        var interpreted = Compilation.Interpret(test.Sources, new CompileOptions(Optimize: false, Release: expected.Release), new InterpreterOptions(Arguments: expected.Arguments));
         if (CompareDiagnostics(expected, interpreted.Diagnostics) is { } diagnosticProblems)
             return diagnosticProblems;
         if (expected.Errors.Count > 0)
@@ -87,7 +87,7 @@ static partial class TestCase
 
         // The pass-regression check: the optimized IR is the same program, so interpreting it must
         // agree with interpreting the meaning (docs/design/ir.md §9.11).
-        var optimized = Compilation.Interpret(test.Sources, new CompileOptions(), new InterpreterOptions(Release: expected.Release, Arguments: expected.Arguments));
+        var optimized = Compilation.Interpret(test.Sources, new CompileOptions(Release: expected.Release), new InterpreterOptions(Arguments: expected.Arguments));
         if (optimized.Interpretation is { } optimizedResult)
         {
             switch (optimizedResult.Status)

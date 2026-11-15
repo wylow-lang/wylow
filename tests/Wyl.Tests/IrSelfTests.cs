@@ -69,7 +69,7 @@ static partial class IrSelfTests
     /// <summary>Facts found from the IR must refuse to answer once a pass has changed it.</summary>
     static TestResult StaleFacts(BoundProgram bound, IrProgram fixture)
     {
-        var program = new IrProgram(bound);
+        var program = new IrProgram(bound, release: false);
         program.Functions.AddRange(fixture.Functions);
         var writes = Writes.Find(new Callees(program));
         IrRun[] runs = [new IrRunRelease(null)];
@@ -112,12 +112,13 @@ static partial class IrSelfTests
     {
         var (one, loc) = (IrConstant.Int(1), new IrLoc((Location?)null));
         if (new IrBinary(BoundBinaryOperator.Less, one, one, WylType.Bool, loc).Loc is not null
-            || new IrBinary(BoundBinaryOperator.Add, one, one, WylType.Int, loc).Loc is null)
+            || new IrBinary(BoundBinaryOperator.Add, one, one, WylType.Int, loc).Loc is null
+            || new IrBinary(BoundBinaryOperator.Add, one, one, WylType.Int).Loc is not null)
             return new("ir/panic_locations", "a binary operation's location doesn't say whether it may panic");
         try
         {
-            _ = new IrUnary(BoundUnaryOperator.Negate, one);
-            return new("ir/panic_locations", "an integer negation was made without a location");
+            _ = new IrBinary(BoundBinaryOperator.Divide, one, one, WylType.Int);
+            return new("ir/panic_locations", "an integer division was made without a location");
         }
         catch (ArgumentException)
         {
@@ -131,11 +132,11 @@ static partial class IrSelfTests
         try
         {
             var function = test.Build();
-            var program = new IrProgram(bound);
+            var program = new IrProgram(bound, release: false);
             program.Functions.Add(function);
             var printed = IrPrinter.Print(program);
             // What the fixture's functions write, for the calls the case makes of them.
-            var whole = new IrProgram(bound);
+            var whole = new IrProgram(bound, release: false);
             // Lowering lists each lambda as a function of its own.
             var lambdas = IrWalk.Descendants(function.Body).OfType<IrLet>().Select(l => l.Value switch
             {
@@ -193,6 +194,15 @@ static partial class IrSelfTests
               do call use(move %2)
             }
             """);
+
+        // Integer addition in a debug build panics on overflow, so it needs the location it panics at.
+        yield return new("overflow_without_location", () =>
+        {
+            var sum = b.Temp(WylType.Int);
+            return b.Function("overflow_without_location", [],
+                new IrLet(sum, new IrBinary(BoundBinaryOperator.Add, IrConstant.Int(1), IrConstant.Int(2), WylType.Int)) { Origin = null },
+                new IrDo(b.Call("use", Move(sum))) { Origin = null });
+        }, Error: "arithmetic in a debug build has no location to panic at on overflow");
 
         yield return new("hold_before_value", () =>
         {

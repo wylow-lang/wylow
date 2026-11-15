@@ -346,7 +346,8 @@ public sealed partial class Interpreter
         var type = frame.Type(unary.Operand.Type);
         return unary.Operator switch
         {
-            BoundUnaryOperator.Negate when unary.Loc is { } loc => RuntimeArithmetic.Negate(type, Integer(operand), options.Release, Required(loc, frame)),
+            BoundUnaryOperator.Negate when unary.Loc is { } loc => RuntimeArithmetic.Negate(type, Integer(operand), Required(loc, frame)),
+            BoundUnaryOperator.Negate when type.IsInteger => RuntimeArithmetic.WrappingNegate(type, Integer(operand)),
             BoundUnaryOperator.Negate => new FloatValue(-((FloatValue)operand).Number),
             BoundUnaryOperator.LogicalNot => new BoolValue(!Values.Truth(operand)),
             BoundUnaryOperator.BitwiseNot => RuntimeArithmetic.Complement(type, Integer(operand)),
@@ -375,9 +376,9 @@ public sealed partial class Interpreter
             var b = Integer(right);
             return op switch
             {
-                BoundBinaryOperator.Add => RuntimeArithmetic.Add(operandType, a, b, options.Release, location),
-                BoundBinaryOperator.Subtract => RuntimeArithmetic.Subtract(operandType, a, b, options.Release, location),
-                BoundBinaryOperator.Multiply => RuntimeArithmetic.Multiply(operandType, a, b, options.Release, location),
+                BoundBinaryOperator.Add => RuntimeArithmetic.Add(operandType, a, b, location),
+                BoundBinaryOperator.Subtract => RuntimeArithmetic.Subtract(operandType, a, b, location),
+                BoundBinaryOperator.Multiply => RuntimeArithmetic.Multiply(operandType, a, b, location),
                 BoundBinaryOperator.Divide => RuntimeArithmetic.Divide(operandType, a, b, location),
                 BoundBinaryOperator.Remainder => RuntimeArithmetic.Remainder(operandType, a, b, location),
                 _ => throw new InterpreterException($"unexpected checked operator {op}"),
@@ -404,6 +405,9 @@ public sealed partial class Interpreter
             var b = Integer(right);
             return op switch
             {
+                BoundBinaryOperator.Add => RuntimeArithmetic.Wrapping(operandType, '+', a, b),
+                BoundBinaryOperator.Subtract => RuntimeArithmetic.Wrapping(operandType, '-', a, b),
+                BoundBinaryOperator.Multiply => RuntimeArithmetic.Wrapping(operandType, '*', a, b),
                 BoundBinaryOperator.ShiftLeft => RuntimeArithmetic.ShiftLeft(operandType, a, b),
                 BoundBinaryOperator.ShiftRight => RuntimeArithmetic.ShiftRight(operandType, a, b),
                 _ => RuntimeArithmetic.Bitwise(operandType, op, a, b),

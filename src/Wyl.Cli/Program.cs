@@ -40,7 +40,6 @@ if (args.Length < 2 || !commands.Contains(args[0]))
 
 var command = args[0];
 var file = args[1];
-bool release = false;
 Toolchain? toolchain = null;
 string? output = null;
 var options = new CompileOptions();
@@ -56,7 +55,7 @@ for (int i = 2; i < args.Length; i++)
     switch (args[i])
     {
         case "--release":
-            release = true;
+            options = options with { Release = true };
             break;
         case "--cc" when i + 1 < args.Length && args[i + 1] is "clang" or "msvc" or "gcc" or "asan" or "tsan":
             toolchain = args[++i] switch
@@ -100,7 +99,7 @@ if (command == "fetch")
 
 if (command == "interpret")
 {
-    var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Release: release, Arguments: programArguments));
+    var interpreted = Compilation.Interpret(source, options, new InterpreterOptions(Arguments: programArguments));
     ReportDiagnostics(interpreted.Diagnostics);
     if (!interpreted.Success)
         return 1;
@@ -145,7 +144,7 @@ var name = source.Package.Name ?? Path.GetFileNameWithoutExtension(file);
 var buildDirectory = isPackage
     ? Path.Combine(Path.GetFullPath(file), ".wyl", name)
     : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(file))!, ".wyl", name);
-var built = Driver.Build(source, options, name, buildDirectory, new BuildOptions(release, toolchain));
+var built = Driver.Build(source, options, name, buildDirectory, new BuildOptions(toolchain));
 ReportErrors(built.Diagnostics, built.Errors);
 if (built.Executable is not { } build)
     return 1;

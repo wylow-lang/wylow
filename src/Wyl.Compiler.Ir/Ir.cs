@@ -11,9 +11,15 @@ namespace Wyl.Compiler.Ir;
 // key on them.
 
 /// <summary>Every function, including every lambda and the standard library's, over the bound program's symbols.</summary>
-public sealed class IrProgram(BoundProgram bound)
+public sealed class IrProgram(BoundProgram bound, bool release)
 {
     public BoundProgram Bound { get; } = bound;
+
+    /// <summary>
+    /// Whether the program is lowered for a release build: integer overflow wraps, and the checks
+    /// that only a debug build makes are off (spec <c>introduction.build-modes</c>).
+    /// </summary>
+    public bool Release { get; } = release;
     public IrFunctions Functions { get; } = new();
 
     public List<IrStatic> Statics { get; } = [];

@@ -73,7 +73,7 @@ static class MatrixTests
             var cellDirectory = Path.Combine(directory, cell.Name.Replace('/', '-'));
             Directory.CreateDirectory(cellDirectory);
             File.WriteAllText(Path.Combine(cellDirectory, "cell.wyl"), cell.Source);
-            var build = Driver.BuildExecutable(compilation, "cell", cellDirectory, new BuildOptions(false, toolchain));
+            var build = Driver.BuildExecutable(compilation, "cell", cellDirectory, new BuildOptions(toolchain));
             if (!build.Success)
                 return new(cell.Name, lines, $"the generated C++ failed to compile:\n{build.Error}");
 

@@ -1477,7 +1477,7 @@ static class InterpreterSelfTests
         string? undefined = null, IReadOnlyList<string>? warningsExpected = null, bool optimized = false)
     {
         var text = new SourceText(name + ".wyl", TestPrograms.WithStd(source));
-        var interpreted = Compilation.Interpret(text, new CompileOptions(Optimize: optimized), new InterpreterOptions(Release: release));
+        var interpreted = Compilation.Interpret(text, new CompileOptions(Optimize: optimized, Release: release));
         var errors = interpreted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (errors.Count > 0)
             return "did not compile: " + string.Join(" | ", errors);

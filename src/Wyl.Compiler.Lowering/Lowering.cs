@@ -23,6 +23,7 @@ public sealed partial class IrLowering
     readonly List<IrFunction> lambdas = [];
     readonly Dictionary<LocalSymbol, IrLocal> locals = [];
     readonly IReadOnlyDictionary<FieldSymbol, IrStatic> statics;
+    readonly bool release;
 
     /// <summary>The statement or expression being lowered, which the statements made for it come from.</summary>
     Location? at;
@@ -32,11 +33,12 @@ public sealed partial class IrLowering
     IrBlock block;
     bool reachable = true;
 
-    IrLowering(BoundProgram program, FunctionSymbol symbol, string? name, IReadOnlyDictionary<FieldSymbol, IrStatic> statics)
+    IrLowering(BoundProgram program, FunctionSymbol symbol, string? name, IReadOnlyDictionary<FieldSymbol, IrStatic> statics, bool release)
     {
         this.program = program;
         this.symbol = symbol;
         this.statics = statics;
+        this.release = release;
         var owner = symbol.ContainingType;
         function = new IrFunction(symbol, name ?? (owner is null ? symbol.Name : $"{owner.Name}.{symbol.Name}"));
         block = function.Body;
@@ -78,9 +80,10 @@ public sealed partial class IrLowering
             Add(LetOf(variable, new IrUse(IrRead.Copy(new IrPlace(parameter)))));
     }
 
-    public static IrProgram Lower(BoundProgram program)
+    /// <summary>The program's IR, lowered for a release build if <paramref name="release"/> says so.</summary>
+    public static IrProgram Lower(BoundProgram program, bool release)
     {
-        var ir = new IrProgram(program);
+        var ir = new IrProgram(program, release);
         var statics = new Dictionary<FieldSymbol, IrStatic>();
         var constants = new StaticConstants();
         foreach (var s in program.Types)
@@ -103,7 +106,7 @@ public sealed partial class IrLowering
         }
         void Add(FunctionSymbol symbol, string? name, Func<IrLowering, IrFunction> lower)
         {
-            var lowering = new IrLowering(program, symbol, name, statics);
+            var lowering = new IrLowering(program, symbol, name, statics, release);
             ir.Functions.Add(lower(lowering));
             ir.Functions.AddRange(lowering.lambdas);
         }
@@ -111,7 +114,7 @@ public sealed partial class IrLowering
         foreach (var statik in ir.Statics.Where(s => s.Constant is null))
         {
             var symbol = new FunctionSymbol("static_initializer", [], statik.Field.Type);
-            var lowering = new IrLowering(program, symbol, $"init {statik.Name}", statics);
+            var lowering = new IrLowering(program, symbol, $"init {statik.Name}", statics, release);
             statik.Initializer = lowering.StaticInitializer(statik.Field);
             ir.Functions.Add(statik.Initializer);
             ir.Functions.AddRange(lowering.lambdas);

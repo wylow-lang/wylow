@@ -379,7 +379,7 @@ public sealed partial class Interpreter
     {
         var created = (uint)Interlocked.Read(ref objectsCreated);
         garbage.Sort((a, b) => b.Age(created).CompareTo(a.Age(created)));
-        if (!options.Release)
+        if (!program.Release)
             NoteFreed();
         foreach (var heap in garbage)
             ForEachChild(heap, child => child.Retain());
@@ -490,7 +490,7 @@ public sealed partial class Interpreter
             if (garbage.Count > 0)
                 DestroyGarbage();
             garbage.Clear();
-            if (!options.Release)
+            if (!program.Release)
                 NoteWaiting();
         }
         finally

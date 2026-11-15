@@ -195,7 +195,7 @@ public sealed partial class IrLowering
 
     void Increment(IrLocal counter, IrLoc loc)
     {
-        var next = Let(new IrBinary(BoundBinaryOperator.Add, IrRead.Copy(new IrPlace(counter)), new IrConstant(counter.Type, One(counter.Type)), counter.Type, loc));
+        var next = Let(new IrBinary(BoundBinaryOperator.Add, IrRead.Copy(new IrPlace(counter)), new IrConstant(counter.Type, One(counter.Type)), counter.Type, OverflowLoc(loc)));
         Add(new IrStore(new IrPlace(counter), IrRead.Move(new IrPlace(next))) { Origin = at });
     }
 

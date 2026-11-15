@@ -16,8 +16,10 @@ namespace Wyl.Compiler;
 /// <see cref="Nest"/> off declares every temporary instead of nesting it into its use, and
 /// <see cref="Optimize"/> off runs none of the optimizations, keeping every hold and copy lowering
 /// made and every object on the heap (docs/design/ir.md); neither may change what a program does.
+/// <see cref="Release"/> lowers the program for a release build (spec <c>introduction.build-modes</c>),
+/// and the interpreter and the native build take the build mode from the lowered program.
 /// </summary>
-public sealed record CompileOptions(bool Nest = true, bool Optimize = true);
+public sealed record CompileOptions(bool Nest = true, bool Optimize = true, bool Release = false);
 
 /// <summary>
 /// A program lowered and run through the pipeline: its diagnostics, and the bound program, IR, and
@@ -55,6 +57,9 @@ public sealed record CompilationResult(IReadOnlyList<Diagnostic> Diagnostics, st
 
     /// <summary>The lowered program.</summary>
     public IrProgram? Ir { get; init; }
+
+    /// <summary>Whether the program was lowered for a release build, which the native build compiles it as.</summary>
+    public bool Release => Ir?.Release ?? false;
 
     /// <summary>The IR of the program's own functions, in declaration order, as <c>wyl ir</c> prints it.</summary>
     public string? IrText()
@@ -101,7 +106,7 @@ public static class Compilation
         if (diagnostics.HasErrors)
             return new LowerResult(Reported(), program, null, null);
 
-        var ir = IrLowering.Lower(program);
+        var ir = IrLowering.Lower(program, options.Release);
         var optimized = Pipeline.Run(ir, diagnostics, options.Optimize);
         return new LowerResult(Reported(), program, ir, optimized);
 

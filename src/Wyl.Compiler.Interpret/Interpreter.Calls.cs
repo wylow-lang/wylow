@@ -251,7 +251,7 @@ public sealed partial class Interpreter
     {
         if (frame.Find(local) is not SlotStorage slot)
             throw new InterpreterException($"'{local.Name}' is not a stack slot");
-        if (!options.Release && slot.Object is not null)
+        if (!program.Release && slot.Object is not null)
             throw new WylPanic("internal compiler error: a stack slot was filled twice", "<runtime>");
         slot.Object = heap;
         heap.Cyclic = false;
@@ -307,7 +307,7 @@ public sealed partial class Interpreter
             throw new BudgetExceededException();
         try
         {
-            if (!options.Release && heap.Count != 1)
+            if (!program.Release && heap.Count != 1)
                 throw new WylPanic("internal compiler error: an object on the stack outlived its scope", "<runtime>");
             heap.ClearWeak();
             if (heap.Buffered)

@@ -3,7 +3,8 @@ using Wyl.Compiler.Diagnostics;
 
 namespace Wyl.Compiler.Build;
 
-public sealed record BuildOptions(bool Release = false, Toolchain? Toolchain = null);
+/// <summary>How a compiled program is built. Whether it is a release build comes from the compilation (<see cref="CompilationResult.Release"/>).</summary>
+public sealed record BuildOptions(Toolchain? Toolchain = null);
 
 public sealed record ExecutableBuild(string? ExePath, string? Error)
 {
@@ -36,7 +37,7 @@ public static class Driver
         var diagnosticsPath = Path.Combine(outputDirectory, name + ".diagnostics.json");
         string? key = null;
         if (File.Exists(exePath) && File.Exists(diagnosticsPath) && Toolchains.Find(options.Toolchain, out _) is { } previous)
-            key = BuildKeys.SourceKey(previous, sources, compileOptions, options.Release);
+            key = BuildKeys.SourceKey(previous, sources, compileOptions);
         if (key is not null && ReadText(keyPath) == key && ReadDiagnostics(diagnosticsPath) is { } kept)
             return new ProgramBuild(kept, 0, CopyNextTo(exePath, sources.Native));
 
@@ -52,12 +53,12 @@ public static class Driver
         // A build that fails partway may have replaced the executable, so the old key goes first.
         Directory.CreateDirectory(outputDirectory);
         File.Delete(keyPath);
-        var build = BuildExecutable(compilation, compiler, name, outputDirectory, options.Release);
+        var build = BuildExecutable(compilation, compiler, name, outputDirectory);
         if (build.Diagnostics.Count > 0)
             return new ProgramBuild([.. diagnostics, .. build.Diagnostics.Select(d => d.ToString())], build.Diagnostics.Count, null);
         if (build.Success)
         {
-            key ??= BuildKeys.SourceKey(compiler, sources, compileOptions, options.Release);
+            key ??= BuildKeys.SourceKey(compiler, sources, compileOptions);
             if (key is not null)
             {
                 File.WriteAllText(diagnosticsPath, JsonSerializer.Serialize(diagnostics));
@@ -75,12 +76,13 @@ public static class Driver
         var compiler = Toolchains.Find(options.Toolchain, out var error);
         if (compiler is null)
             return new ExecutableBuild(null, error);
-        return BuildExecutable(compilation, compiler, name, outputDirectory, options.Release);
+        return BuildExecutable(compilation, compiler, name, outputDirectory);
     }
 
-    static ExecutableBuild BuildExecutable(CompilationResult compilation, NativeCompiler compiler, string name, string outputDirectory, bool release)
+    static ExecutableBuild BuildExecutable(CompilationResult compilation, NativeCompiler compiler, string name, string outputDirectory)
     {
         var cpp = compilation.Cpp!;
+        bool release = compilation.Release;
         Directory.CreateDirectory(outputDirectory);
         var cppPath = Path.Combine(outputDirectory, name + ".cpp");
         File.WriteAllText(cppPath, cpp);

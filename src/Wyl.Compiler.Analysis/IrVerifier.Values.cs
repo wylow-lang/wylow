@@ -299,11 +299,13 @@ public sealed partial class IrVerifier
             case IrUnary unary:
                 Operand(unary.Operand, state);
                 CheckLoc(unary.Loc);
+                CheckOverflow(unary.Operator == BoundUnaryOperator.Negate && unary.Operand.Type.IsInteger, unary.Loc);
                 break;
             case IrBinary binary:
                 Operand(binary.Left, state);
                 Operand(binary.Right, state);
                 CheckLoc(binary.Loc);
+                CheckOverflow(binary.Left.Type.IsInteger && binary.Operator is BoundBinaryOperator.Add or BoundBinaryOperator.Subtract or BoundBinaryOperator.Multiply, binary.Loc);
                 break;
             case IrCall call:
                 Call(call, state);

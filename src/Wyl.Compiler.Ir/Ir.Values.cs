@@ -208,7 +208,10 @@ public sealed class IrUse(IrOperand operand) : IrRvalue
     public override WylType Type => Operand.Type;
 }
 
-/// <summary>An operator; an integer negation carries the location it panics at on overflow.</summary>
+/// <summary>
+/// An operator. An integer negation carries the location it panics at on overflow, or no location if
+/// it wraps (<see cref="IrProgram.Release"/>).
+/// </summary>
 public sealed class IrUnary(BoundUnaryOperator op, IrOperand operand, IrLoc? loc = null) : IrRvalue
 {
     public override T Accept<T>(IIrRvalueVisitor<T> visitor) => visitor.Unary(this);
@@ -216,7 +219,7 @@ public sealed class IrUnary(BoundUnaryOperator op, IrOperand operand, IrLoc? loc
     public IrOperand Operand { get; set; } = operand;
 
     /// <summary>Where it panics: integer negation overflows.</summary>
-    public IrLoc? Loc { get; } = PanicsAt(op == BoundUnaryOperator.Negate && operand.Type.IsInteger, loc);
+    public IrLoc? Loc { get; } = op == BoundUnaryOperator.Negate && operand.Type.IsInteger ? loc : null;
 
     public override WylType Type => Operand.Type;
 }
@@ -229,9 +232,15 @@ public sealed class IrBinary(BoundBinaryOperator op, IrOperand left, IrOperand r
     public IrOperand Left { get; set; } = left;
     public IrOperand Right { get; set; } = right;
 
-    /// <summary>Where it panics: integer arithmetic overflows or divides by zero.</summary>
-    public IrLoc? Loc { get; } = PanicsAt(left.Type.IsInteger && op is BoundBinaryOperator.Add or BoundBinaryOperator.Subtract
-        or BoundBinaryOperator.Multiply or BoundBinaryOperator.Divide or BoundBinaryOperator.Remainder, loc);
+    /// <summary>
+    /// Where it panics. Integer division and remainder panic when they divide by zero. Integer
+    /// addition, subtraction, and multiplication panic on overflow if they carry a location, and wrap
+    /// if they carry none (<see cref="IrProgram.Release"/>).
+    /// </summary>
+    public IrLoc? Loc { get; } = !left.Type.IsInteger ? null
+        : op is BoundBinaryOperator.Divide or BoundBinaryOperator.Remainder ? PanicsAt(true, loc)
+        : op is BoundBinaryOperator.Add or BoundBinaryOperator.Subtract or BoundBinaryOperator.Multiply ? loc
+        : null;
 
     public override WylType Type { get; } = type;
 }

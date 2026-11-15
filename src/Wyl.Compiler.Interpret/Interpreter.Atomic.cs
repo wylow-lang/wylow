@@ -64,8 +64,8 @@ public sealed partial class Interpreter
         {
             var old = (IntValue)data.Value;
             data.Value = subtract
-                ? RuntimeArithmetic.Subtract(type, old.Bits, delta, options.Release, location)
-                : RuntimeArithmetic.Add(type, old.Bits, delta, options.Release, location);
+                ? (program.Release ? RuntimeArithmetic.Wrapping(type, '-', old.Bits, delta) : RuntimeArithmetic.Subtract(type, old.Bits, delta, location))
+                : (program.Release ? RuntimeArithmetic.Wrapping(type, '+', old.Bits, delta) : RuntimeArithmetic.Add(type, old.Bits, delta, location));
             return old;
         }
     }

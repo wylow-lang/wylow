@@ -140,7 +140,7 @@ public sealed partial class Interpreter : IObjectLifetime
     /// <summary>Reports a performance warning, in a debug build, as the runtime's <c>PerformanceWarning</c> does.</summary>
     void PerformanceWarning(string message)
     {
-        if (options.Release)
+        if (program.Release)
             return;
         lock (outputLock)
             standardError.Add("performance warning: " + message);

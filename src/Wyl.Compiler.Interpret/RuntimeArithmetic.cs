@@ -4,36 +4,36 @@ using Wyl.Compiler.Semantics;
 namespace Wyl.Compiler.Interpret;
 
 /// <summary>
-/// The checked arithmetic and conversions of <c>runtime/wyl/arithmetic.h</c>: overflow panics in
-/// debug and wraps in release, division and <c>MIN / -1</c> always panic, shifts mask, floating
+/// The arithmetic and conversions of <c>runtime/wyl/arithmetic.h</c>: the checked operations panic
+/// on overflow and the wrapping ones wrap, division and <c>MIN / -1</c> always panic, shifts mask, floating
 /// point to integer saturates, and casts to <c>char</c> and enums are checked.
 /// </summary>
 internal static class RuntimeArithmetic
 {
-    public static IntValue Add(WylType type, Int128 a, Int128 b, bool release, string? location)
+    public static IntValue Add(WylType type, Int128 a, Int128 b, string? location)
     {
         var sum = a + b;
-        if (!release && !InRange(type, sum))
+        if (!InRange(type, sum))
             Overflow(location);
         return new IntValue(Values.Wrap(type, sum));
     }
 
-    public static IntValue Subtract(WylType type, Int128 a, Int128 b, bool release, string? location)
+    public static IntValue Subtract(WylType type, Int128 a, Int128 b, string? location)
     {
         var difference = a - b;
-        if (!release && !InRange(type, difference))
+        if (!InRange(type, difference))
             Overflow(location);
         return new IntValue(Values.Wrap(type, difference));
     }
 
-    public static IntValue Multiply(WylType type, Int128 a, Int128 b, bool release, string? location)
+    public static IntValue Multiply(WylType type, Int128 a, Int128 b, string? location)
     {
-        if (!release && MulOverflows(type, a, b))
+        if (MulOverflows(type, a, b))
             Overflow(location);
         return new IntValue(Values.Wrap(type, unchecked(a * b)));
     }
 
-    /// <summary><c>wrappingAdd</c>, <c>wrappingSub</c>, and <c>wrappingMul</c>: the result modulo 2^n.</summary>
+    /// <summary>Addition, subtraction, or multiplication that wraps, as <c>wrappingAdd</c> and the others do: the result modulo 2^n.</summary>
     public static IntValue Wrapping(WylType type, char op, Int128 a, Int128 b) =>
         new(Values.Wrap(type, op switch { '+' => a + b, '-' => a - b, _ => unchecked(a * b) }));
 
@@ -49,13 +49,15 @@ internal static class RuntimeArithmetic
         return overflows ? null : Wrapping(type, op, a, b);
     }
 
-    public static IntValue Negate(WylType type, Int128 a, bool release, string? location)
+    public static IntValue Negate(WylType type, Int128 a, string? location)
     {
         var (_, signed) = Values.Bits(type);
-        if (!release && signed && a == Min(type))
+        if (signed && a == Min(type))
             Overflow(location);
-        return new IntValue(Values.Wrap(type, -a));
+        return WrappingNegate(type, a);
     }
+
+    public static IntValue WrappingNegate(WylType type, Int128 a) => new(Values.Wrap(type, -a));
 
     public static IntValue Divide(WylType type, Int128 a, Int128 b, string location)
     {

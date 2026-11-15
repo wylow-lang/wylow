@@ -72,7 +72,7 @@ public sealed partial class Interpreter
     /// <summary>Finds the garbage among the buffered objects without destroying it, at exit.</summary>
     void ReportUncollected()
     {
-        if (options.Release)
+        if (program.Release)
             return;
         foreach (var root in buffer)
         {

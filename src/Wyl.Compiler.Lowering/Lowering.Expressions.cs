@@ -50,7 +50,7 @@ public sealed partial class IrLowering
         {
             case BoundUnary unary:
             {
-                return new IrUnary(unary.Operator, Value(unary.Operand), Loc(unary.Location));
+                return new IrUnary(unary.Operator, Value(unary.Operand), OverflowLoc(Loc(unary.Location)));
             }
             case BoundBinary binary:
                 return Binary(binary);
@@ -141,8 +141,15 @@ public sealed partial class IrLowering
         }
         var left = Value(binary.Left);
         var right = Value(binary.Right);
-        return new IrBinary(binary.Operator, left, right, binary.Type, Loc(binary.Location));
+        var loc = Loc(binary.Location);
+        return new IrBinary(binary.Operator, left, right, binary.Type, binary.Operator is BoundBinaryOperator.Divide or BoundBinaryOperator.Remainder ? loc : OverflowLoc(loc));
     }
+
+    /// <summary>
+    /// The location that integer arithmetic panics at on overflow: none in a release build, where the
+    /// arithmetic wraps (spec <c>expressions.arithmetic.overflow</c>). Division by zero panics in every build.
+    /// </summary>
+    IrLoc? OverflowLoc(IrLoc loc) => release ? null : loc;
 
     /// <summary>The side of a comparison with the <c>null</c> literal that may be null, if that is the comparison.</summary>
     static BoundExpression? NullTested(BoundBinary binary) => (binary.Left, binary.Right) switch

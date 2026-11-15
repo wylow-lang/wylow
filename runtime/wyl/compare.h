@@ -51,19 +51,19 @@ struct Builtin {
     T wrappingAdd(const T& other) const
         requires std::is_integral_v<T>
     {
-        return static_cast<T>(static_cast<Wide<T>>(Value) + static_cast<Wide<T>>(other));
+        return WrappingAdd(Value, other);
     }
 
     T wrappingSub(const T& other) const
         requires std::is_integral_v<T>
     {
-        return static_cast<T>(static_cast<Wide<T>>(Value) - static_cast<Wide<T>>(other));
+        return WrappingSub(Value, other);
     }
 
     T wrappingMul(const T& other) const
         requires std::is_integral_v<T>
     {
-        return static_cast<T>(static_cast<Wide<T>>(Value) * static_cast<Wide<T>>(other));
+        return WrappingMul(Value, other);
     }
 
     Optional<T> checkedAdd(const T& other) const

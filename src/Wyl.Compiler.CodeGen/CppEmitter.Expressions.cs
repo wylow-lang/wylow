@@ -9,9 +9,10 @@ public sealed partial class CppEmitter
 {
     // An operation the IR says may panic is given the location it panics at, and does the checked thing.
 
-    static string UnaryText(BoundUnaryOperator op, string operand, string? location) => op switch
+    static string UnaryText(BoundUnaryOperator op, WylType operandType, string operand, string? location) => op switch
     {
         BoundUnaryOperator.Negate when location is not null => $"wyl::Neg({operand}, {location})",
+        BoundUnaryOperator.Negate when operandType.IsInteger => $"wyl::WrappingNeg({operand})",
         BoundUnaryOperator.Negate => $"(-{operand})",
         BoundUnaryOperator.LogicalNot => $"(!{operand})",
         BoundUnaryOperator.BitwiseNot => $"wyl::BitNot({operand})",
@@ -36,6 +37,8 @@ public sealed partial class CppEmitter
             };
             return $"wyl::{name}({left}, {right}, {location})";
         }
+        if (operandType.IsInteger && op is BoundBinaryOperator.Add or BoundBinaryOperator.Subtract or BoundBinaryOperator.Multiply)
+            return $"wyl::Wrapping{(op == BoundBinaryOperator.Add ? "Add" : op == BoundBinaryOperator.Subtract ? "Sub" : "Mul")}({left}, {right})";
         if (operandType.IsInteger && op is BoundBinaryOperator.ShiftLeft or BoundBinaryOperator.ShiftRight)
             return $"wyl::{(op == BoundBinaryOperator.ShiftLeft ? "ShiftLeft" : "ShiftRight")}({left}, {right})";
         if (operandType.IsFloatingPoint && op == BoundBinaryOperator.Remainder)

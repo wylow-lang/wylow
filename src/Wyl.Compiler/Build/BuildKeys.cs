@@ -52,7 +52,7 @@ public static class BuildKeys
     /// C++. Equal keys mean that the executable a previous build left is the one this build would
     /// produce. Null if the compiler's own files cannot be found to read.
     /// </summary>
-    public static string? SourceKey(NativeCompiler compiler, PackageSources sources, CompileOptions compileOptions, bool release)
+    public static string? SourceKey(NativeCompiler compiler, PackageSources sources, CompileOptions compileOptions)
     {
         if (WylowCompilerHash.Value is not { } wylow)
             return null;
@@ -64,7 +64,7 @@ public static class BuildKeys
             hash.AppendData(bytes);
         }
         Add(wylow);
-        Add(Identity(compiler, release));
+        Add(Identity(compiler, compileOptions.Release));
         // A record's text names every one of its properties, so an option added later is in the key too.
         Add(compileOptions.ToString());
         Add(sources.Package.Name ?? "");

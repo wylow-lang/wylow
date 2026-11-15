@@ -43,8 +43,8 @@ static class BuildCacheSelfTests
 
     static TestResult SourceKey(NativeCompiler compiler)
     {
-        string? Key(string path, string text, CompileOptions? options = null, bool release = false) =>
-            BuildKeys.SourceKey(compiler, PackageSources.Of(new SourceText(path, text)), options ?? new CompileOptions(), release);
+        string? Key(string path, string text, CompileOptions? options = null) =>
+            BuildKeys.SourceKey(compiler, PackageSources.Of(new SourceText(path, text)), options ?? new CompileOptions());
 
         var key = Key("a/main.wyl", Source);
         List<string> problems = [];
@@ -60,7 +60,7 @@ static class BuildCacheSelfTests
             problems.Add("the key ignores --no-nest");
         if (Key("a/main.wyl", Source, new CompileOptions(Optimize: false)) == key)
             problems.Add("the key ignores --no-opt");
-        if (Key("a/main.wyl", Source, release: true) == key)
+        if (Key("a/main.wyl", Source, new CompileOptions(Release: true)) == key)
             problems.Add("the key ignores --release");
         return new("build-cache/source-key", problems.Count == 0 ? null : string.Join('\n', problems));
     }
@@ -83,7 +83,7 @@ static class BuildCacheSelfTests
         Write(directory, "src/main.wyl", "void main() { std::print(parser::depth()); }\n");
         Write(directory, "vendor/parser/package.wylcfg", "name = \"parser\"; kind = \"library\"; version = \"1.0.0\";\n");
         Write(directory, "vendor/parser/src/parser.wyl", "pub int depth() { return 1; }\n");
-        string? Key() => BuildKeys.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
+        string? Key() => BuildKeys.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions());
 
         if (PackageSources.Load(directory).Diagnostics is { Count: > 0 } diagnostics)
             return new("build-cache/dependencies", $"the package does not load: {string.Join('\n', diagnostics)}");
@@ -155,7 +155,7 @@ static class BuildCacheSelfTests
             }
             """;
         Write(directory, "package.wylcfg", Manifest("\"BASE_ON\""));
-        string? Key() => BuildKeys.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions(), release: false);
+        string? Key() => BuildKeys.SourceKey(compiler, PackageSources.Load(directory), new CompileOptions());
         string BuildKey() => BuildKeys.BuildKey(compiler, release: false, Program, PackageSources.Load(directory).Native);
 
         List<string> problems = [];

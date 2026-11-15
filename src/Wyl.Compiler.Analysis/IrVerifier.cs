@@ -545,4 +545,15 @@ public sealed partial class IrVerifier
         if (loc == IrLoc.Caller && !function.HasLocationParameter)
             Error("uses the caller's location in a function that isn't given one");
     }
+
+    /// <summary>
+    /// Integer arithmetic that <paramref name="overflows"/> panics on overflow in a debug build and wraps
+    /// in a release build (spec <c>expressions.arithmetic.overflow</c>), so it carries the location it
+    /// panics at if and only if the program is not a release build.
+    /// </summary>
+    void CheckOverflow(bool overflows, IrLoc? loc)
+    {
+        if (overflows && (loc is null) != program.Release)
+            Error(program.Release ? "arithmetic in a release build has a location to panic at, but it wraps" : "arithmetic in a debug build has no location to panic at on overflow");
+    }
 }

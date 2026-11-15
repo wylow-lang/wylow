@@ -288,7 +288,7 @@ static class AnalysisSelfTests
     /// <summary>Facts found from the IR refuse to answer once a pass has changed it, whichever fact asks.</summary>
     static IEnumerable<TestResult> Stale(BoundProgram bound, IrProgram fixture)
     {
-        var program = new IrProgram(bound);
+        var program = new IrProgram(bound, release: false);
         program.Functions.AddRange(fixture.Functions);
         var callees = new Callees(program);
         var escapes = Escapes.Find(callees);

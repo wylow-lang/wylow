@@ -4,33 +4,51 @@
 
 namespace wyl {
 
-// Integer arithmetic: overflow panics when WYL_DEBUG, otherwise wraps. Unsigned math avoids
-// UB; Wide<T> keeps small types from being promoted to signed int before the operation.
+// Integer arithmetic. The compiler decides whether an operation panics on overflow: it calls Add,
+// Sub, Mul, and Neg with a location where the operation panics, and the Wrapping functions where it
+// wraps. Unsigned math avoids UB, and Wide<T> keeps a small type from being promoted to signed int
+// before the operation.
 template <class T>
 using Wide = std::common_type_t<std::make_unsigned_t<T>, unsigned>;
 
 template <class T>
+inline T WrappingAdd(T a, T b) {
+    return static_cast<T>(static_cast<Wide<T>>(a) + static_cast<Wide<T>>(b));
+}
+
+template <class T>
+inline T WrappingSub(T a, T b) {
+    return static_cast<T>(static_cast<Wide<T>>(a) - static_cast<Wide<T>>(b));
+}
+
+template <class T>
+inline T WrappingMul(T a, T b) {
+    return static_cast<T>(static_cast<Wide<T>>(a) * static_cast<Wide<T>>(b));
+}
+
+template <class T>
+inline T WrappingNeg(T a) {
+    return static_cast<T>(Wide<T>(0) - static_cast<Wide<T>>(a));
+}
+
+template <class T>
 inline T Add(T a, T b, const char* location) {
-    T r = static_cast<T>(static_cast<Wide<T>>(a) + static_cast<Wide<T>>(b));
-    if constexpr (WYL_DEBUG != 0) {
-        if constexpr (std::is_signed_v<T>) {
-            if (((a ^ r) & (b ^ r)) < 0) RaisePanic("integer overflow", location);
-        } else {
-            if (r < a) RaisePanic("integer overflow", location);
-        }
+    T r = WrappingAdd(a, b);
+    if constexpr (std::is_signed_v<T>) {
+        if (((a ^ r) & (b ^ r)) < 0) RaisePanic("integer overflow", location);
+    } else {
+        if (r < a) RaisePanic("integer overflow", location);
     }
     return r;
 }
 
 template <class T>
 inline T Sub(T a, T b, const char* location) {
-    T r = static_cast<T>(static_cast<Wide<T>>(a) - static_cast<Wide<T>>(b));
-    if constexpr (WYL_DEBUG != 0) {
-        if constexpr (std::is_signed_v<T>) {
-            if (((a ^ b) & (a ^ r)) < 0) RaisePanic("integer overflow", location);
-        } else {
-            if (a < b) RaisePanic("integer overflow", location);
-        }
+    T r = WrappingSub(a, b);
+    if constexpr (std::is_signed_v<T>) {
+        if (((a ^ b) & (a ^ r)) < 0) RaisePanic("integer overflow", location);
+    } else {
+        if (a < b) RaisePanic("integer overflow", location);
     }
     return r;
 }
@@ -50,18 +68,14 @@ inline bool MulOverflows(T a, T b) {
 
 template <class T>
 inline T Mul(T a, T b, const char* location) {
-    if constexpr (WYL_DEBUG != 0) {
-        if (MulOverflows(a, b)) RaisePanic("integer overflow", location);
-    }
-    return static_cast<T>(static_cast<Wide<T>>(a) * static_cast<Wide<T>>(b));
+    if (MulOverflows(a, b)) RaisePanic("integer overflow", location);
+    return WrappingMul(a, b);
 }
 
 template <class T>
 inline T Neg(T a, const char* location) {
-    if constexpr (WYL_DEBUG != 0) {
-        if (a == std::numeric_limits<T>::min()) RaisePanic("integer overflow", location);
-    }
-    return static_cast<T>(Wide<T>(0) - static_cast<Wide<T>>(a));
+    if (a == std::numeric_limits<T>::min()) RaisePanic("integer overflow", location);
+    return WrappingNeg(a);
 }
 
 // A complement of a narrow type is promoted to int, so `~` beside a conversion can be folded with

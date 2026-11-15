@@ -178,7 +178,7 @@ public sealed partial class CppEmitter
     string RvalueText(IrRvalue value) => value switch
     {
         IrUse use => OperandText(use.Operand),
-        IrUnary unary => UnaryText(unary.Operator, OperandText(unary.Operand), PanicText(unary.Loc)),
+        IrUnary unary => UnaryText(unary.Operator, unary.Operand.Type, OperandText(unary.Operand), PanicText(unary.Loc)),
         IrBinary binary => BinaryText(binary.Operator, binary.Left.Type, binary.Type, OperandText(binary.Left), OperandText(binary.Right), PanicText(binary.Loc)),
         IrCall call => CallText(call),
         IrInvoke { Callee.Type.NonNull: FunctionType { IsExtern: true } cFunction } invoke =>
