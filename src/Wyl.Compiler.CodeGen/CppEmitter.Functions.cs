@@ -13,8 +13,16 @@ public sealed partial class CppEmitter
         _ => CppType(type),
     };
 
-    /// <summary>A parameter's C++ type: a <c>const</c> reference to the caller's value for one passed borrowed (spec <c>functions.parameters.modes</c>).</summary>
-    static string PassedType(WylType type, RefKind refKind, bool borrowed) => borrowed ? ConstReferenceType(type) : ParameterType(type, refKind);
+    /// <summary>
+    /// A parameter's C++ type. A parameter passed borrowed is a <c>const</c> reference to the caller's
+    /// value (spec <c>functions.parameters.modes</c>). For a class reference, the reference is to a
+    /// <c>wyl::BorrowedRef</c>, which a caller can make from <c>this</c> without changing the object's
+    /// count.
+    /// </summary>
+    static string PassedType(WylType type, RefKind refKind, bool borrowed) =>
+        !borrowed ? ParameterType(type, refKind)
+        : type.IsReference ? $"const wyl::BorrowedRef<{ObjectType(type)}>&"
+        : ConstReferenceType(type);
 
     static string ReturnType(FunctionSymbol function) => ParameterType(function.ReturnType, function.ReturnRefKind);
 

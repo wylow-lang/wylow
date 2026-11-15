@@ -13,6 +13,16 @@ class Node {
     ~Node() {
         std::print($"released {id}");
     }
+
+    Holder wrap() {
+        return new Holder(this);
+    }
+}
+
+class Leaf extends Node {
+    Leaf(int id) {
+        super(id);
+    }
 }
 
 class Holder {
@@ -26,6 +36,14 @@ class Holder {
 int take(Node node) {
     std::print($"take {node.id}");
     return node.id;
+}
+
+Node same(Node node) {
+    return node;
+}
+
+int takeLeaf(Leaf leaf) {
+    return take(leaf);
 }
 
 int other() {
@@ -81,7 +99,18 @@ void main() {
     list.add(local);
     std::print(identity(list[0]).id);        // output: 5
     std::print(describe("ab", holder));          // output: 14
+    // A returned parameter is a copy, so the object outlives the statement only through the copy.
+    std::print(same(new Node(6)).id);            // output: 6
+                                                 // output: released 6
+    // A subclass passes as its base class, also from one borrowed parameter to another.
+    std::print(takeLeaf(new Leaf(7)));           // output: take 7
+                                                 // output: 7
+                                                 // output: released 7
+    // A method passes 'this', and the object it was called on lives on in the field that keeps it.
+    var wrapped = new Node(8).wrap();
+    std::print(wrapped.node.id);                 // output: 8
     // The locals are released last first: the list leaves node 5 to 'local', and the closure holds node 4.
+                                                 // output: released 8
                                                  // output: released 4
                                                  // output: released 5
                                                  // output: released 12

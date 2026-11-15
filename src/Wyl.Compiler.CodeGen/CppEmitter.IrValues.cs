@@ -157,6 +157,10 @@ public sealed partial class CppEmitter
         _ => throw new InvalidOperationException($"unexpected argument {argument.GetType().Name}"),
     };
 
+    /// <summary>Whether the call passes argument <paramref name="index"/> to a parameter passed borrowed.</summary>
+    static bool PassedBorrowed(MethodReference method, int index) =>
+        index < method.Symbol.Parameters.Count && ParameterPassing.Borrows(method.Symbol, method.Symbol.Parameters[index]);
+
     /// <summary>A call's arguments, with what the C++ form of each parameter needs, and the call site's location if the callee takes it.</summary>
     List<string> ArgumentsText(MethodReference method, IReadOnlyList<IrArgument> arguments, IrLoc? loc)
     {
@@ -165,6 +169,8 @@ public sealed partial class CppEmitter
         {
             if (arguments[i] is IrConstant { Value: string text } && method.Symbol.TakesStringLiterals)
                 texts.Add(CppStringLiteral(text));
+            else if (arguments[i] is IrRead { Place: { IsDeref: false, Projections.Count: 0, Local: { IsThis: true, Type.IsReference: true } } } && PassedBorrowed(method, i))
+                texts.Add("this");
             else if (arguments[i] is not IrFieldDefault)
                 texts.Add(FunctionArgument(method, i, ArgumentText(arguments[i])));
         }

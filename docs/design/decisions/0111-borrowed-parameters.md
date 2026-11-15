@@ -18,6 +18,10 @@
 - The emitter declares a borrowed parameter as a `const` reference. `ReadsInPlace` passes the
   caller's place itself instead of the temporary when nothing changes the place until the temporary
   would be released, so a call such as `update(game)` changes no reference count.
+- A borrowed parameter of a class reference type is a `const` reference to a `wyl::BorrowedRef`. A
+  `BorrowedRef` derives from `wyl::Ref` and never changes the object's count. A caller that passes
+  `this` makes one without a count change. C++ rejects a copy of a `BorrowedRef`, so a copy that
+  could outlive the call fails to compile, and a copy into a `Ref` increments the count as usual.
 - A `mut` parameter is passed borrowed too. The callee copies it into a variable of its own when it
   starts, and releases that variable when it returns.
 - A lambda and a function value take their parameters by value, as before.
@@ -38,6 +42,17 @@
   written. The form of `fn(T)` in a generic function, instantiated with a class for `T`, must equal
   the form of `fn(Order)`, so the convention of a function type could not depend on whether a
   parameter type is a type parameter. Calls through function values keep their copies instead.
+- **A `const` reference to a `wyl::Ref` for a class reference too.** A call that passed `this` had to
+  build a temporary `Ref`. Building the temporary incremented the object's count, and destroying it
+  decremented the count again.
+- **Casting `this` to a `const wyl::Ref&`.** A `Ref` holds only a pointer, but reading a `T*` through
+  a `Ref<T>` breaks the C++ aliasing rules ([basic.lval]/11), and the emitter never produces C++
+  with undefined behavior.
+- **A `BorrowedRef` that is not a `Ref`.** Such a type could have a trivial destructor, so a caller's
+  temporary would need no cleanup when an exception unwinds the call. The runtime has many templates
+  that take a `const Ref<T>&`, and C++ deduces `T` from an argument of a class derived from `Ref<T>`
+  ([temp.deduct.call]/4.3), but not through a conversion. A separate type would need an overload of
+  each of those templates.
 - **Borrowed parameters whose type is a type parameter.** Lowering compiles a generic body once,
   and the body must work when the type argument is a unique struct, which it may move into storage.
 

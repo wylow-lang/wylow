@@ -285,6 +285,8 @@ class Ref {
 
     template <class>
     friend class Ref;
+    template <class>
+    friend class BorrowedRef;
 
     static void Retain(T* p) {
         if (p != nullptr) static_cast<Object*>(p)->Retain();
@@ -355,6 +357,41 @@ public:
     }
 };
 
+// A class reference that a by-value parameter borrows from its caller (decision 0111). A BorrowedRef is
+// a Ref, so every function that takes a Ref takes it, but it never changes the object's count: the
+// caller's value keeps the object alive until the call returns. A BorrowedRef cannot be copied or moved,
+// so C++ rejects any copy that could outlive the call. A copy into a Ref retains as usual.
+template <class T>
+class BorrowedRef : public Ref<T> {
+public:
+    BorrowedRef(T* object) { this->m_Ptr = object; }
+
+    template <class U>
+        requires std::is_convertible_v<U*, T*>
+    BorrowedRef(const Ref<U>& value) {
+        this->m_Ptr = value.Get();
+    }
+
+    BorrowedRef(const BorrowedRef&) = delete;
+    BorrowedRef& operator=(const BorrowedRef&) = delete;
+
+    // Ref's destructor releases whatever m_Ptr holds, so the BorrowedRef clears it first.
+    ~BorrowedRef() { this->m_Ptr = nullptr; }
+};
+
+// The type of a value's copy, for a template that deduces the types of the values it keeps. A
+// BorrowedRef is kept as the Ref it borrows, because the copy may outlive the call.
+template <class T>
+struct OwnedType {
+    using Type = T;
+};
+template <class T>
+struct OwnedType<BorrowedRef<T>> {
+    using Type = Ref<T>;
+};
+template <class T>
+using Owned = typename OwnedType<std::remove_cvref_t<T>>::Type;
+
 // The standard library's Weak<T>, written Weak<Ref<T>> in C++ like any type argument. It keeps the
 // target as a T* too, since a pointer to the virtual base Object cannot be cast back down.
 template <class T>
@@ -411,6 +448,8 @@ template <class T>
 struct IsRef : std::false_type {};
 template <class T>
 struct IsRef<Ref<T>> : std::true_type {};
+template <class T>
+struct IsRef<BorrowedRef<T>> : std::true_type {};
 
 template <class Signature>
 class Function;

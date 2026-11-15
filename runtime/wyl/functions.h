@@ -164,7 +164,7 @@ inline Function<Signature> MakeClosure([[maybe_unused]] bool cyclic, Body, C&&..
     if constexpr (sizeof...(C) == 0) {
         return Function<Signature>(&ClosureCode<Signature, Body, void>::Call, nullptr);
     } else {
-        using Created = Closure<Name, std::remove_cvref_t<C>...>;
+        using Created = Closure<Name, Owned<C>...>;
         auto* created = new Created(std::forward<C>(captures)...);
         created->SetCyclic(cyclic);
         return Function<Signature>(&ClosureCode<Signature, Body, Created>::Call, Ref<Object>::Adopt(created));
@@ -176,7 +176,7 @@ inline Function<Signature> MakeSharedClosure(Body, C&&... captures) {
     if constexpr (sizeof...(C) == 0) {
         return Function<Signature>(&ClosureCode<Signature, Body, void>::Call, nullptr);
     } else {
-        using Created = SharedClosure<Name, std::remove_cvref_t<C>...>;
+        using Created = SharedClosure<Name, Owned<C>...>;
         auto* created = new Created(std::forward<C>(captures)...);
         return Function<Signature>(&SharedClosureCode<Signature, Body, Created>::Call, Ref<Object>::Adopt(created), created);
     }
