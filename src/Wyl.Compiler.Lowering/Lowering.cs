@@ -523,10 +523,10 @@ public sealed partial class IrLowering
             located[element] = read.Method.Symbol.ReturnRefKind != RefKind.None ? IrPlace.Deref(result) : new IrPlace(result);
         }
         int last = shared.Count;
-        var assigned = Argument(write.ParameterType(last), write.ParameterRefKind(last), value);
+        var assigned = Argument(write.ParameterType(last), write.ParameterRefKind(last), ParameterPassing.BorrowsParameter(write, last), value);
         located.Remove(element);
         if (assigned is IrOperand operand && write.ParameterRefKind(last) == RefKind.None && !write.ParameterType(last).IsNullableReference)
-            assigned = Kept(operand, PassedBorrowed(write, last));
+            assigned = Kept(operand, ParameterPassing.BorrowsParameter(write, last));
         Add(DoOf(new IrCall(write, writeReceiver, [.. shared.Select(index => index()), assigned], LocationFor(write, element))));
     }
 
@@ -567,10 +567,10 @@ public sealed partial class IrLowering
             var temporary = new IrPlace(Let(new IrUse(Value(argument))));
             return () => new IrRefArgument(RefKind.In, temporary);
         }
-        var lowered = Argument(type, refKind, argument);
+        var lowered = Argument(type, refKind, ParameterPassing.BorrowsParameter(method, index), argument);
         if (lowered is not IrRead read || refKind != RefKind.None || type.IsNullableReference)
             return () => lowered;
         var evaluated = new IrPlace(Let(new IrUse(read)));
-        return () => Kept(IrRead.Copy(evaluated), PassedBorrowed(method, index));
+        return () => Kept(IrRead.Copy(evaluated), ParameterPassing.BorrowsParameter(method, index));
     }
 }

@@ -144,7 +144,7 @@ public sealed partial class IrLowering
                 IrOperand? direct = null;
                 Into(computed, () =>
                 {
-                    var operand = (IrOperand)Argument(parameter, RefKind.None, call.Arguments[i]);
+                    var operand = (IrOperand)Argument(parameter, RefKind.None, ParameterPassing.BorrowsParameter(method, i), call.Arguments[i]);
                     if (operand is IrConstant)
                         direct = operand;
                     else
@@ -164,7 +164,7 @@ public sealed partial class IrLowering
                 }
                 Add(new IrDeclare(value!) { Origin = at });
                 Add(computed);
-                arguments.Add(Kept(IrRead.Move(new IrPlace(value!)), PassedBorrowed(method, i)));
+                arguments.Add(Kept(IrRead.Move(new IrPlace(value!)), ParameterPassing.BorrowsParameter(method, i)));
             }
             var loc = method.Symbol.PassesLocation ? Loc(call.Location) : null;
             Add(DoOf(new IrCall(method, null, arguments, loc) { IsSuperCall = true }));

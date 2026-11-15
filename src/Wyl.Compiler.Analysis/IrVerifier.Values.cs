@@ -547,7 +547,8 @@ public sealed partial class IrVerifier
             {
                 IrAddrArgument address => type is NullableReferenceType nullable && address.Place.Type == nullable.Referenced && (address.Kind == nullable.Kind || nullable.Kind == RefKind.In),
                 IrRefArgument reference => !type.IsNullableReference && reference.Place.Type == type && (reference.Kind == kind || kind == RefKind.In),
-                IrOperand operand => operand.Type == type || (type is NullableReferenceType nullable && operand.Type is NullableReferenceType passed && passed.Referenced == nullable.Referenced) || PassesFunction(operand.Type, type),
+                IrOperand operand => operand.Type == type || (type is NullableReferenceType nullable && operand.Type is NullableReferenceType passed && passed.Referenced == nullable.Referenced) || PassesFunction(operand.Type, type)
+                    || (operand is IrRead { Ownership: IrOwnership.Borrow } && ParameterPassing.BorrowsArgument(method, i) && Conversions.IsReferenceUpcast(operand.Type, type, root.Symbol)),
                 IrFieldDefault field => i >= method.ReceiverCount && parameters[i - method.ReceiverCount].Field == field.Field,
                 _ => false,
             };

@@ -20,7 +20,12 @@
   would be released, so a call such as `update(game)` changes no reference count.
 - A borrowed parameter of a class reference type is a `const` reference to a `wyl::BorrowedRef`. A
   `BorrowedRef` derives from `wyl::Ref` and never changes the object's count. A caller that passes
-  `this` makes one without a count change. C++ rejects a copy of a `BorrowedRef`, so a copy that
+  `this` makes one without a count change.
+- An argument that converts a reference to one of its supertypes refers to the same object. For a
+  parameter passed borrowed, lowering passes the reference before its conversion, and the verifier
+  accepts a `borrow` argument whose type converts to the parameter's (`Conversions.IsReferenceUpcast`).
+  The caller then makes the `BorrowedRef` of the parameter's type from the subclass's reference
+  without a count change. C++ rejects a copy of a `BorrowedRef`, so a copy that
   could outlive the call fails to compile, and a copy into a `Ref` increments the count as usual.
 - A `mut` parameter is passed borrowed too. The callee copies it into a variable of its own when it
   starts, and releases that variable when it returns.
@@ -42,8 +47,8 @@
   written. The form of `fn(T)` in a generic function, instantiated with a class for `T`, must equal
   the form of `fn(Order)`, so the convention of a function type could not depend on whether a
   parameter type is a type parameter. Calls through function values keep their copies instead.
-- **A `const` reference to a `wyl::Ref` for a class reference too.** A call that passed `this` had to
-  build a temporary `Ref`. Building the temporary incremented the object's count, and destroying it
+- **A `const` reference to a `wyl::Ref` for a class reference too.** A call that passed `this` or a
+  subclass had to build a temporary `Ref` of the parameter's type. Building the temporary incremented the object's count, and destroying it
   decremented the count again.
 - **Casting `this` to a `const wyl::Ref&`.** A `Ref` holds only a pointer, but reading a `T*` through
   a `Ref<T>` breaks the C++ aliasing rules ([basic.lval]/11), and the emitter never produces C++

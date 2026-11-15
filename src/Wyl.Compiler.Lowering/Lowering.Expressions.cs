@@ -218,8 +218,9 @@ public sealed partial class IrLowering
     /// <summary>A by-value receiver, kept for its statement as any by-value argument is, or moved when it is unique.</summary>
     IrArgument ReceiverArgument(MethodReference method, BoundExpression receiver)
     {
-        var argument = Argument(method.ReceiverType, RefKind.None, receiver);
-        return argument is IrOperand operand ? Kept(operand, ParameterPassing.Borrows(method.Symbol, method.Symbol.ReceiverParameter!)) : argument;
+        bool borrowed = ParameterPassing.Borrows(method.Symbol, method.Symbol.ReceiverParameter!);
+        var argument = Argument(method.ReceiverType, RefKind.None, borrowed, receiver);
+        return argument is IrOperand operand ? Kept(operand, borrowed) : argument;
     }
 
     /// <summary>
@@ -252,16 +253,20 @@ public sealed partial class IrLowering
     {
         var lowered = new List<IrArgument>();
         for (int i = 0; i < arguments.Count; i++)
-            lowered.Add(Argument(method.ParameterType(i), method.ParameterRefKind(i), arguments[i]));
+            lowered.Add(Argument(method.ParameterType(i), method.ParameterRefKind(i), ParameterPassing.BorrowsParameter(method, i), arguments[i]));
         for (int i = 0; i < lowered.Count; i++)
         {
             if (lowered[i] is IrOperand operand && method.ParameterRefKind(i) == RefKind.None && !method.ParameterType(i).IsNullableReference)
-                lowered[i] = Kept(operand, PassedBorrowed(method, i));
+                lowered[i] = Kept(operand, ParameterPassing.BorrowsParameter(method, i));
         }
         return lowered;
     }
 
-    IrArgument Argument(WylType parameter, RefKind refKind, BoundExpression argument)
+    /// <summary>
+    /// A call's argument for a parameter of <paramref name="parameter"/>'s type, which the call passes
+    /// <paramref name="borrowed"/> or not.
+    /// </summary>
+    IrArgument Argument(WylType parameter, RefKind refKind, bool borrowed, BoundExpression argument)
     {
         if (argument is BoundFieldDefault field)
             return new IrFieldDefault(field.Field);
@@ -284,11 +289,12 @@ public sealed partial class IrLowering
             return new IrRefArgument(refKind, IsPlace(argument) ? Place(argument, Use.InUse) : new IrPlace(Let(Rvalue(argument, Use.Read))));
         if (parameter.IsRefStruct)
             return ViewOperand(argument, Use.InUse);
+        // An upcast refers to the same object, so a borrowed parameter takes the reference before its
+        // conversion. The caller then holds no converted copy of its own, whose count would change.
+        if (borrowed && argument is BoundConversion { Operand: var original } upcast && Conversions.IsReferenceUpcast(original.Type, upcast.Type, symbol))
+            return Value(original);
         return Value(argument);
     }
-
-    /// <summary>Whether the parameter at <paramref name="index"/> of the called method is passed borrowed.</summary>
-    static bool PassedBorrowed(MethodReference method, int index) => ParameterPassing.Borrows(method.Symbol, method.Symbol.Parameters[index]);
 
     /// <summary>
     /// A by-value argument is a value the statement keeps, so that what it owns is released when the

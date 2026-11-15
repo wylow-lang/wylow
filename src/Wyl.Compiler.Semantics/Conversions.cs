@@ -23,7 +23,14 @@ public static class Conversions
         || (from.IsPointer && to.IsVoidPointer)
         || (from is NullableReferenceType reference && to is NullableReferenceType { Kind: RefKind.In } readOnly && reference.Referenced == readOnly.Referenced)
         || (to.IsNullableValue && from != WylType.Null && !from.IsReference && IsImplicit(from.NonNull, to.NonNull, function))
-        || (from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull, function));
+        || IsReferenceUpcast(from, to, function);
+
+    /// <summary>
+    /// Whether a reference converts to a reference to one of its supertypes, or to the nullable form
+    /// of one. The converted reference refers to the same object, and only its static type changes.
+    /// </summary>
+    public static bool IsReferenceUpcast(WylType from, WylType to, FunctionSymbol? function) =>
+        from.IsReference && to.IsReference && (to.IsNullable || !from.IsNullable) && IsSubtype(from.NonNull, to.NonNull, function);
 
     public static bool IsFunctionConversion(FunctionType from, FunctionType to) =>
         (!to.IsEscaping || from.IsEscaping)

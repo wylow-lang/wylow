@@ -27,4 +27,15 @@ public static class ParameterPassing
         && !parameter.Type.ContainsTypeParameters
         && parameter.Type.IsCopyableIn(null)
         && parameter.Type.MayOwnObjects;
+
+    /// <summary>Whether a call of <paramref name="method"/> passes the parameter at <paramref name="index"/> borrowed.</summary>
+    public static bool BorrowsParameter(MethodReference method, int index) => Borrows(method.Symbol, method.Symbol.Parameters[index]);
+
+    /// <summary>
+    /// Whether a call of <paramref name="method"/> passes its argument at <paramref name="index"/>
+    /// borrowed. A by-value receiver is the first argument, as <see cref="MethodReference.ArgumentType"/> counts it.
+    /// </summary>
+    public static bool BorrowsArgument(MethodReference method, int index) =>
+        index < method.ReceiverCount ? Borrows(method.Symbol, method.Symbol.ReceiverParameter!)
+        : index - method.ReceiverCount < method.Symbol.Parameters.Count && BorrowsParameter(method, index - method.ReceiverCount);
 }
