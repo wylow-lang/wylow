@@ -62,6 +62,7 @@ public sealed partial class CppEmitter
         Line("{");
         indent++;
         EmitParameterReleases(function.Parameters);
+        EmitSpanParameterCopies(function.Parameters);
         // A moved-from or discarded unique struct has no value for its destructor body to run on.
         if (function.Symbol is { IsDestructor: true, ContainingType.Kind: TypeKind.Struct })
         {

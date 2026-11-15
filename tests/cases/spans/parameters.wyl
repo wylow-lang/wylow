@@ -1,0 +1,34 @@
+// A span parameter is read, written through, sliced, captured, and passed on.
+
+int total(ReadOnlySpan<int> values) {
+    mut int sum = 0;
+    for (int v : values) {
+        sum += v;
+    }
+    return sum;
+}
+
+void fill(Span<int> values, int value) {
+    for (ref int v : values) {
+        v = value;
+    }
+}
+
+int process(Span<int> values) {
+    values[0] = 10;
+    fill(values.slice(1, 2), 7);
+    fn() -> int first = () -> values[0];
+    int head = first();
+    Span<int> tail = values.slice(2, 2);
+    tail[1] = 4;
+    return head + tail[0] + total(tail.asReadOnlySpan());
+}
+
+void main() {
+    mut int[4] numbers = [1, 2, 3, 5];
+    std::print(process(numbers));            // output: 28
+    std::print(numbers[0]);                  // output: 10
+    std::print(numbers[1]);                  // output: 7
+    std::print(numbers[2]);                  // output: 7
+    std::print(numbers[3]);                  // output: 4
+}

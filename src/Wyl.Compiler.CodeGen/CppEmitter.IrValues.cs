@@ -317,6 +317,24 @@ public sealed partial class CppEmitter
         }
     }
 
+    /// <summary>
+    /// Copies each span that is passed by value into a local, which the body uses in its place. Some
+    /// ABIs, such as Win64, pass a 16-byte struct as a pointer to the caller's copy. The C++ compiler
+    /// must then assume that a store through the span's elements may change the span itself, and it
+    /// reloads the span's pointer and length after each store. Nothing can point into a local whose
+    /// address the function never gives away, so the compiler keeps the local's fields in registers.
+    /// </summary>
+    void EmitSpanParameterCopies(IEnumerable<IrLocal> parameters)
+    {
+        foreach (var parameter in parameters.Where(p => p.Kind == IrLocalKind.Value && p.RefKind == RefKind.None && stdlib.IsSpan(p.Type)))
+        {
+            var passed = Name(parameter);
+            var local = $"{passed}_{NewTemp()}";
+            Line($"{CppType(parameter.Type)} {local} = {passed};");
+            irNames[parameter] = local;
+        }
+    }
+
     static bool HeldByValue(IrLocal local) => local.Kind == IrLocalKind.Value
         || (local.Kind == IrLocalKind.Reference && local.Type.IsNullableReference);
 

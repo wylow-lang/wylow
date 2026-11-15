@@ -59,6 +59,14 @@ generic method can't be virtual (a C++ virtual function can't be a template).
 
 A `ref?` or `in?` reference is a C++ pointer, null when there is no place.
 
+A function that takes a `Span<T>` or `ReadOnlySpan<T>` by value copies the span into a local when
+it starts, and its body uses the local. The Win64 ABI passes a 16-byte struct as a pointer to a
+copy that the caller made ([x64 calling convention](https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention#parameter-passing)).
+The C++ compiler must then assume that a store through the span's elements may change the span
+itself, so it reloads the span's pointer and length after each store. The function never gives
+away the address of its local, so the C++ compiler keeps the local's pointer and length in
+registers.
+
 ## Objects
 
 Objects are counted with an intrusive (in-object) count, non-atomic for normal classes and atomic for
