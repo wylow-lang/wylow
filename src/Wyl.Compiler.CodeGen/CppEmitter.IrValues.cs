@@ -299,7 +299,7 @@ public sealed partial class CppEmitter
     /// <summary>A lambda's body as a C++ lambda's, printed at the indentation of the statement it is in.</summary>
     string LambdaText(IrFunction lambda, string introducer, IEnumerable<string> leading)
     {
-        var parameters = leading.Concat(lambda.Parameters.Select(p => $"{ParameterType(p.Type, p.RefKind)} {Name(p)}"));
+        var parameters = leading.Concat(lambda.Parameters.Select(p => $"{PassedType(p.Type, p.RefKind, p.Kind == IrLocalKind.Borrowed)} {Name(p)}"));
         var body = IndentedBody(() =>
         {
             EmitParameterReleases(lambda.Parameters);

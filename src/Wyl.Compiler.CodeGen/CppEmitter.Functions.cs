@@ -13,6 +13,9 @@ public sealed partial class CppEmitter
         _ => CppType(type),
     };
 
+    /// <summary>A parameter's C++ type: a <c>const</c> reference to the caller's value for one passed borrowed (spec <c>functions.parameters.modes</c>).</summary>
+    static string PassedType(WylType type, RefKind refKind, bool borrowed) => borrowed ? ConstReferenceType(type) : ParameterType(type, refKind);
+
     static string ReturnType(FunctionSymbol function) => ParameterType(function.ReturnType, function.ReturnRefKind);
 
     string Parameters(FunctionSymbol function) =>

@@ -462,7 +462,7 @@ public sealed partial class CppEmitter
     /// </summary>
     void EmitAbstractStub(FunctionSymbol method)
     {
-        IEnumerable<string> parameters = method.Parameters.Select(p => ParameterType(p.Type, p.RefKind));
+        IEnumerable<string> parameters = method.Parameters.Select(p => PassedType(p.Type, p.RefKind, ParameterPassing.Borrows(method, p)));
         var parameterTypes = string.Join(", ", method.ReturnsHold ? parameters.Append("wyl::Holder&") : parameters);
         var location = SourceLocation(method.Declaration!.NameLocation);
         var message = CppStringLiteral(method.AbstractCallMessage);

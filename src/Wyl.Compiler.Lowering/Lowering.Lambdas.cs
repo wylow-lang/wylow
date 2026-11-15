@@ -41,9 +41,10 @@ public sealed partial class IrLowering
             self = capturedThis;
         loops.Clear();
         foreach (var parameter in made.Parameters)
-            lowered.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter), IrLocalRole.Parameter) { Symbol = parameter, RefKind = parameter.RefKind });
+            lowered.Parameters.Add(ParameterLocal(made, parameter));
         foreach (var (local, copy) in outer.Select(o => o.Local).Zip(lowered.Captures))
             locals[local] = copy;
+        CopyOwnedParameters(lowered.Parameters);
         FunctionBody(lambda.Body);
         foreach (var (local, original) in outer)
             locals[local] = original;

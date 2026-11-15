@@ -280,6 +280,20 @@ public readonly record struct IrPassed(MethodReference Method, IrArgument? Recei
 
 public static class IrWalk
 {
+    /// <summary>
+    /// The locals of a function, its lambdas included, that a reference able to write or a pointer
+    /// may refer into: those a <c>ref</c> argument, <c>ref</c> variable, address, pointer, or span's
+    /// data is taken of. A write through any other reference or pointer cannot reach the function's
+    /// other locals, since nothing outside the function can refer to them.
+    /// </summary>
+    public static HashSet<IrLocal> WritablyReferred(IrFunction function) =>
+    [
+        .. Descendants(function.Body).Select(Rvalue).OfType<IrRvalue>()
+            .SelectMany(value => value is IrData data ? [new IrRefArgument(RefKind.Ref, data.Place)] : Operands(value))
+            .Where(argument => argument is IrRefArgument { Kind: RefKind.Ref } or IrAddrArgument { Kind: RefKind.Ref })
+            .SelectMany(Places).Where(place => !place.IsDeref).Select(place => place.Local),
+    ];
+
     /// <summary>The places an rvalue names directly, in evaluation order: operands, arguments, and what it refers into.</summary>
     public static IEnumerable<IrPlace> Places(IrRvalue value) => Operands(value).SelectMany(Places);
 

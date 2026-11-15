@@ -1,0 +1,88 @@
+// A by-value argument is a temporary of the caller's statement, so a callee passed it borrowed and
+// a callee that copies it release in the same order, and a callee never sees the caller's variable
+// or field change under its parameter.
+import std::collections::List;
+
+class Node {
+    int id;
+
+    Node(int id) {
+        this.id = id;
+    }
+
+    ~Node() {
+        std::print($"released {id}");
+    }
+}
+
+class Holder {
+    mut Node node;
+
+    Holder(Node node) {
+        this.node = node;
+    }
+}
+
+int take(Node node) {
+    std::print($"take {node.id}");
+    return node.id;
+}
+
+int other() {
+    std::print("other");
+    return 0;
+}
+
+int replaceThenRead(Holder holder, Node node) {
+    holder.node = new Node(node.id + 10);
+    std::print($"still {node.id}");
+    return node.id;
+}
+
+int reassign(mut Node node) {
+    node = new Node(node.id + 100);
+    return node.id;
+}
+
+fn() -> int keep(Node node) {
+    return () -> node.id;
+}
+
+int describe(String text, Holder holder) {
+    return text.byteLength() + holder.node.id;
+}
+
+T identity<T>(T value) {
+    return value;
+}
+
+void main() {
+    // A fresh object lives until its statement completes, after the call's later operands.
+    std::print(take(new Node(1)) + other());     // output: take 1
+                                                 // output: other
+                                                 // output: 1
+                                                 // output: released 1
+    // The callee replaces the field it was passed, and still sees the object it was given.
+    var holder = new Holder(new Node(2));
+    std::print(replaceThenRead(holder, holder.node));   // output: still 2
+                                                 // output: 2
+                                                 // output: released 2
+    std::print(holder.node.id);                  // output: 12
+    // A 'mut' parameter is the callee's own copy, released when the callee returns.
+    std::print(reassign(new Node(3)));           // output: released 103
+                                                 // output: 103
+                                                 // output: released 3
+    // What outlives the call copies the parameter.
+    mut Node local = new Node(4);
+    escaping fn() -> int read = keep(local);
+    local = new Node(5);
+    std::print(read());                          // output: 4
+    var list = new List<Node>();
+    list.add(local);
+    std::print(identity(list[0]).id);        // output: 5
+    std::print(describe("ab", holder));          // output: 14
+    // The locals are released last first: the list leaves node 5 to 'local', and the closure holds node 4.
+                                                 // output: released 4
+                                                 // output: released 5
+                                                 // output: released 12
+}

@@ -149,6 +149,9 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>The parameters and return type of a lambda, whose body is a <see cref="BoundLambda"/>'s.</summary>
     public bool IsLambda { get; init; }
 
+    /// <summary>The parameters and return type of a function value that a call invokes, which name no declared function.</summary>
+    public bool IsFunctionValue { get; init; }
+
     /// <summary>A lambda converted to an escaping function type, which copies what it captures.</summary>
     public bool IsEscaping { get; init; }
 

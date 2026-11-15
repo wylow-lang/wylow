@@ -59,6 +59,12 @@ generic method can't be virtual (a C++ virtual function can't be a template).
 
 A `ref?` or `in?` reference is a C++ pointer, null when there is no place.
 
+A by-value parameter that may own an object, such as a class reference or a `String`, is a `const`
+reference to the temporary that the caller keeps until its statement completes
+([0111](decisions/0111-borrowed-parameters.md)). The call then changes no reference count, and the
+callee runs no destructor of its own for the parameter. A lambda and a function value take such a
+parameter by value.
+
 A function that takes a `Span<T>` or `ReadOnlySpan<T>` by value copies the span into a local when
 it starts, and its body uses the local. The Win64 ABI passes a 16-byte struct as a pointer to a
 copy that the caller made ([x64 calling convention](https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention#parameter-passing)).

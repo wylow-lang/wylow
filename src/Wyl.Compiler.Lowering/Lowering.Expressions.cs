@@ -219,7 +219,7 @@ public sealed partial class IrLowering
     IrArgument ReceiverArgument(MethodReference method, BoundExpression receiver)
     {
         var argument = Argument(method.ReceiverType, RefKind.None, receiver);
-        return argument is IrOperand operand ? Kept(operand) : argument;
+        return argument is IrOperand operand ? Kept(operand, ParameterPassing.Borrows(method.Symbol, method.Symbol.ReceiverParameter!)) : argument;
     }
 
     /// <summary>
@@ -256,7 +256,7 @@ public sealed partial class IrLowering
         for (int i = 0; i < lowered.Count; i++)
         {
             if (lowered[i] is IrOperand operand && method.ParameterRefKind(i) == RefKind.None && !method.ParameterType(i).IsNullableReference)
-                lowered[i] = Kept(operand);
+                lowered[i] = Kept(operand, PassedBorrowed(method, i));
         }
         return lowered;
     }
@@ -287,18 +287,23 @@ public sealed partial class IrLowering
         return Value(argument);
     }
 
+    /// <summary>Whether the parameter at <paramref name="index"/> of the called method is passed borrowed.</summary>
+    static bool PassedBorrowed(MethodReference method, int index) => ParameterPassing.Borrows(method.Symbol, method.Symbol.Parameters[index]);
+
     /// <summary>
-    /// A by-value argument is passed as a copy of a value the statement keeps, so that what it owns
-    /// is released when the statement completes, whenever the callee's copy is destroyed (spec
-    /// memory.release).
+    /// A by-value argument is a value the statement keeps, so that what it owns is released when the
+    /// statement completes (spec memory.release.temporaries). A parameter that
+    /// <paramref name="borrowed"/> refers to that value, and any other is passed a copy of it.
     /// </summary>
-    IrOperand Kept(IrOperand operand) => operand switch
+    IrOperand Kept(IrOperand operand, bool borrowed) => operand switch
     {
         // A unique value is the callee's, moved from its place rather than copied for the statement to release.
         IrRead { Ownership: IrOwnership.Borrow } read when Moves(read.Type) => IrRead.Move(read.Place),
         _ when Moves(operand.Type) => operand,
-        IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local.IsTemporary: true } temp } => IrRead.Copy(temp),
-        IrRead read => IrRead.Copy(new IrPlace(Let(new IrUse(IrRead.Copy(read.Place))))),
+        IrRead { Ownership: IrOwnership.Move, Place: { IsDeref: false, Projections.Count: 0, Local.IsTemporary: true } temp } => Passed(temp, borrowed),
+        IrRead read => Passed(new IrPlace(Let(new IrUse(IrRead.Copy(read.Place)))), borrowed),
         _ => operand,
     };
+
+    static IrRead Passed(IrPlace kept, bool borrowed) => borrowed ? IrRead.Borrow(kept) : IrRead.Copy(kept);
 }

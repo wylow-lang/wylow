@@ -102,6 +102,7 @@ public sealed partial class IrVerifier
         {
             verifier.rootDeclarations = verifier.declarationOrder.Count;
             verifier.dependencies.Clear();
+            verifier.writablyReferred = IrWalk.WritablyReferred(function);
             verifier.VerifyFunction(function, function);
         }
         foreach (var lambda in program.Functions.Where(f => f.IsLambda && !verifier.verifiedLambdas.Contains(f)))

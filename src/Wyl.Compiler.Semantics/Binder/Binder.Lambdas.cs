@@ -312,6 +312,7 @@ public sealed partial class Binder
             {
                 // The code behind a C function pointer may be anything (spec interop.callbacks).
                 IsUnsafe = type.IsExtern,
+                IsFunctionValue = true,
             },
             null,
             []);

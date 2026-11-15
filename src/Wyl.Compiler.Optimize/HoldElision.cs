@@ -99,8 +99,8 @@ sealed class HoldElision(Writes writes)
             // A generic value's hold refers to a struct in place, so it can't become an alias.
             if (hold.Borrows || aliasing.MayChange(hold.Place, IrExtent.Of(statements, h).Extent) || (let.Local.Type.IsTypeParameter && IsDereferenced(statements, h, let.Local)))
                 continue;
-            // An alias of a whole local is the local itself.
-            if (hold.Place is { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Value } aliased })
+            // An alias of a whole local, or of a borrowed parameter, is the local itself.
+            if (hold.Place is { IsDeref: false, Projections.Count: 0, Local: { Kind: IrLocalKind.Value or IrLocalKind.Borrowed } aliased })
             {
                 foreach (var place in statements.Skip(h + 1).SelectMany(IrWalk.AllPlaces).Where(p => p.Local == let.Local))
                     place.Local = aliased;

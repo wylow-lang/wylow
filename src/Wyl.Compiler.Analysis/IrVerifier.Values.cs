@@ -10,6 +10,9 @@ public sealed partial class IrVerifier
 {
     /// <summary>What a reference, view, pointer, or borrowed local refers to, which its validity depends on.</summary>
     readonly Dictionary<IrLocal, Dependency> dependencies = [];
+
+    /// <summary>The locals of the function being verified that a writable reference or a pointer may refer into.</summary>
+    HashSet<IrLocal> writablyReferred = [];
     readonly HashSet<IrLocal> borrowingHolds = [];
     readonly Dictionary<IrLocal, IrRvalue> slotObjects = [];
 

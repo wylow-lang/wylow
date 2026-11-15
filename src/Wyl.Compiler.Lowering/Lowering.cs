@@ -44,9 +44,38 @@ public sealed partial class IrLowering
             function.This = self = new IrLocal("this", program.Stdlib.ThisType(owner), IrLocalKind.Value, IrLocalRole.This);
         // A by-value receiver is an ordinary first parameter, which the call passes as an argument.
         if (symbol.ReceiverParameter is { } receiver)
-            function.Parameters.Add(locals[receiver] = new IrLocal(receiver.Name, receiver.Type, KindOf(receiver), IrLocalRole.Parameter) { Symbol = receiver, RefKind = receiver.RefKind });
+            function.Parameters.Add(ParameterLocal(symbol, receiver));
         foreach (var parameter in symbol.Parameters)
-            function.Parameters.Add(locals[parameter] = new IrLocal(parameter.Name, parameter.Type, KindOf(parameter), IrLocalRole.Parameter) { Symbol = parameter, RefKind = parameter.RefKind });
+            function.Parameters.Add(ParameterLocal(symbol, parameter));
+    }
+
+    /// <summary>The <c>mut</c> parameters passed borrowed, each with the variable of its own that the function copies it into first.</summary>
+    readonly List<(IrLocal Variable, IrLocal Parameter)> ownedCopies = [];
+
+    /// <summary>
+    /// The local a parameter is passed in. A parameter passed borrowed is never released, and a
+    /// <c>mut</c> one is copied into a variable of the function's own, which the body uses and the
+    /// function releases (spec <c>functions.parameters.modes</c>).
+    /// </summary>
+    IrLocal ParameterLocal(FunctionSymbol function, LocalSymbol parameter)
+    {
+        bool borrows = ParameterPassing.Borrows(function, parameter);
+        var passed = new IrLocal(parameter.Name, parameter.Type, borrows ? IrLocalKind.Borrowed : KindOf(parameter), IrLocalRole.Parameter) { Symbol = parameter, RefKind = parameter.RefKind };
+        locals[parameter] = passed;
+        if (borrows && parameter.IsMutable)
+        {
+            var variable = new IrLocal(parameter.Name, parameter.Type, IrLocalKind.Value, IrLocalRole.Variable) { Symbol = parameter };
+            locals[parameter] = variable;
+            ownedCopies.Add((variable, passed));
+        }
+        return passed;
+    }
+
+    /// <summary>Copies each borrowed <c>mut</c> parameter of <paramref name="parameters"/> into its variable.</summary>
+    void CopyOwnedParameters(IEnumerable<IrLocal> parameters)
+    {
+        foreach (var (variable, parameter) in ownedCopies.Where(c => parameters.Contains(c.Parameter)))
+            Add(LetOf(variable, new IrUse(IrRead.Copy(new IrPlace(parameter)))));
     }
 
     public static IrProgram Lower(BoundProgram program)
@@ -138,7 +167,16 @@ public sealed partial class IrLowering
         function.HasLocationParameter = symbol.PassesLocation;
         var statements = bound.Body.Statements;
         if (symbol.IsConstructor)
+        {
+            // The base constructor's arguments run before the body, where nothing has assigned a
+            // copied parameter yet, so they read what was passed.
+            foreach (var (_, parameter) in ownedCopies)
+                locals[parameter.Symbol!] = parameter;
             statements = ConstructorStart(statements);
+            foreach (var (variable, parameter) in ownedCopies)
+                locals[parameter.Symbol!] = variable;
+        }
+        CopyOwnedParameters(function.Parameters);
         FunctionBody(statements);
         return function;
     }
@@ -488,7 +526,7 @@ public sealed partial class IrLowering
         var assigned = Argument(write.ParameterType(last), write.ParameterRefKind(last), value);
         located.Remove(element);
         if (assigned is IrOperand operand && write.ParameterRefKind(last) == RefKind.None && !write.ParameterType(last).IsNullableReference)
-            assigned = Kept(operand);
+            assigned = Kept(operand, PassedBorrowed(write, last));
         Add(DoOf(new IrCall(write, writeReceiver, [.. shared.Select(index => index()), assigned], LocationFor(write, element))));
     }
 
@@ -533,6 +571,6 @@ public sealed partial class IrLowering
         if (lowered is not IrRead read || refKind != RefKind.None || type.IsNullableReference)
             return () => lowered;
         var evaluated = new IrPlace(Let(new IrUse(read)));
-        return () => Kept(IrRead.Copy(evaluated));
+        return () => Kept(IrRead.Copy(evaluated), PassedBorrowed(method, index));
     }
 }

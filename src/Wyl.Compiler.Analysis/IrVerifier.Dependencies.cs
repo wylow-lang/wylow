@@ -142,12 +142,20 @@ public sealed partial class IrVerifier
             return "it points into a Borrowable that isn't borrowed, and code that may change its length runs";
         if (dependency.Target is not { } target)
             return null;
-        if (dependency.Alias && (writes.Any(target.Overlaps) || CodeWrites(target, effects, state)))
+        var reaching = writes.Where(w => Reaches(w, target)).ToList();
+        if (dependency.Alias && (reaching.Any(target.Overlaps) || CodeWrites(target, effects, state)))
             return "the place it borrows may be written";
-        if (!dependency.Alias && (writes.Any(w => w.Destroys(target)) || (target.IsDestructible && CodeWrites(target, effects, state))))
+        if (!dependency.Alias && (reaching.Any(w => w.Destroys(target)) || (target.IsDestructible && CodeWrites(target, effects, state))))
             return ReplacedNullable;
         return null;
     }
+
+    /// <summary>
+    /// Whether a write may reach the target at all: a write through a reference or pointer reaches a
+    /// local of the function only if a writable reference or pointer may refer into that local.
+    /// </summary>
+    bool Reaches(IrAccess write, IrAccess target) =>
+        !(target is { Storage: IrStorage.Frame, Local: { } local } && write.Storage is IrStorage.Unknown or IrStorage.Element && !writablyReferred.Contains(local));
 
     bool Visible(IrLocal local) => local.Role == IrLocalRole.Static || scopes.Any(s => s.Contains(local));
 

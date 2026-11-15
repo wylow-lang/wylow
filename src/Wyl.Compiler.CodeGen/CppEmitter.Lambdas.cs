@@ -65,7 +65,7 @@ public sealed partial class CppEmitter
     string ParameterDeclaration(FunctionSymbol function, LocalSymbol parameter, WylType type) =>
         type.IsNonEscapingFunction && TakesCallables(function)
             ? $"const {CallableTypeName(parameter)}& {LocalName(parameter)}"
-            : $"{ParameterType(type, parameter.RefKind)} {LocalName(parameter)}";
+            : $"{PassedType(type, parameter.RefKind, ParameterPassing.Borrows(function, parameter))} {LocalName(parameter)}";
 
     static string FunctionSignature(FunctionType type) =>
         $"{CppType(type.ReturnType)}({string.Join(", ", type.Parameters.Select(p => ParameterType(p.Type, p.RefKind)))})";

@@ -164,7 +164,7 @@ public sealed partial class IrLowering
                 }
                 Add(new IrDeclare(value!) { Origin = at });
                 Add(computed);
-                arguments.Add(Kept(IrRead.Move(new IrPlace(value!))));
+                arguments.Add(Kept(IrRead.Move(new IrPlace(value!)), PassedBorrowed(method, i)));
             }
             var loc = method.Symbol.PassesLocation ? Loc(call.Location) : null;
             Add(DoOf(new IrCall(method, null, arguments, loc) { IsSuperCall = true }));

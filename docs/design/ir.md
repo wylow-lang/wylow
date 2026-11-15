@@ -105,6 +105,7 @@ Some notes on the choices:
 | `let %t = rvalue` (value) | `auto tN = ...;`, or nested into its single use (§5.1) |
 | `let %r = ref P` / `addr P` | `auto& tN = P;` / `T* tN = &P;` |
 | borrowed local | `const T& x = P;` |
+| borrowed parameter | `const T& x`, which the callee never releases |
 | `let %h = hold P` / `hold.borrow P` | `auto tN = wyl::Pin(P);` / `auto tN = wyl::MakeBorrow(P);` |
 | `store P = v` | `P = v` or `wyl::Assign(P, v)`, as `StoreText` decides today |
 | `check.index i, n @loc` + `a[i]` | `wyl::At(a, i, loc)` when adjacent, else a check call and `a[i]` |
@@ -123,10 +124,15 @@ fully specified, and is the order the spec now requires ([When values are releas
 statement's temporaries are declared in the statement's scope; a temporary of an operand that may
 not be evaluated is declared in that operand's block, so it is released when the operand completes.
 Today a by-value parameter's destruction point is ABI-dependent, which is why `wyl::Keep` exists.
-In the IR, lowering passes every by-value argument of a copyable type as `copy %t`, where `%t`
-belongs to the statement's scope; an argument of a unique type is `move %local`, which the callee
-owns. That is the same guarantee, made explicit; `ReadsInPlace` passes `%t` itself where its
-release runs no code.
+In the IR, lowering passes every by-value argument of a copyable type as a temporary `%t` of the
+statement's scope; an argument of a unique type is `move %local`, which the callee owns. That is the
+same guarantee, made explicit. A parameter that `ParameterPassing.Borrows` passes borrowed has the
+`borrowed` kind and is given `borrow %t`
+([0111](decisions/0111-borrowed-parameters.md)). Since `%t` outlives the call, no program can
+tell that the callee takes no copy of its own. Any other by-value parameter is given `copy %t`, and
+`ReadsInPlace` passes `%t` itself where its release runs no code, or passes the place `%t` copied
+where nothing changes the place while `%t` matters. A `mut` parameter passed borrowed is copied into
+a variable of the callee's own when the callee starts.
 
 ## 4. Where it sits
 
