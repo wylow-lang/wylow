@@ -1,8 +1,8 @@
 // The types x contexts matrix: each kind of type crossed with where it can appear. A type is a
 // struct, class, enum with data, nullable value or reference, fixed array, escaping or non-escaping
 // function, C function pointer, pointer, `void*`, generic instantiation, nint, a nesting of two, or a value kind programs compute with
-// (String, double, long). A context is a local, field, parameter, return, type argument, element,
-// capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
+// (String, double, long). A context is a local, an `in` local referring to one, a field, parameter,
+// return, type argument, element, capture, `==`, default value, an overload, a field a struct pattern binds, a switch with
 // `case null`, a field a guarded case binds, an argument of `super(...)` and `this(...)`, or a field
 // of a `ref struct`, where a function type is non-escaping. Each cell makes a value and shows something about
 // it, so the snapshot records what the type does in that place; a cell the spec refuses records the
@@ -12,7 +12,7 @@ static class MatrixTypes
 {
     static readonly string[] Contexts =
     [
-        "local", "field", "parameter", "return", "type-argument", "element", "capture", "equality", "default", "overloads",
+        "local", "in-local", "field", "parameter", "return", "type-argument", "element", "capture", "equality", "default", "overloads",
         "struct-pattern", "case-null", "guarded", "constructor-call", "ref-struct-field",
     ];
 
@@ -207,6 +207,12 @@ static class MatrixTypes
                     main.Add("value = null;");
                     main.Add(row.Show("value"));
                 }
+                return Wrap(main);
+
+            case "in-local":
+                main.Add(row.Declare("value", row.First));
+                main.Add($"in {row.ParameterType} alias = value;");
+                main.Add(row.Show("alias"));
                 return Wrap(main);
 
             case "field":

@@ -5,6 +5,10 @@
 out 3
 exit 0
 
+=== struct/in-local
+out 3
+exit 0
+
 === struct/field
 out 3
 out 7
@@ -75,6 +79,10 @@ exit 0
 out 3
 exit 0
 
+=== unique/in-local
+out 3
+exit 0
+
 === unique/field
 out 3
 out 7
@@ -141,6 +149,11 @@ exit 0
 error 39: struct 'View' has a field of unique type 'Unique'
 
 === unique-destructor/local
+out 3
+out tracked 3
+exit 0
+
+=== unique-destructor/in-local
 out 3
 out tracked 3
 exit 0
@@ -236,6 +249,10 @@ error 41: struct 'View' has a field of unique type 'Tracked'
 out 3
 exit 0
 
+=== class/in-local
+out 3
+exit 0
+
 === class/field
 out 3
 out 7
@@ -302,6 +319,10 @@ out 3
 exit 0
 
 === shared-class/local
+out 3
+exit 0
+
+=== shared-class/in-local
 out 3
 exit 0
 
@@ -374,6 +395,10 @@ exit 0
 out 3
 exit 0
 
+=== enum/in-local
+out 3
+exit 0
+
 === enum/field
 out 3
 out 7
@@ -442,6 +467,10 @@ exit 0
 === nullable-value/local
 out 3
 out -1
+exit 0
+
+=== nullable-value/in-local
+out 3
 exit 0
 
 === nullable-value/field
@@ -526,6 +555,10 @@ out 3
 out -1
 exit 0
 
+=== nullable-reference/in-local
+out 3
+exit 0
+
 === nullable-reference/field
 out 3
 out -1
@@ -607,6 +640,10 @@ exit 0
 out 3
 exit 0
 
+=== fixed-array/in-local
+out 3
+exit 0
+
 === fixed-array/field
 out 3
 out 7
@@ -677,6 +714,10 @@ exit 0
 out 3
 exit 0
 
+=== function-escaping/in-local
+error 37: 'in' variable cannot be declared 'escaping'
+error 37: 'in' cannot be used with type 'fn() -> int'
+
 === function-escaping/field
 out 3
 out 7
@@ -743,6 +784,9 @@ exit 0
 out 3
 exit 0
 
+=== function-nonescaping/in-local
+error 37: 'in' cannot be used with type 'fn() -> int'
+
 === function-nonescaping/field
 error 39: non-escaping parameter 'value' cannot be stored or returned
 error 48: non-escaping variable 'other' cannot be stored or returned
@@ -798,6 +842,10 @@ exit 0
 === function-shared-escaping/local
 out 3
 exit 0
+
+=== function-shared-escaping/in-local
+error 37: 'in' variable cannot be declared 'escaping'
+error 37: 'in' cannot be used with type 'shared fn() -> int'
 
 === function-shared-escaping/field
 out 3
@@ -865,6 +913,9 @@ exit 0
 out 3
 exit 0
 
+=== function-shared-nonescaping/in-local
+error 37: 'in' cannot be used with type 'shared fn() -> int'
+
 === function-shared-nonescaping/field
 error 39: non-escaping parameter 'value' cannot be stored or returned
 error 48: non-escaping variable 'other' cannot be stored or returned
@@ -920,6 +971,9 @@ exit 0
 === function-extern/local
 out 3
 exit 0
+
+=== function-extern/in-local
+error 42: 'in' cannot be used with type 'extern fn() -> int'
 
 === function-extern/field
 out 3
@@ -984,6 +1038,10 @@ out 3
 exit 0
 
 === pointer/local
+out 3
+exit 0
+
+=== pointer/in-local
 out 3
 exit 0
 
@@ -1055,6 +1113,10 @@ exit 0
 out 3
 exit 0
 
+=== void-pointer/in-local
+out 3
+exit 0
+
 === void-pointer/field
 out 3
 out 7
@@ -1120,6 +1182,10 @@ out 3
 exit 0
 
 === generic/local
+out 3
+exit 0
+
+=== generic/in-local
 out 3
 exit 0
 
@@ -1193,6 +1259,10 @@ exit 0
 out 3
 exit 0
 
+=== nint/in-local
+out 3
+exit 0
+
 === nint/field
 out 3
 out 7
@@ -1263,6 +1333,10 @@ exit 0
 out 3
 exit 0
 
+=== nested/in-local
+out 3
+exit 0
+
 === nested/field
 out 3
 out 7
@@ -1330,6 +1404,13 @@ out 3
 exit 0
 
 === string-empty/local
+out
+out 0
+out 0
+out true
+exit 0
+
+=== string-empty/in-local
 out
 out 0
 out 0
@@ -1463,6 +1544,13 @@ out 1
 out false
 exit 0
 
+=== string-one/in-local
+out é
+out 2
+out 1
+out false
+exit 0
+
 === string-one/field
 out é
 out 2
@@ -1584,6 +1672,13 @@ out false
 exit 0
 
 === string-multibyte/local
+out héllo
+out 6
+out 5
+out false
+exit 0
+
+=== string-multibyte/in-local
 out héllo
 out 6
 out 5
@@ -1717,6 +1812,13 @@ out 5
 out false
 exit 0
 
+=== string-concat/in-local
+out ab1cd
+out 5
+out 5
+out false
+exit 0
+
 === string-concat/field
 out ab1cd
 out 5
@@ -1842,6 +1944,11 @@ out -0.0
 out -0.0
 exit 0
 
+=== double/in-local
+out -0.0
+out -0.0
+exit 0
+
 === double/field
 out -0.0
 out -0.0
@@ -1930,6 +2037,10 @@ exit 0
 out 0.30000000000000004
 exit 0
 
+=== double-inexact/in-local
+out 0.30000000000000004
+exit 0
+
 === double-inexact/field
 out 0.30000000000000004
 out 0.3
@@ -1997,6 +2108,10 @@ out 0.30000000000000004
 exit 0
 
 === long/local
+out 2147483648
+exit 0
+
+=== long/in-local
 out 2147483648
 exit 0
 

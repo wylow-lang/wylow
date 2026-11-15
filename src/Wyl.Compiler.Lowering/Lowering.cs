@@ -349,7 +349,8 @@ public sealed partial class IrLowering
         // A reference or view, and the holds of what it points into, last for the local's scope.
         if (symbol.RefKind != RefKind.None || symbol.Type.IsNullableReference || symbol.Type.IsRefStruct)
         {
-            var value = symbol.Type.IsRefStruct ? Rvalue(initializer!, Use.Scope) : ReferenceTo(initializer!, symbol);
+            // A reference to a view refers to the view's place, as any reference does.
+            var value = symbol.RefKind == RefKind.None && symbol.Type.IsRefStruct ? Rvalue(initializer!, Use.Scope) : ReferenceTo(initializer!, symbol);
             Add(LetOf(Declare(symbol), value));
             return;
         }

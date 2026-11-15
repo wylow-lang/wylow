@@ -1,0 +1,22 @@
+// A reference to a view cannot make the view refer to anything else, and cannot outlive it.
+
+ref struct Cursor {
+    int position;
+    int* data;
+}
+
+void reset(ref Cursor cursor) {
+    cursor = Cursor(position: 0, data: null);   // error[WYL0417]: cannot reassign 'cursor'
+}
+
+void main() {
+    mut int[2] first = [1, 2];
+    mut int[2] second = [3, 4];
+    mut Span<int> view = first;
+    ref Span<int> alias = view;
+    alias = second;                             // error[WYL0417]: cannot reassign 'alias'
+    mut Cursor cursor = Cursor(position: 3, data: null);
+    ref Cursor other = cursor;
+    other = Cursor(position: 1, data: null);    // error[WYL0417]: cannot reassign 'other'
+    escaping fn() -> int read = () -> alias[0]; // error[WYL0273]: escaping lambda cannot capture 'alias'
+}

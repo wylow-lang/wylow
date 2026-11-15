@@ -1,0 +1,40 @@
+// An 'in' or 'ref' local refers to a view, a span or a user's 'ref struct', as it refers to any
+// other local.
+
+ref struct Cursor {
+    int position;
+    int* data;
+}
+
+void advance(ref Cursor cursor) {
+    cursor.position += 1;
+}
+
+int first(in Span<int> values) {
+    return values[0];
+}
+
+void main() {
+    mut int[3] numbers = [1, 2, 3];
+    Span<int> view = numbers;
+    in Span<int> whole = view;
+    std::print(whole[1]);                    // output: 2
+    std::print(first(whole));                // output: 1
+    mut Span<int> writable = numbers;
+    ref Span<int> alias = writable;
+    alias[0] = 9;
+    std::print(numbers[0]);                  // output: 9
+    std::print(alias.length());              // output: 3
+
+    ReadOnlySpan<int> readOnly = view.asReadOnlySpan();
+    in ReadOnlySpan<int> readOnlyAlias = readOnly;
+    std::print(readOnlyAlias[2]);            // output: 3
+
+    mut Cursor cursor = Cursor(position: 3, data: null);
+    ref Cursor moving = cursor;
+    moving.position += 1;
+    advance(ref moving);
+    std::print(cursor.position);             // output: 5
+    in Cursor reading = cursor;
+    std::print(reading.position);            // output: 5
+}
