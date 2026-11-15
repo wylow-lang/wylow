@@ -7,10 +7,12 @@ namespace Wyl.Compiler.Lowering;
 /// <summary>
 /// The value of each static whose initializer the compiler can compute without running code. A
 /// constant is a literal of a scalar type, a constant static of the same type, an integer sum,
-/// difference, product, negation, or conversion of constants whose exact result fits its type, or
-/// a fixed array of scalar constants. A static without an initializer is constant if its type is
-/// scalar or a fixed array of a scalar type. A result that does not fit leaves the static to its
-/// initializer, which panics or wraps at run time as the build mode says.
+/// difference, product, negation, or conversion of constants whose exact result fits its type, a
+/// floating-point sum, difference, product, quotient, or negation of constants whose result is
+/// finite, or a fixed array of scalar constants. A static without an initializer is constant if its
+/// type is scalar or a fixed array of a scalar type. An integer result that does not fit leaves the
+/// static to its initializer, which panics or wraps at run time as the build mode says. A result that
+/// is not finite also stays in the initializer, because the C++ has no literal for it.
 /// </summary>
 sealed class StaticConstants
 {
@@ -78,6 +80,19 @@ sealed class StaticConstants
                 return Integer(conversion.Operand) is { } converted ? Fitted(conversion.Type, converted) : null;
             case BoundUnary { Operator: BoundUnaryOperator.Negate, Type.IsInteger: true } unary:
                 return Integer(unary.Operand) is { } negated ? Fitted(unary.Type, -negated) : null;
+            case BoundUnary { Operator: BoundUnaryOperator.Negate, Type.IsFloatingPoint: true } unary:
+                return Scalar(unary.Operand) is { } operand && operand.Type == unary.Type
+                    ? Finite(unary.Type, operand.Value switch { float f => -f, double d => (object)-d, _ => null })
+                    : null;
+            case BoundBinary { Type.IsFloatingPoint: true } binary when binary.Left.Type == binary.Type && binary.Right.Type == binary.Type:
+                if (Scalar(binary.Left) is not { } a || Scalar(binary.Right) is not { } b)
+                    return null;
+                return Finite(binary.Type, (a.Value, b.Value) switch
+                {
+                    (float x, float y) => Floating(binary.Operator, x, y),
+                    (double x, double y) => Floating(binary.Operator, x, y),
+                    _ => null,
+                });
             case BoundBinary { Type.IsInteger: true } binary when binary.Left.Type == binary.Type && binary.Right.Type == binary.Type:
                 if (Integer(binary.Left) is not { } left || Integer(binary.Right) is not { } right)
                     return null;
@@ -92,6 +107,26 @@ sealed class StaticConstants
                 return null;
         }
     }
+
+    /// <summary>
+    /// The IEEE 754 result of the operation in the operands' own precision: C# rounds a <c>float</c>
+    /// operation to <c>float</c>, as the C++ does.
+    /// </summary>
+    static object? Floating<T>(BoundBinaryOperator op, T x, T y) where T : System.Numerics.IFloatingPointIeee754<T> => op switch
+    {
+        BoundBinaryOperator.Add => x + y,
+        BoundBinaryOperator.Subtract => x - y,
+        BoundBinaryOperator.Multiply => x * y,
+        BoundBinaryOperator.Divide => x / y,
+        _ => null,
+    };
+
+    static IrConstant? Finite(WylType type, object? value) => value switch
+    {
+        float f when float.IsFinite(f) => new IrConstant(type, f),
+        double d when double.IsFinite(d) => new IrConstant(type, d),
+        _ => null,
+    };
 
     Int128? Integer(BoundExpression expression) =>
         expression.Type.IsInteger && Scalar(expression) is { } constant

@@ -499,12 +499,13 @@ list once, in that order, so the emitter and the interpreter cannot disagree abo
 holds its storage. A constant static's entry also holds its value, and every other entry holds its
 initializer and the symbol of its ensure call.
 
-`StaticConstants` decides which statics are constant
-([0109](decisions/0109-constant-statics.md)). A constant static's value is made only of constants:
-an `IrConstant` of a scalar type, an `IrArray` whose elements are such constants, or an
-`IrDefault` of a fixed array of a scalar type. The compiler computes the value from literals, from other constant statics, and from
-integer `+`, `-`, `*`, negation, and conversion whose exact result fits its type on every target.
-No program can observe when a constant static gets its value, so a read of one is a read of its
+`StaticConstants` decides which statics are constant ([0109](decisions/0109-constant-statics.md),
+[0110](decisions/0110-floating-point-constant-statics.md)). A constant static's value is made only
+of constants: an `IrConstant` of a scalar type, an `IrArray` whose elements are such constants, or
+an `IrDefault` of a fixed array of a scalar type. The compiler computes the value from literals and
+from other constant statics. It also computes integer `+`, `-`, `*`, negation, and conversion whose
+exact result fits its type on every target, and floating-point `+`, `-`, `*`, `/`, and negation
+whose result is finite. No program can observe when a constant static gets its value, so a read of one is a read of its
 place with no ensure call before it.
 
 An initializer is an ordinary lowered function with no parameters that returns the static's value;

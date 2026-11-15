@@ -137,3 +137,4 @@ history and a reason can be found without searching the spec.
 | [0107](0107-start-thread.md) | A thread starts with `threading::startThread`, not a free `spawn` |
 | [0108](0108-native-object-cache.md) | A native object is cached per user, by the compile's inputs |
 | [0109](0109-constant-statics.md) | A static whose value the compiler can compute is a `constexpr` constant, with no initializer or ensure |
+| [0110](0110-floating-point-constant-statics.md) | Floating-point arithmetic of constants with a finite result makes a constant static |

@@ -1,0 +1,34 @@
+// Floating-point statics whose values the compiler computes, each compared with the same
+// computation at run time.
+
+class Ratios {
+    static double THIRD = 1.0 / 3.0;
+    static double SUM = 0.1 + 0.2;
+    static float BIG = 16777216.0f;
+    static float NEXT = BIG + 1.0f;
+    static double NEXT_WIDE = 16777216.0 + 1.0;
+    static float HALF = 0.5f;
+    static float NEGATIVE = -HALF * 3.0f;
+    static double INFINITE = 1.0 / 0.0;
+    static double UNDEFINED = 0.0 / 0.0;
+    static float[3] STEPS = [HALF, HALF * HALF, 1.0f / 3.0f];
+}
+
+void main() {
+    double one = 1.0;
+    double three = 3.0;
+    std::print(Ratios.THIRD == one / three); // output: true
+    std::print(Ratios.SUM);                  // output: 0.30000000000000004
+    float big = 16777216.0f;
+    // A float sum rounds to float, so adding 1 to 2^24 leaves it unchanged.
+    std::print(Ratios.NEXT == big + 1.0f);   // output: true
+    std::print(Ratios.NEXT == big);          // output: true
+    std::print(Ratios.NEXT_WIDE);            // output: 16777217.0
+    std::print(Ratios.NEGATIVE);             // output: -1.5
+    std::print(Ratios.INFINITE > 1.0e308);   // output: true
+    std::print(Ratios.UNDEFINED == Ratios.UNDEFINED); // output: false
+    float a = 1.0f;
+    float b = 3.0f;
+    std::print(Ratios.STEPS[2] == a / b);    // output: true
+    std::print(Ratios.STEPS[1]);             // output: 0.25
+}
