@@ -76,6 +76,11 @@ void main() {
     std::print($"no holes {{}}");                                        // output: no holes {}
     std::print($"");                                                     // output:
 
+    // A text's length counts every byte of its characters, including a zero byte.
+    std::print($"é{1}ü");                                                // output: é1ü
+    String withZero = $"a\0b{42}é";
+    std::print(withZero.byteLength());                                   // output: 7
+
     // Nullable values are written as their value or null.
     int? none = null;
     int? some = 4;

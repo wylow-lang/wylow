@@ -163,7 +163,9 @@ public sealed partial class CppEmitter
         var texts = new List<string>();
         for (int i = 0; i < arguments.Count; i++)
         {
-            if (arguments[i] is not IrFieldDefault)
+            if (arguments[i] is IrConstant { Value: string text } && method.Symbol.TakesStringLiterals)
+                texts.Add(CppStringLiteral(text));
+            else if (arguments[i] is not IrFieldDefault)
                 texts.Add(FunctionArgument(method, i, ArgumentText(arguments[i])));
         }
         if (loc is not null)

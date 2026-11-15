@@ -150,7 +150,10 @@ public:
     StringBuffer& operator=(const StringBuffer&) = delete;
     ~StringBuffer() { ::operator delete(m_Block); }
 
-    void Append(const char* bytes, size_t count, const char* location) {
+    // The Append overloads that copy bytes or format a value stay out of line. Each interpolation
+    // is its own instantiation that calls Append once per part, so inlining them would copy their
+    // code into every part of every interpolation. Inlining either kind alone keeps most of that.
+    WYL_NOINLINE void Append(const char* bytes, size_t count, const char* location) {
         // An empty buffer has no block to point into.
         if (count == 0) return;
         if (count > static_cast<size_t>(INT32_MAX) - m_Length) RaisePanic("string is too long", location);
@@ -164,6 +167,13 @@ public:
         Append(value.Data(), static_cast<size_t>(value.Length()), location);
     }
 
+    // A string constant, which the emitter passes as a C++ literal. The length comes from the array's
+    // size, not from searching for the terminator, because a constant may contain a zero byte.
+    template <size_t N>
+    void Append(const char (&bytes)[N], const char* location) {
+        Append(bytes, N - 1, location);
+    }
+
     template <class T>
     void Append(const Optional<T>& value, const char* location) {
         if (value.HasValue()) {
@@ -175,13 +185,13 @@ public:
 
     template <class T>
         requires requires(FormatBuffer& buffer, T value) { Format(buffer, value); }
-    void Append(T value, const char* location) {
+    WYL_NOINLINE void Append(T value, const char* location) {
         FormatBuffer buffer;
         Append(buffer, Format(buffer, value), location);
     }
 
     template <class T>
-    void Append(const Formatted<T>& value, const char* location) {
+    WYL_NOINLINE void Append(const Formatted<T>& value, const char* location) {
         size_t start = m_Length;
         AppendSpecified(value.Value, value.Kind, value.Precision, location);
         if (value.Alignment != 0) Pad(start, value.Alignment, location);

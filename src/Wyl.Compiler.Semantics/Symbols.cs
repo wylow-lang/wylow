@@ -175,6 +175,12 @@ public sealed class FunctionSymbol(string name, IReadOnlyList<LocalSymbol> param
     /// <summary>The C++ call gets the call site's source location appended, for panic messages.</summary>
     public bool PassesLocation { get; init; }
 
+    /// <summary>
+    /// The C++ function takes a string constant argument as a C++ string literal. The call then builds
+    /// no <c>wyl::String</c> for the constant, so no destructor runs for it.
+    /// </summary>
+    public bool TakesStringLiterals { get; init; }
+
     public bool IsBuiltin => BuiltinCppName is not null;
 
     /// <summary>Declared without a body in an extern block, so that C++ provides it (spec <c>interop.extern</c>).</summary>
@@ -631,6 +637,7 @@ public static class Builtins
         {
             BuiltinCppName = "wyl::Interpolate",
             PassesLocation = true,
+            TakesStringLiterals = true,
         };
 
     /// <summary>
