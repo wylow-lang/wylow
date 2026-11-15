@@ -301,7 +301,7 @@ public sealed partial class CppEmitter
             // expression that made the value instead, which is not that object: a copy prints the
             // place it copied (so the use would reach the original), a move prints an xvalue no
             // place takes, and a construction prints a value with no storage.
-            bool placeUse = nestable is TemporaryUse { TakesPlace: true };
+            bool placeUse = nestable is TemporaryUse { TakesPlace: true } && !BindsPlace(candidate);
             // A copied argument is a value whose release may be observable even when what it copies
             // only moved: nesting prints it as the keep temporary, released with the C++ statement.
             bool createsOwner = tree.CreatesOwner || nestable is TemporaryUse { CopiesOwner: true };
@@ -329,6 +329,16 @@ public sealed partial class CppEmitter
         }
         return (frontier, own);
     }
+
+    /// <summary>
+    /// Whether the statement binds a borrowed local to an object reference's place. Nesting prints the
+    /// place itself, which names the same <c>wyl::Ref</c> object that the local's C++ reference would
+    /// name, so a use that needs the object itself may take it. A whole <c>this</c> is excluded,
+    /// because its C++ text makes a new <c>wyl::Ref</c>.
+    /// </summary>
+    static bool BindsPlace(IrStatement statement) =>
+        statement is IrLet { Local: { Kind: IrLocalKind.Borrowed, Type.IsReference: true }, Value: IrUse { Operand: IrRead { Ownership: IrOwnership.Borrow, Place: var place } } }
+        && place is not { IsDeref: false, Projections.Count: 0, Local.IsThis: true };
 
     bool Defines(IrStatement statement, IrLocal local) => statement switch
     {

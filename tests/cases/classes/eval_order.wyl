@@ -1,5 +1,9 @@
 class Box {
     mut int x = 1;
+
+    int plus(int n) {
+        return x + n;
+    }
 }
 
 int bump(Box b) {
@@ -36,4 +40,10 @@ void main() {
     h.box.x = replace(h).x + 1;
     std::print(old.x);              // output: 51
     std::print(h.box.x);            // output: 50
+
+    // A call's receiver is evaluated before its arguments, so the call reaches the box they replace.
+    var other = new Holder();
+    std::print(other.box.plus(replace(other).x));  // output: 51
+    // With nothing to replace it, a field receiver is used where it is.
+    std::print(other.box.plus(2));  // output: 52
 }
