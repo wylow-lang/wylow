@@ -148,7 +148,8 @@ public sealed partial class CppEmitter
         var address = instance ? $"wyl::interop::MemberAddress<D>(&{owner}::{cppName})" : $"wyl::interop::Address<D>({cppName})";
         var returned = function.ReturnedInteger ?? function.ReturnType;
         var result = returned == WylType.Void ? "void" : CppType(returned);
-        var declared = function.Parameters.Select(p => BoundaryCppType(BoundaryType(p.Type))).Prepend(returned == WylType.Void ? "void" : BoundaryCppType(returned));
+        var declaredResult = returned == WylType.Void ? "void" : BoundaryCppType(returned);
+        var declared = function.Parameters.Select(p => BoundaryCppType(BoundaryType(p.Type))).Prepend(declaredResult);
 
         // A using-declaration names every declaration of a free function, so a name that C++ does not
         // declare is an error here with every compiler, whether or not anything calls it.
@@ -188,7 +189,10 @@ public sealed partial class CppEmitter
         Line("    }");
         Line("    else");
         Line("    {");
-        Line($"        {Returned(result, $"{target}({string.Join(", ", values.Select(v => $"wyl::interop::Pass<D>({v})"))})")}");
+        var selected = $"{target}({string.Join(", ", values.Select(v => $"wyl::interop::Pass<D>({v})"))})";
+        Line($"        static_assert(wyl::interop::ResultMatches<{declaredResult}, decltype({selected})>(), \"{CppInterop.CheckMessage(interopChecks.Count)}\");");
+        interopChecks.Add(new InteropCheck(Catalog.SignatureMismatch(at, function.Name, QualifiedCppName(function), $"return type '{function.ReturnType}'"), interopRegions.Count));
+        Line($"        {Returned(result, selected)}");
         Line("    }");
         Line("}");
     }

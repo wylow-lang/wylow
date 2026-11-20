@@ -1,0 +1,12 @@
+// native
+// A C++ name with more than one declaration uses the declaration that the declared argument types
+// select, and the result of that declaration must match the declared return type (spec
+// interop.signatures). The 'abs(int)' declaration of <stdlib.h> returns an int, not a long.
+@Include("<stdlib.h>")
+extern {
+    @Safe long abs(int value);                  // error[WYL0510]: return type 'long' of 'abs' does not match the C++ function 'abs'
+}
+
+void main() {
+    std::print(abs(-5));
+}

@@ -204,7 +204,8 @@ enum has the integer's value ([Integer representations](09-enums.md#enums.repr))
 
 The compiler does not compare the signature of a C++ name that has more than one declaration, such
 as an overloaded function. A call of such a name uses the declaration that the extern declaration's
-types select.
+types select. The compiler compares the return type of the selected declaration with the declared
+return type, and it is a compile-time error if they do not match.
 
 <a id="interop.blittable"></a>
 ## 21.3 Blittable types
