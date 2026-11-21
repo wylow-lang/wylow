@@ -55,8 +55,11 @@ void main() {
         std::print(n + setAndZero(&n, 7));      // output: 5
         std::print(n);                          // output: 7
 
-        uint* bits = (uint*) &n;
-        std::print(bits[0]);                    // output: 7
+        // Reading through a cast pointer is defined only while the storage holds the cast's type
+        // (spec unsafe.aliasing), so the pointer names the type `n` already has.
+        void* erased = &n;
+        int* back = (int*) erased;
+        std::print(back[0]);                    // output: 7
         Point* points = &point;
         std::print(points[0].x);                // output: 1
     }

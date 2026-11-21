@@ -138,7 +138,7 @@ public sealed partial class Interpreter
         // cell alone (which is the target) is not what the first projection indexes.
         if (place.IsDeref && place.Local.Deref == IrDeref.Pointee && place.Projections is [IrElement first, ..])
         {
-            cell = PointerTargetCell(Pointer(frame, place.Local), first, frame);
+            cell = PointerTargetCell(Pointer(frame, place.Local), PointerElement(frame, place.Local), first, frame);
             start = 1;
         }
         else
@@ -161,7 +161,7 @@ public sealed partial class Interpreter
             // The object itself is the value in the local; its fields are projections into the object.
             // A hold of a type parameter is the object it holds, or its own copy of a struct.
             IrDeref.Object or IrDeref.Generic => LocalCell(frame, local),
-            IrDeref.Pointee => PointerTargetCell(Pointer(frame, local), null, frame),
+            IrDeref.Pointee => PointerTargetCell(Pointer(frame, local), PointerElement(frame, local), null, frame),
             _ => throw new InterpreterException($"unexpected dereference of '{local.Name}'"),
         };
     }
@@ -180,11 +180,27 @@ public sealed partial class Interpreter
     /// The cell at a pointer's target, or the one <paramref name="element"/> indexes from it, which
     /// is uninitialized storage until a value is written there.
     /// </summary>
-    Cell PointerTargetCell(PointerValue pointer, IrElement? element, Frame frame) =>
-        ElementCell(pointer, element is null ? 0 : (int)(long)Integer(EvalOperand(element.Index, frame)));
+    Cell PointerTargetCell(PointerValue pointer, WylType elementType, IrElement? element, Frame frame) =>
+        ElementCell(pointer, elementType, element is null ? 0 : (int)(long)Integer(EvalOperand(element.Index, frame)));
 
-    static Cell ElementCell(PointerValue pointer, int index) =>
-        pointer.Buffer.Read(pointer.Index + index) ?? throw new UndefinedBehavior("read storage that was never initialized");
+    /// <summary>
+    /// The storage a pointer reaches at <paramref name="index"/>. Storage holds one type, so using
+    /// storage of another type through the pointer is undefined behavior (spec unsafe.aliasing).
+    /// </summary>
+    static Cell ElementCell(PointerValue pointer, WylType elementType, int index)
+    {
+        var cell = pointer.Buffer.Read(pointer.Index + index) ?? throw new UndefinedBehavior("read storage that was never initialized");
+        if (cell.Type != elementType)
+            throw new UndefinedBehavior($"a pointer to '{elementType}' reached storage of '{cell.Type}'");
+        return cell;
+    }
+
+    /// <summary>The type of the storage a pointer of the type points to.</summary>
+    static WylType PointerElement(WylType type) => type is PointerType pointer
+        ? pointer.Element
+        : throw new InterpreterException($"'{type}' is not a pointer type");
+
+    static WylType PointerElement(Frame frame, IrLocal local) => PointerElement(frame.Type(local.Type));
 
     Cell Project(Cell cell, IrProjection projection, Frame frame) => projection switch
     {
@@ -208,7 +224,7 @@ public sealed partial class Interpreter
         return cell.Value switch
         {
             ArrayValue array => array.Elements[index],
-            PointerValue pointer => ElementCell(pointer, index),
+            PointerValue pointer => ElementCell(pointer, PointerElement(cell.Type), index),
             _ => throw new InterpreterException($"an element of a {cell.Value.GetType().Name}"),
         };
     }

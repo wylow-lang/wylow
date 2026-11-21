@@ -1164,6 +1164,18 @@ static class InterpreterSelfTests
             }
             """, undefined: "dereferenced the null pointer 'nothing'");
 
+        Case(results, "pointer_storage_type", """
+            void main() {
+                mut int value = 7;
+                unsafe {
+                    int* p = &value;
+                    void* any = p;
+                    long* wide = (long*) any;
+                    print(wide[0]);
+                }
+            }
+            """, undefined: "a pointer to 'long' reached storage of 'int'");
+
         Case(results, "weak_reference", """
             class Target {
                 int id;
